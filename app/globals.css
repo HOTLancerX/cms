@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/* ─── Builder Animations ─── */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ─── Builder Preview Mode ─── */
+/* When panel is collapsed, show a clean landing page preview — no editor UI */
+.builder-preview-mode {
+  background: white !important;
+  padding: 0 !important;
+}
+
+/* Remove all borders from rows (override inline styles) */
+.builder-preview-mode [data-row-id] {
+  border: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* Remove all dashed/solid borders from columns */
+.builder-preview-mode [data-row-id]>div>div {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Hide all toolbar buttons and controls */
+.builder-preview-mode [title="Row settings"],
+.builder-preview-mode [title="Drag to reorder"],
+.builder-preview-mode [title="Delete row"],
+.builder-preview-mode [title="Column settings"],
+.builder-preview-mode [title="Edit"] {
+  display: none !important;
+}
+
+/* Hide empty column plus icons */
+.builder-preview-mode .min-h-\[50px\] {
+  display: none !important;
+}
+
+/* Hide element hover overlay and edit button */
+.builder-preview-mode .b-element>.absolute {
+  display: none !important;
+}
+
+/* Remove cursor/pointer effects */
+.builder-preview-mode .b-element {
+  cursor: default !important;
+}
+
+/* Disable all pointer events so nothing is clickable/hoverable in preview */
+.builder-preview-mode [data-row-id] {
+  pointer-events: none !important;
+}
+
+/* ─── Base ─── */
+body {
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+.nober::-webkit-scrollbar {
+  display: none;
+}
+
+::-webkit-scrollbar:horizontal {
+  height: 5px;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #124d9d;
+}
+
+@layer base {
+
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+}
