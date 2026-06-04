@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import { useActivePlugins } from "@/hook/useActivePlugins";
 import { getAllPostTypes, getAllCatTypes } from "@/hook";
 import type { PostTypeField, CatTypeField } from "@/hook";
+import { xFetch } from "@/lib/express";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,9 +50,8 @@ function PermalinkRowItem({
     const save = async (value: string) => {
         setStatus("saving");
         try {
-            const res = await fetch("/api/permalink", {
+            const res = await xFetch("/permalink", {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ contentType: row.contentType, prefix: value.trim() }),
             });
             if (!res.ok) throw new Error();
@@ -127,7 +127,7 @@ export default function PermalinkPage() {
 
     // Load DB values once
     useEffect(() => {
-        fetch("/api/permalink", { cache: "no-store" })
+        xFetch("/permalink", { cache: "no-store" })
             .then((r) => r.json())
             .then((data) => {
                 if (data && typeof data === "object" && !data.error) {

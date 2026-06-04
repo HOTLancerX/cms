@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { getHooks } from "@/hook";
 import { reregisterHooks } from "@/hook/PluginList";
+import { xFetch } from "@/lib/express";
 
 interface TemplateRecord {
     _id: string;
@@ -32,9 +33,9 @@ export default function TemplateManager() {
             setLoading(true);
 
             // 1. Get active plugin nx IDs from DB
-            const pluginRes = await fetch("/api/plugin", { cache: "no-store" });
-            const pluginData: { nx: string; status: string }[] = await pluginRes.json();
-            const activeNxIds = pluginData
+            const pluginRes = await xFetch("/plugin/installed", { cache: "no-store" });
+            const pluginData: { plugins: { nx: string; status: string }[] } = await pluginRes.json();
+            const activeNxIds = (pluginData.plugins ?? [])
                 .filter((p) => p.status === "active")
                 .map((p) => p.nx);
 
@@ -48,10 +49,8 @@ export default function TemplateManager() {
             //    Pass `active` so the API can use it as a first-boot default hint
             await Promise.all(
                 rootPages.map((p) =>
-                    fetch("/api/template", {
+                    xFetch("/template", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        cache: "no-store",
                         body: JSON.stringify({
                             type: p.type,
                             key: p.key,
@@ -65,7 +64,7 @@ export default function TemplateManager() {
             );
 
             // 5. Fetch the authoritative list from DB
-            const listRes = await fetch("/api/template", { cache: "no-store" });
+            const listRes = await xFetch("/template", { cache: "no-store" });
             const dbTemplates: TemplateRecord[] = await listRes.json();
 
             // 6. Sort and display only templates whose plugin is still active
@@ -89,9 +88,8 @@ export default function TemplateManager() {
     const handleSetDefault = async (tpl: TemplateRecord) => {
         setProcessing(tpl._id);
 
-        await fetch("/api/template", {
+        await xFetch("/template", {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: tpl._id, type: tpl.type }),
         });
 

@@ -1,12 +1,14 @@
 import connectDB from "@/lib/mongodb";
 import Post from "@/models/post";
 import Cat from "@/models/cat";
-import User from "@/models/Users";
-import Plugin from "@/models/plugin";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
+import LicenseBanner from "@/components/admin/LicenseBanner";
 
 export const dynamic = "force-dynamic";
+
+const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,30 +35,48 @@ const STATUS_COLOR: Record<string, string> = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function AdminDashboardPage() {
+    // Local DB queries (posts, cats haven't moved yet)
     await connectDB();
 
-    // Parallel queries
     const [
         totalPosts,
         publishedPosts,
         draftPosts,
         totalCats,
-        totalUsers,
-        activeUsers,
-        activePlugins,
         recentPosts,
-        recentUsers,
     ] = await Promise.all([
         Post.countDocuments(),
         Post.countDocuments({ status: "published" }),
         Post.countDocuments({ status: "draft" }),
         Cat.countDocuments(),
-        User.countDocuments(),
-        User.countDocuments({ status: "active" }),
-        Plugin.countDocuments({ status: "active" }),
         Post.find().sort({ createdAt: -1 }).limit(5).lean(),
-        User.find().select("-password").sort({ createdAt: -1 }).limit(5).lean(),
     ]);
+
+    // User + plugin data from Express (tenant-scoped)
+    const [userRes, pluginRes, domainRes] = await Promise.all([
+        fetch(`${EXPRESS_API}/user`, { headers: { "x-license-key": LICENSE_KEY }, cache: "no-store" }),
+        fetch(`${EXPRESS_API}/plugin/installed`, { headers: { "x-license-key": LICENSE_KEY }, cache: "no-store" }),
+        fetch(`${EXPRESS_API}/auth/domain`, { headers: { "x-license-key": LICENSE_KEY }, cache: "no-store" }),
+    ]);
+
+    const { users: allUsers = [] } = userRes.ok
+        ? (await userRes.json() as { users: any[] })
+        : { users: [] };
+
+    const { plugins: allPlugins = [] } = pluginRes.ok
+        ? (await pluginRes.json() as { plugins: any[] })
+        : { plugins: [] };
+
+    const domain = domainRes.ok
+        ? ((await domainRes.json() as { domain: any }).domain)
+        : null;
+
+    const totalUsers: number = allUsers.length;
+    const activeUsers: number = allUsers.filter((u: any) => u.status === "active").length;
+    const activePlugins: number = allPlugins.filter((p: any) => p.status === "active").length;
+    const recentUsers: any[] = [...allUsers]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5);
 
     // ── Stat cards ──────────────────────────────────────────────────────────────
     const stats = [
@@ -102,6 +122,14 @@ export default async function AdminDashboardPage() {
                 <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
                 <p className="text-sm text-gray-500 mt-0.5">Welcome back — here&apos;s what&apos;s happening.</p>
             </div>
+
+            {/* ── license ── */}
+            {domain && (
+                <LicenseBanner
+                    projectName={domain.projectName}
+                    endDate={domain.endDate}
+                />
+            )}
 
             {/* ── Stat cards ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -211,7 +239,7 @@ export default async function AdminDashboardPage() {
                     ) : (
                         <ul className="divide-y divide-gray-50">
                             {recentUsers.map((user: any) => (
-                                <li key={user._id.toString()} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition">
+                                <li key={user._id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition">
                                     {user.image ? (
                                         <img src={user.image} alt={user.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
                                     ) : (

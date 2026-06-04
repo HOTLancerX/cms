@@ -3,23 +3,24 @@
 /**
  * Provider.tsx
  *
- * Wraps the app with NextAuth's SessionProvider and exposes a thin
- * useUser() hook that returns the full DB user record.
+ * Manages auth state by polling Express /auth/me directly.
+ * The Express server sets an HttpOnly auth_token cookie on login;
+ * every request to /auth/me is validated against it.
  *
- * SessionProvider  → manages the NextAuth JWT session cookie
- * UserProvider     → fetches /api/user/me and caches the full DB record
- *
- * app/layout.tsx renders <Providers> which composes both.
+ * No NextAuth — session is owned entirely by Express.
  */
 
 import {
     createContext,
     useContext,
+    useCallback,
     useEffect,
     useState,
     type ReactNode,
 } from "react";
-import { SessionProvider, useSession } from "next-auth/react";
+
+const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
 
 // ─── Full DB user shape exposed to the app ────────────────────────────────────
 export interface SessionUser {
@@ -40,7 +41,7 @@ export interface SessionUser {
 interface UserContextValue {
     user: SessionUser | null;
     loading: boolean;
-    /** Re-fetch /api/user/me — call after profile updates */
+    /** Re-fetch user — call after login, logout, or profile updates */
     refresh: () => void;
 }
 
@@ -50,41 +51,32 @@ const UserContext = createContext<UserContextValue>({
     refresh: () => { },
 });
 
-// ─── Inner provider — must be inside SessionProvider ─────────────────────────
+// ─── Provider ─────────────────────────────────────────────────────────────────
 function UserProvider({ children }: { children: ReactNode }) {
-    const { data: session, status } = useSession();
     const [user, setUser] = useState<SessionUser | null>(null);
-    // Start true — stays true until the full session + /api/user/me cycle completes.
-    // This prevents the brief window where loading=false and user=null triggers a redirect.
-    const [userLoading, setUserLoading] = useState(true);
+    const [loading, setLoading] = useState(true);
     const [tick, setTick] = useState(0);
 
-    const sessionLoading = status === "loading";
+    const fetchUser = useCallback(() => {
+        setLoading(true);
+        fetch(`${EXPRESS_API}/auth/me`, {
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "x-license-key": LICENSE_KEY,
+            },
+        })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => setUser((data?.user as SessionUser) ?? null))
+            .catch(() => setUser(null))
+            .finally(() => setLoading(false));
+    }, []);
 
     useEffect(() => {
-        // Still waiting for NextAuth to resolve — do nothing yet
-        if (sessionLoading) return;
-
-        if (!session) {
-            // Confirmed unauthenticated
-            setUser(null);
-            setUserLoading(false);
-            return;
-        }
-
-        // Authenticated — fetch full DB record
-        setUserLoading(true);
-        fetch("/api/user/me", { cache: "no-store" })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => setUser(data?.user ?? null))
-            .catch(() => setUser(null))
-            .finally(() => setUserLoading(false));
-    }, [session, sessionLoading, tick]);
+        fetchUser();
+    }, [fetchUser, tick]);
 
     const refresh = () => setTick((t) => t + 1);
-
-    // loading stays true until BOTH the session AND the /api/user/me fetch are done
-    const loading = sessionLoading || userLoading;
 
     return (
         <UserContext.Provider value={{ user, loading, refresh }}>
@@ -93,13 +85,9 @@ function UserProvider({ children }: { children: ReactNode }) {
     );
 }
 
-// ─── Root provider — exported and used in app/layout.tsx ─────────────────────
+// ─── Root provider ─────────────────────────────────────────────────────────────
 export function Providers({ children }: { children: ReactNode }) {
-    return (
-        <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
-            <UserProvider>{children}</UserProvider>
-        </SessionProvider>
-    );
+    return <UserProvider>{children}</UserProvider>;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

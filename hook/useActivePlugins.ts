@@ -17,23 +17,22 @@
 
 import { useState, useEffect } from "react";
 import { reregisterHooks } from "@/hook/PluginList";
+import { xFetch } from "@/lib/express";
 
 export function useActivePlugins(): string[] | null {
     const [activePlugins, setActivePlugins] = useState<string[] | null>(null);
 
     useEffect(() => {
-        fetch("/api/plugin", { cache: "no-store" })
+        xFetch("/plugin/installed", { cache: "no-store" })
             .then((r) => r.json())
-            .then((data: { nx: string; status: string }[]) => {
-                const ids = data
+            .then((data: { plugins: { nx: string; status: string }[] }) => {
+                const ids = (data.plugins ?? [])
                     .filter((p) => p.status === "active")
                     .map((p) => p.nx);
-                // Always re-registers core hooks + active plugin hooks
                 reregisterHooks(ids);
                 setActivePlugins(ids);
             })
             .catch(() => {
-                // Fall back: no active plugins, but core hooks still run
                 reregisterHooks([]);
                 setActivePlugins([]);
             });

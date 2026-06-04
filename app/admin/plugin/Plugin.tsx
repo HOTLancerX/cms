@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
+import { xFetch } from "@/lib/express";
 
 type PluginStatus = "active" | "inactive" | "install" | "update" | "delete";
 
@@ -55,9 +56,8 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
         setPlugins((prev) => prev.map((p) => (p.nx === nx ? { ...p, ...patch } : p)));
 
     const apiPut = async (id: string, status: PluginStatus) => {
-        const res = await fetch("/api/plugin", {
+        const res = await xFetch("/plugin/installed", {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id, status }),
         });
         return res.ok;
@@ -75,7 +75,7 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
     const handleDelete = async (plugin: PluginRecord) => {
         if (!plugin._id) return;
         setProcessing(plugin.nx);
-        const res = await fetch(`/api/plugin?id=${plugin._id}`, { method: "DELETE" });
+        const res = await xFetch(`/plugin/installed?id=${plugin._id}`, { method: "DELETE" });
         if (res.ok) updateLocal(plugin.nx, { _id: null, status: "inactive" });
         setProcessing(null);
     };

@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
-import connectDB from "@/lib/mongodb";
-import Post from "@/models/post";
-import Permalink from "@/models/permalink";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { getPostTypes } from "@/hook/PostType";
 
 export const dynamic = "force-dynamic";
+
+const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+const xHeaders = { "x-license-key": LICENSE_KEY };
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
     published: { label: "Published", cls: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300" },
@@ -25,20 +26,18 @@ export default async function PostsListPage({ params }: PostsListPageProps) {
     const postType = postTypes.find((t) => t.key === type);
     if (!postType) notFound();
 
-    await connectDB();
-
-    const [posts, permalinkDoc] = await Promise.all([
-        Post.find({ type }).sort({ createdAt: -1 }).lean(),
-        Permalink.findOne({ contentType: type }).lean() as Promise<{ prefix?: string } | null>,
+    const [postsRes, permalinkRes] = await Promise.all([
+        fetch(`${EXPRESS_API}/post?type=${encodeURIComponent(type)}`, { headers: xHeaders, cache: "no-store" }),
+        fetch(`${EXPRESS_API}/permalink`, { headers: xHeaders, cache: "no-store" }),
     ]);
 
-    // Build the URL prefix: "" → "/", "blog" → "/blog/", "news/blog" → "/news/blog/"
-    const prefix = permalinkDoc?.prefix?.trim().replace(/^\/+|\/+$/g, "") ?? type;
+    const { posts = [] } = postsRes.ok ? await postsRes.json() : { posts: [] };
+    const permalinkMap: Record<string, string> = permalinkRes.ok ? await permalinkRes.json() : {};
+    const prefix = (permalinkMap[type] ?? type).trim().replace(/^\/+|\/+$/g, "");
     const viewBase = prefix ? `/${prefix}/` : "/";
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold">{postType.label}</h1>
@@ -53,7 +52,6 @@ export default async function PostsListPage({ params }: PostsListPageProps) {
                 </Link>
             </div>
 
-            {/* Table */}
             {posts.length === 0 ? (
                 <div className="text-center py-20 text-gray-400">
                     <Icon icon={postType.icon ?? "solar:document-bold"} width={48} className="mx-auto mb-3 opacity-40" />
@@ -81,15 +79,10 @@ export default async function PostsListPage({ params }: PostsListPageProps) {
                         <tbody className="divide-y divide-gray-100 bg-white">
                             {posts.map((post: any) => {
                                 const badge = STATUS_BADGE[post.status] ?? STATUS_BADGE.draft;
-                                const viewHref = `${viewBase}${post.slug}`;
                                 return (
-                                    <tr key={post._id.toString()} className="hover:bg-gray-50 transition">
-                                        <td className="px-5 py-3 font-medium text-gray-800">
-                                            {post.title}
-                                        </td>
-                                        <td className="px-5 py-3 text-gray-400 font-mono text-xs">
-                                            {post.slug}
-                                        </td>
+                                    <tr key={post._id} className="hover:bg-gray-50 transition">
+                                        <td className="px-5 py-3 font-medium text-gray-800">{post.title}</td>
+                                        <td className="px-5 py-3 text-gray-400 font-mono text-xs">{post.slug}</td>
                                         <td className="px-5 py-3">
                                             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${badge.cls}`}>
                                                 {badge.label}
@@ -100,26 +93,22 @@ export default async function PostsListPage({ params }: PostsListPageProps) {
                                         </td>
                                         <td className="px-5 py-3">
                                             <div className="flex items-center justify-end gap-2">
-                                                {/* View — only meaningful for published posts */}
                                                 <Link
-                                                    href={viewHref}
+                                                    href={`${viewBase}${post.slug}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    title={`View ${post.title}`}
                                                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${post.status === "published"
                                                             ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
                                                             : "bg-gray-50 text-gray-400 hover:bg-gray-100"
                                                         }`}
                                                 >
-                                                    <Icon icon="solar:eye-bold" width={13} />
-                                                    View
+                                                    <Icon icon="solar:eye-bold" width={13} /> View
                                                 </Link>
                                                 <Link
-                                                    href={`/admin/posts/${type}/${post._id.toString()}`}
+                                                    href={`/admin/posts/${type}/${post._id}`}
                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition"
                                                 >
-                                                    <Icon icon="solar:pen-bold" width={13} />
-                                                    Edit
+                                                    <Icon icon="solar:pen-bold" width={13} /> Edit
                                                 </Link>
                                             </div>
                                         </td>

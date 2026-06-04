@@ -1,28 +1,26 @@
-import { AVAILABLE_PLUGINS } from "@/data/plugin";
-import connectDB from "@/lib/mongodb";
-import Plugin from "@/models/plugin";
 import PluginStoreList from "./List";
 
 export const dynamic = "force-dynamic";
 
+const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+const headers = { "x-license-key": LICENSE_KEY };
+
 /**
  * Admin › Plugin Store
  *
- * Shows ALL plugins from data/plugin.ts (the "store catalog").
- * Cross-references with the DB by `nx` (the canonical unique identifier)
- * to determine per-plugin state:
- *
- *   • Not in DB at all          → "Install"
- *   • In DB, store version >    → "Update"  (store has newer version)
- *   • In DB, versions match     → Activate / Deactivate toggle
+ * Catalog (available plugins) comes from the root DB via Express.
+ * Installed state (per-domain) also comes from Express.
+ * Cross-references by `nx` to show Install / Update / Activate states.
  */
 export default async function PluginListPage() {
-    await connectDB();
+    const [availableRes, installedRes] = await Promise.all([
+        fetch(`${EXPRESS_API}/plugin/available`, { headers, cache: "no-store" }),
+        fetch(`${EXPRESS_API}/plugin/installed`, { headers, cache: "no-store" }),
+    ]);
 
-    // Match by nx — the true unique key, immune to name casing/spacing drift
-    const catalogNxIds = AVAILABLE_PLUGINS.map((p) => p.nx);
-    const dbDocs = await Plugin.find({ nx: { $in: catalogNxIds } }).lean();
-    const installed = JSON.parse(JSON.stringify(dbDocs));
+    const { plugins: available = [] } = availableRes.ok ? await availableRes.json() : { plugins: [] };
+    const { plugins: installed = [] } = installedRes.ok ? await installedRes.json() : { plugins: [] };
 
-    return <PluginStoreList available={AVAILABLE_PLUGINS} installed={installed} />;
+    return <PluginStoreList available={available} installed={installed} />;
 }

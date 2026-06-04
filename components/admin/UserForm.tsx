@@ -104,16 +104,25 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
         try {
             let res: Response;
 
+            const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+            const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+            const headers = {
+                "Content-Type": "application/json",
+                "x-license-key": LICENSE_KEY,
+            };
+
             if (mode === "add") {
-                res = await fetch("/api/user", {
+                res = await fetch(`${EXPRESS_API}/user`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers,
+                    credentials: "include",
                     body: JSON.stringify(payload),
                 });
             } else {
-                res = await fetch("/api/user", {
+                res = await fetch(`${EXPRESS_API}/user`, {
                     method: "PUT",
-                    headers: { "Content-Type": "application/json" },
+                    headers,
+                    credentials: "include",
                     body: JSON.stringify({ id: initialData!._id, ...payload }),
                 });
             }

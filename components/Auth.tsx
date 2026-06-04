@@ -6,14 +6,22 @@
  * LOGIN  → single smart field (email / phone / slug auto-detected)
  * SIGNUP → tab switcher: Email tab or Phone tab
  *
- * Google OAuth available on both.
+ * All requests go directly to Express. No NextAuth.
  */
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
+import { useUser } from "@/context/Provider";
+
+const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+
+const authHeaders = {
+    "Content-Type": "application/json",
+    "x-license-key": LICENSE_KEY,
+};
 
 // ─── Detect what the user typed ───────────────────────────────────────────────
 type LoginType = "email" | "phone" | "slug";
@@ -33,6 +41,7 @@ interface AuthFormProps {
 
 export default function AuthForm({ mode }: AuthFormProps) {
     const router = useRouter();
+    const { refresh } = useUser();
     const isLogin = mode === "login";
 
     // ── Shared state ──────────────────────────────────────────────────────────
@@ -54,11 +63,31 @@ export default function AuthForm({ mode }: AuthFormProps) {
     const inputCls =
         "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10";
 
-    // ── Google ────────────────────────────────────────────────────────────────
+    // ── Google OAuth ──────────────────────────────────────────────────────────
     const handleGoogle = async () => {
         setGoogleLoading(true);
         setError("");
-        await signIn("google", { callbackUrl: "/" });
+        // Redirect to Express Google OAuth endpoint
+        window.location.href = `${EXPRESS_API}/auth/google`;
+    };
+
+    // ── Login ─────────────────────────────────────────────────────────────────
+    const handleLogin = async (loginVal: string, pass: string): Promise<boolean> => {
+        const res = await fetch(`${EXPRESS_API}/auth/login`, {
+            method: "POST",
+            credentials: "include",
+            headers: authHeaders,
+            body: JSON.stringify({ login: loginVal.trim(), password: pass }),
+        });
+
+        const data = await res.json() as { error?: string; message?: string };
+
+        if (!res.ok) {
+            setError(data.message ?? data.error ?? "No account found or password incorrect.");
+            return false;
+        }
+
+        return true;
     };
 
     // ── Submit ────────────────────────────────────────────────────────────────
@@ -69,24 +98,17 @@ export default function AuthForm({ mode }: AuthFormProps) {
 
         try {
             if (isLogin) {
-                // Single provider handles email / phone / slug
-                const result = await signIn("email-password", {
-                    redirect: false,
-                    login: loginValue.trim(),
-                    password,
-                });
-
-                if (result?.error) {
-                    setError("No account found or password incorrect.");
-                } else {
+                const ok = await handleLogin(loginValue, password);
+                if (ok) {
+                    refresh();
                     router.replace("/");
-                    router.refresh();
                 }
             } else {
-                // ── Sign up ──
-                const res = await fetch("/api/auth/signup", {
+                // ── Sign up ───────────────────────────────────────────────────
+                const res = await fetch(`${EXPRESS_API}/auth/signup`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    headers: authHeaders,
                     body: JSON.stringify({
                         name,
                         email: signupTab === "email" ? email : undefined,
@@ -94,25 +116,20 @@ export default function AuthForm({ mode }: AuthFormProps) {
                         password,
                     }),
                 });
-                const data = await res.json();
+
+                const data = await res.json() as { error?: string; message?: string };
+
                 if (!res.ok) {
-                    setError(data.error ?? "Signup failed");
+                    setError(data.error ?? data.message ?? "Signup failed.");
                     return;
                 }
 
                 // Auto sign-in after signup
                 const loginField = signupTab === "email" ? email : phone;
-                const result = await signIn("email-password", {
-                    redirect: false,
-                    login: loginField.trim(),
-                    password,
-                });
-
-                if (result?.error) {
-                    setError("Account created — please sign in.");
-                } else {
+                const ok = await handleLogin(loginField, password);
+                if (ok) {
+                    refresh();
                     router.replace("/");
-                    router.refresh();
                 }
             }
         } catch {
@@ -123,9 +140,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
     };
 
     // ── Detected type hint for login field ────────────────────────────────────
-    const loginHint = loginValue.trim()
-        ? detectLoginType(loginValue)
-        : null;
+    const loginHint = loginValue.trim() ? detectLoginType(loginValue) : null;
 
     const hintIcon: Record<LoginType, string> = {
         email: "solar:letter-bold",

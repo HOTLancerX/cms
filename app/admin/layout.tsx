@@ -100,11 +100,21 @@ export default function AdminLayout({
 
   const handleLogOut = async () => {
     try {
-      const { signOut } = await import("next-auth/react");
-      await signOut({ callbackUrl: "/" });
+      await fetch(
+        `${process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000"}/auth/logout`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "x-license-key": process.env.NEXT_PUBLIC_LICENSE_KEY ?? "",
+          },
+        }
+      );
     } catch {
-      router.push("/");
+      // ignore network errors — still redirect
     }
+    router.replace("/");
   };
 
   // ── Loading state ───────────────────────────────────────────────────────────

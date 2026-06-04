@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { xFetch } from "@/lib/express";
 
 export default function BuilderAddPage() {
     const [title, setTitle] = useState("");
@@ -14,9 +15,8 @@ export default function BuilderAddPage() {
 
         setLoading(true);
         try {
-            const res = await fetch("/api/builder", {
+            const res = await xFetch("/builder", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ title: title.trim() }),
             });
             const doc = await res.json();
@@ -47,8 +47,8 @@ export default function BuilderAddPage() {
                     type="submit"
                     disabled={loading || !title.trim()}
                     className={`px-6 py-2.5 text-sm font-medium text-white rounded-lg border-none cursor-pointer ${loading || !title.trim()
-                            ? "bg-neutral-400 cursor-not-allowed"
-                            : "bg-blue-500 hover:bg-blue-600"
+                        ? "bg-neutral-400 cursor-not-allowed"
+                        : "bg-blue-500 hover:bg-blue-600"
                         }`}
                 >
                     {loading ? "Creating..." : "Create & Edit"}

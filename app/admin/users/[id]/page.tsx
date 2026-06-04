@@ -34,8 +34,18 @@ export default function EditUserPage() {
 
     const activePlugins = useActivePlugins();
 
+    const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+    const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+    const expressHeaders = {
+        "x-license-key": LICENSE_KEY,
+    };
+
     useEffect(() => {
-        fetch(`/api/user?id=${id}`, { cache: "no-store" })
+        fetch(`${EXPRESS_API}/user?id=${id}`, {
+            cache: "no-store",
+            credentials: "include",
+            headers: expressHeaders,
+        })
             .then((r) => r.json())
             .then((userData) => {
                 if (!userData.user) {
@@ -56,7 +66,11 @@ export default function EditUserPage() {
     const handleDelete = async () => {
         if (!confirm("Delete this user? This cannot be undone.")) return;
         setDeleting(true);
-        await fetch(`/api/user?id=${id}`, { method: "DELETE" });
+        await fetch(`${EXPRESS_API}/user?id=${id}`, {
+            method: "DELETE",
+            credentials: "include",
+            headers: expressHeaders,
+        });
         router.push("/admin/users");
     };
 

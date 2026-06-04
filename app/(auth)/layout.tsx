@@ -5,7 +5,7 @@
  * Redirects already-authenticated users to the home page.
  */
 
-import { useSession } from "next-auth/react";
+import { useUser } from "@/context/Provider";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Icon } from "@iconify/react";
@@ -15,16 +15,16 @@ export default function AuthLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { status } = useSession();
+    const { user, loading } = useUser();
     const router = useRouter();
 
     useEffect(() => {
-        if (status === "authenticated") {
+        if (!loading && user) {
             router.replace("/");
         }
-    }, [status, router]);
+    }, [loading, user, router]);
 
-    if (status === "loading" || status === "authenticated") {
+    if (loading || user) {
         return (
             <div className="flex items-center justify-center min-h-screen text-gray-400">
                 <Icon icon="svg-spinners:ring-resize" width={32} />

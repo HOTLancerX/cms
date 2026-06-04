@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
+import { xFetch } from "@/lib/express";
 
 const SECTION_TYPES = [
     { key: "all", label: "All" },
@@ -33,7 +34,7 @@ export default function BuilderSectionPage() {
     const [activeTab, setActiveTab] = useState("all");
 
     useEffect(() => {
-        fetch("/api/buildersection")
+        xFetch("/buildersection")
             .then((r) => r.json())
             .then((data) => {
                 setSections(Array.isArray(data) ? data : []);
@@ -44,7 +45,7 @@ export default function BuilderSectionPage() {
 
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this section?")) return;
-        await fetch(`/api/buildersection?id=${id}`, { method: "DELETE" });
+        await xFetch(`/buildersection?id=${id}`, { method: "DELETE" });
         setSections((prev) => prev.filter((s) => s._id !== id));
     };
 

@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
-import connectDB from "@/lib/mongodb";
-import Cat from "@/models/cat";
-import Permalink from "@/models/permalink";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { getCatTypes } from "@/hook/CategoryType";
 
 export const dynamic = "force-dynamic";
+
+const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+const xHeaders = { "x-license-key": LICENSE_KEY };
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
     published: { label: "Published", cls: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300" },
@@ -25,20 +26,18 @@ export default async function CategoryListPage({ params }: CategoryListPageProps
     const catType = catTypes.find((t) => t.key === type);
     if (!catType) notFound();
 
-    await connectDB();
-
-    const [cats, permalinkDoc] = await Promise.all([
-        Cat.find({ type }).sort({ createdAt: -1 }).lean(),
-        Permalink.findOne({ contentType: type }).lean() as Promise<{ prefix?: string } | null>,
+    const [catsRes, permalinkRes] = await Promise.all([
+        fetch(`${EXPRESS_API}/cat?type=${encodeURIComponent(type)}`, { headers: xHeaders, cache: "no-store" }),
+        fetch(`${EXPRESS_API}/permalink`, { headers: xHeaders, cache: "no-store" }),
     ]);
 
-    // Build the URL prefix from the stored permalink config
-    const prefix = permalinkDoc?.prefix?.trim().replace(/^\/+|\/+$/g, "") ?? `${catType.postType}/category`;
+    const { cats = [] } = catsRes.ok ? await catsRes.json() : { cats: [] };
+    const permalinkMap: Record<string, string> = permalinkRes.ok ? await permalinkRes.json() : {};
+    const prefix = (permalinkMap[type] ?? `${catType.postType}/category`).trim().replace(/^\/+|\/+$/g, "");
     const viewBase = prefix ? `/${prefix}/` : "/";
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold">{catType.label}</h1>
@@ -53,7 +52,6 @@ export default async function CategoryListPage({ params }: CategoryListPageProps
                 </Link>
             </div>
 
-            {/* Table */}
             {cats.length === 0 ? (
                 <div className="text-center py-20 text-gray-400">
                     <Icon icon={catType.icon ?? "solar:folder-bold"} width={48} className="mx-auto mb-3 opacity-40" />
@@ -81,15 +79,10 @@ export default async function CategoryListPage({ params }: CategoryListPageProps
                         <tbody className="divide-y divide-gray-100 bg-white">
                             {cats.map((cat: any) => {
                                 const badge = STATUS_BADGE[cat.status] ?? STATUS_BADGE.draft;
-                                const viewHref = `${viewBase}${cat.slug}`;
                                 return (
-                                    <tr key={cat._id.toString()} className="hover:bg-gray-50 transition">
-                                        <td className="px-5 py-3 font-medium text-gray-800">
-                                            {cat.title}
-                                        </td>
-                                        <td className="px-5 py-3 text-gray-400 font-mono text-xs">
-                                            {cat.slug}
-                                        </td>
+                                    <tr key={cat._id} className="hover:bg-gray-50 transition">
+                                        <td className="px-5 py-3 font-medium text-gray-800">{cat.title}</td>
+                                        <td className="px-5 py-3 text-gray-400 font-mono text-xs">{cat.slug}</td>
                                         <td className="px-5 py-3">
                                             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${badge.cls}`}>
                                                 {badge.label}
@@ -100,26 +93,22 @@ export default async function CategoryListPage({ params }: CategoryListPageProps
                                         </td>
                                         <td className="px-5 py-3">
                                             <div className="flex items-center justify-end gap-2">
-                                                {/* View — opens the frontend URL in a new tab */}
                                                 <Link
-                                                    href={viewHref}
+                                                    href={`${viewBase}${cat.slug}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    title={`View ${cat.title}`}
                                                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${cat.status === "published"
                                                             ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
                                                             : "bg-gray-50 text-gray-400 hover:bg-gray-100"
                                                         }`}
                                                 >
-                                                    <Icon icon="solar:eye-bold" width={13} />
-                                                    View
+                                                    <Icon icon="solar:eye-bold" width={13} /> View
                                                 </Link>
                                                 <Link
-                                                    href={`/admin/category/${type}/${cat._id.toString()}`}
+                                                    href={`/admin/category/${type}/${cat._id}`}
                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition"
                                                 >
-                                                    <Icon icon="solar:pen-bold" width={13} />
-                                                    Edit
+                                                    <Icon icon="solar:pen-bold" width={13} /> Edit
                                                 </Link>
                                             </div>
                                         </td>

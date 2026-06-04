@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
+import { xFetch } from "@/lib/express";
 
 interface BuilderDoc {
     _id: string;
@@ -16,7 +17,7 @@ export default function BuilderListPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch("/api/builder")
+        xFetch("/builder")
             .then((r) => r.json())
             .then((data) => {
                 setDocs(data);
@@ -27,7 +28,7 @@ export default function BuilderListPage() {
 
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this builder page?")) return;
-        await fetch(`/api/builder?id=${id}`, { method: "DELETE" });
+        await xFetch(`/builder?id=${id}`, { method: "DELETE" });
         setDocs((prev) => prev.filter((d) => d._id !== id));
     };
 
@@ -65,8 +66,8 @@ export default function BuilderListPage() {
                             <td className="px-3 py-2.5">
                                 <span
                                     className={`px-2 py-0.5 rounded-full text-[11px] ${doc.status === "active"
-                                            ? "bg-green-100 text-green-800"
-                                            : "bg-neutral-100 text-neutral-500"
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-neutral-100 text-neutral-500"
                                         }`}
                                 >
                                     {doc.status}

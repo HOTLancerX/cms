@@ -6,6 +6,7 @@ import { Icon } from "@iconify/react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { Row, Column, Selection, LeftPanelMode, Device } from "./types";
 import { getColumnByPath, uid } from "./helpers";
+import { xFetch } from "@/lib/express";
 
 // Canvas
 import CanvasRow from "./canvas/CanvasRow";
@@ -91,7 +92,7 @@ export default function Builder() {
     // Load content from API
     useEffect(() => {
         if (!builderId) return;
-        fetch(`/api/builder?id=${builderId}`)
+        xFetch(`/builder?id=${builderId}`)
             .then((r) => r.json())
             .then((doc) => {
                 if (doc.content && Array.isArray(doc.content)) setRows(doc.content);
@@ -120,14 +121,12 @@ export default function Builder() {
         document.addEventListener("mouseup", onMouseUp);
     }, [panelWidth]);
 
-    // Save content
     const saveContent = useCallback(async () => {
         if (!builderId) return;
         setSaving(true);
         try {
-            await fetch("/api/builder", {
+            await xFetch("/builder", {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id: builderId, content: rows }),
             });
         } catch { }
@@ -551,9 +550,8 @@ export default function Builder() {
                             const content = saveSectionRow
                                 ? [rows.find((r) => r.id === saveSectionRow)].filter(Boolean)
                                 : rows;
-                            await fetch("/api/buildersection", {
+                            await xFetch("/buildersection", {
                                 method: "POST",
-                                headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
                                     title: data.title || title || "Untitled Section",
                                     type: data.type,

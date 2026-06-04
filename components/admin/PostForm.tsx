@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { FormHooks } from "@/hook";
 import { getHooks, getPostType } from "@/hook";
+import { xFetch } from "@/lib/express";
 
 export interface PostFormProps {
     /** Post type key, e.g. "blog", "page", "product" */
@@ -53,7 +54,7 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
             setCategories([]);
             return;
         }
-        fetch(`/api/cat?type=${encodeURIComponent(catType)}`, { cache: "no-store" })
+        xFetch(`/cat?type=${encodeURIComponent(catType)}`, { cache: "no-store" })
             .then((r) => r.json())
             .then((data) => setCategories(data.cats ?? []))
             .catch(() => setCategories([]));
@@ -62,7 +63,7 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
     // ── Core form state ─────────────────────────────────────────────────────
     const [title, setTitle] = useState("");
     const [slug, setSlug] = useState("");
-    const [status, setStatus] = useState("draft");
+    const [status, setStatus] = useState("published");
     const [category, setCategory] = useState("");
     const [info, setInfo] = useState<Record<string, string>>({});
 
@@ -89,7 +90,7 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
             try {
                 const params = new URLSearchParams({ slug: value });
                 if (isEdit && postId) params.set("excludeId", postId);
-                const res = await fetch(`/api/post?${params}`, { cache: "no-store" });
+                const res = await xFetch(`/post?${params}`, { cache: "no-store" });
                 const data = await res.json();
                 setSlugStatus(data.available ? "available" : "taken");
             } catch {
@@ -103,7 +104,7 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
         if (!postId) return;
 
         setLoading(true);
-        fetch(`/api/post?id=${postId}`, { cache: "no-store" })
+        xFetch(`/post?id=${postId}`, { cache: "no-store" })
             .then((r) => r.json())
             .then((data) => {
                 if (!data.post) {
@@ -113,7 +114,7 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
                 const p = data.post;
                 setTitle(p.title ?? "");
                 setSlug(p.slug ?? "");
-                setStatus(p.status ?? "draft");
+                setStatus(p.status ?? "published");
                 setCategory(p.category ?? "");
                 originalSlug.current = p.slug ?? "";
 
@@ -161,9 +162,8 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
                 ...(isEdit ? { _id: postId } : {}),
             };
 
-            const res = await fetch("/api/post", {
+            const res = await xFetch("/post", {
                 method: isEdit ? "PUT" : "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
             const data = await res.json();
@@ -175,7 +175,7 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
                 if (!isEdit) {
                     setTitle("");
                     setSlug("");
-                    setStatus("draft");
+                    setStatus("published");
                     setCategory("");
                     setInfo({});
                 }
@@ -193,7 +193,7 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
         if (!confirm("Delete this post? This cannot be undone.")) return;
         setDeleting(true);
         try {
-            await fetch(`/api/post?id=${postId}`, { method: "DELETE" });
+            await xFetch(`/post?id=${postId}`, { method: "DELETE" });
             router.push(`/admin/posts/${type}`);
         } catch {
             setMessage("Delete failed");

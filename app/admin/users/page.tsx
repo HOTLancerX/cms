@@ -1,9 +1,10 @@
-import connectDB from "@/lib/mongodb";
-import User from "@/models/Users";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 
 export const dynamic = "force-dynamic";
+
+const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
     active: { label: "Active", cls: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300" },
@@ -20,12 +21,12 @@ const TYPE_BADGE: Record<string, string> = {
 };
 
 export default async function UsersListPage() {
-    await connectDB();
+    const res = await fetch(`${EXPRESS_API}/user`, {
+        headers: { "x-license-key": LICENSE_KEY },
+        cache: "no-store",
+    });
 
-    const users = await User.find()
-        .select("-password")
-        .sort({ createdAt: -1 })
-        .lean();
+    const { users = [] } = res.ok ? await res.json() : { users: [] };
 
     return (
         <div className="space-y-6">
@@ -68,7 +69,7 @@ export default async function UsersListPage() {
                                 const badge = STATUS_BADGE[user.status] ?? STATUS_BADGE.inactive;
                                 const typeCls = TYPE_BADGE[user.type] ?? TYPE_BADGE.user;
                                 return (
-                                    <tr key={user._id.toString()} className="hover:bg-gray-50 transition">
+                                    <tr key={user._id} className="hover:bg-gray-50 transition">
                                         <td className="px-5 py-3">
                                             <div className="flex items-center gap-3">
                                                 {user.image ? (
@@ -101,7 +102,7 @@ export default async function UsersListPage() {
                                         </td>
                                         <td className="px-5 py-3 text-right">
                                             <Link
-                                                href={`/admin/users/${user._id.toString()}`}
+                                                href={`/admin/users/${user._id}`}
                                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition"
                                             >
                                                 <Icon icon="solar:pen-bold" width={13} />

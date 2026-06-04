@@ -4,8 +4,8 @@ import PostInfo from "@/models/post_info";
 import Cat from "@/models/cat";
 import CatInfo from "@/models/cat_info";
 import Template from "@/models/template";
-import Plugin from "@/models/plugin";
 import Permalink from "@/models/permalink";
+import { getActivePluginNames } from "@/hook/PluginListServer";
 import { getRootPages } from "@/hook/rootPages";
 import { getPostTypes } from "@/hook/PostType";
 import { getCatTypes } from "@/hook/CategoryType";
@@ -113,12 +113,12 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
     const catTypes = getCatTypes();
 
     // Load active plugins, permalink config, and registered types in parallel
-    const [activeDocs, permalinkMap] = await Promise.all([
-        Plugin.find({ status: "active" }, { nx: 1, _id: 0 }).lean(),
+    const [activeNxList, permalinkMap] = await Promise.all([
+        getActivePluginNames(),
         loadPermalinkMap(postTypes, catTypes),
     ]);
 
-    const activeNxSet = new Set((activeDocs as any[]).map((d) => d.nx));
+    const activeNxSet = new Set(activeNxList);
     const rootPages = getRootPages();
 
     // ─── Static single pages (e.g. /hello registered via root.pages) ─────────

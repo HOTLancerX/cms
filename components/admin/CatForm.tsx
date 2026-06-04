@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
+import { xFetch } from "@/lib/express";
 
 export interface CatFormProps {
     /** Category type key, e.g. "blog-category", "product-category" */
@@ -33,7 +34,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
     // ── Core form state ─────────────────────────────────────────────────────
     const [title, setTitle] = useState("");
     const [slug, setSlug] = useState("");
-    const [status, setStatus] = useState("draft");
+    const [status, setStatus] = useState("published");
     const [info, setInfo] = useState<Record<string, string>>({});
 
     const [loading, setLoading] = useState(isEdit);
@@ -56,7 +57,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
             try {
                 const params = new URLSearchParams({ slug: value });
                 if (isEdit && catId) params.set("excludeId", catId);
-                const res = await fetch(`/api/cat?${params}`, { cache: "no-store" });
+                const res = await xFetch(`/cat?${params}`, { cache: "no-store" });
                 const data = await res.json();
                 setSlugStatus(data.available ? "available" : "taken");
             } catch {
@@ -70,7 +71,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
         if (!catId) return;
 
         setLoading(true);
-        fetch(`/api/cat?id=${catId}`, { cache: "no-store" })
+        xFetch(`/cat?id=${catId}`, { cache: "no-store" })
             .then((r) => r.json())
             .then((data) => {
                 if (!data.cat) {
@@ -80,7 +81,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
                 const c = data.cat;
                 setTitle(c.title ?? "");
                 setSlug(c.slug ?? "");
-                setStatus(c.status ?? "draft");
+                setStatus(c.status ?? "published");
                 originalSlug.current = c.slug ?? "";
 
                 const infoMap: Record<string, string> = {};
@@ -123,9 +124,8 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
         try {
             const payload = { title, slug, status, type, info, ...(isEdit ? { _id: catId } : {}) };
 
-            const res = await fetch("/api/cat", {
+            const res = await xFetch("/cat", {
                 method: isEdit ? "PUT" : "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
             const data = await res.json();
@@ -137,7 +137,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
                 if (!isEdit) {
                     setTitle("");
                     setSlug("");
-                    setStatus("draft");
+                    setStatus("published");
                     setInfo({});
                 }
                 onSuccess?.(data.cat?._id ?? catId ?? "");
@@ -154,7 +154,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
         if (!confirm("Delete this category? This cannot be undone.")) return;
         setDeleting(true);
         try {
-            await fetch(`/api/cat?id=${catId}`, { method: "DELETE" });
+            await xFetch(`/cat?id=${catId}`, { method: "DELETE" });
             router.push(`/admin/category/${type}`);
         } catch {
             setMessage("Delete failed");

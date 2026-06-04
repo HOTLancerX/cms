@@ -1,41 +1,58 @@
 /**
  * Server-only plugin helpers.
  *
- * All lookups use `nx` as the canonical unique identifier.
- * Does NOT import PluginList.ts — that file uses require.context which
- * pulls in plugin modules with JSX/components, causing server bundle errors.
- *
+ * All plugin state is now stored in Express (tenant-scoped).
  * Only import from Server Components or API routes.
  */
 
-import connectDB from "@/lib/mongodb";
-import Plugin from "@/models/plugin";
 import type { PluginMeta } from "@/hook";
 
+const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+const headers = { "x-license-key": LICENSE_KEY };
+
 /**
- * Query the DB and return the `nx` identifiers of every active plugin.
+ * Returns the nx identifiers of every active plugin for this tenant.
  */
 export async function getActivePluginNames(): Promise<string[]> {
-    await connectDB();
-    const docs = await Plugin.find({ status: "active" }, { nx: 1, _id: 0 }).lean();
-    return docs.map((d: any) => d.nx);
+    try {
+        const res = await fetch(`${EXPRESS_API}/plugin/installed`, {
+            headers,
+            cache: "no-store",
+        });
+        if (!res.ok) return [];
+        const { plugins = [] } = await res.json() as { plugins: any[] };
+        return plugins
+            .filter((p: any) => p.status === "active")
+            .map((p: any) => p.nx as string);
+    } catch {
+        return [];
+    }
 }
 
 /**
- * Returns metadata for every plugin discovered — reads from DB.
- * The DB is populated automatically by the admin plugin page on first load.
+ * Returns metadata for every installed plugin for this tenant.
+ * Used by the admin plugin page to merge with filesystem metas.
  */
 export async function getInstalledPluginMetas(): Promise<PluginMeta[]> {
-    await connectDB();
-    const docs = await Plugin.find({}).lean();
-    return docs.map((d: any) => ({
-        nx: d.nx,
-        name: d.name,
-        version: d.version,
-        description: d.description ?? "",
-        author: d.author ?? "",
-        path: "",
-        icon: d.icon ?? "solar:plugin-bold",
-        color: d.color ?? "from-violet-500 to-purple-600",
-    }));
+    try {
+        const res = await fetch(`${EXPRESS_API}/plugin/installed`, {
+            headers,
+            cache: "no-store",
+        });
+        if (!res.ok) return [];
+        const { plugins = [] } = await res.json() as { plugins: any[] };
+        return plugins.map((d: any) => ({
+            nx: d.nx,
+            name: d.name,
+            version: d.version,
+            description: d.description ?? "",
+            author: d.author ?? "",
+            path: d.path ?? "",
+            icon: d.icon ?? "solar:plugin-bold",
+            color: d.color ?? "from-violet-500 to-purple-600",
+        }));
+    } catch {
+        return [];
+    }
 }

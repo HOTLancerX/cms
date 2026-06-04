@@ -13,10 +13,13 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { useUser } from "@/context/Provider";
+import { useRouter } from "next/navigation";
+
+const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
 import AuthForm from "@/components/Auth";
 
 type ModalMode = "login" | "signup" | null;
@@ -30,7 +33,8 @@ const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 export default function AuthAc() {
-    const { user, loading } = useUser();
+    const { user, loading, refresh } = useUser();
+    const router = useRouter();
     const [modal, setModal] = useState<ModalMode>(null);
     const [popupOpen, setPopupOpen] = useState(false);
     const popupRef = useRef<HTMLDivElement>(null);
@@ -220,9 +224,18 @@ export default function AuthAc() {
                     {/* Sign out */}
                     <div className="border-t border-gray-100 py-1">
                         <button
-                            onClick={() => {
+                            onClick={async () => {
                                 setPopupOpen(false);
-                                signOut({ callbackUrl: "/" });
+                                await fetch(`${EXPRESS_API}/auth/logout`, {
+                                    method: "POST",
+                                    credentials: "include",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                        "x-license-key": LICENSE_KEY,
+                                    },
+                                }).catch(() => { });
+                                refresh();
+                                router.replace("/");
                             }}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition"
                         >

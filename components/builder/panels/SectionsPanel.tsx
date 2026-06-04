@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useDraggable } from "@dnd-kit/react";
+import { xFetch } from "@/lib/express";
 
 const SECTION_TYPES = [
     { key: "all", label: "All" },
@@ -38,7 +39,7 @@ export default function SectionsPanel({ onInsert }: Props) {
     const [search, setSearch] = useState("");
 
     useEffect(() => {
-        fetch("/api/buildersection")
+        xFetch("/buildersection", { cache: "no-store" })
             .then((r) => r.json())
             .then((data) => {
                 setSections(Array.isArray(data) ? data : []);

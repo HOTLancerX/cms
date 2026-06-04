@@ -4,7 +4,20 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
-import type { AvailablePlugin } from "@/data/plugin";
+import { xFetch } from "@/lib/express";
+
+// ── Types (previously from data/plugin.ts — now sourced from Express) ─────────
+export interface AvailablePlugin {
+    _id: string;
+    nx: string;
+    name: string;
+    version: string;
+    description: string;
+    author: string;
+    path: string;
+    icon: string;
+    color: string;
+}
 
 // Maps Tailwind gradient class pairs → actual CSS gradient.
 // Dynamic Tailwind classes are purged at build time, so we resolve them here.
@@ -77,12 +90,10 @@ export default function PluginStoreList({ available, installed }: Props) {
             return next;
         });
 
-    // ── Install: save to DB with status "install" ─────────────────────────
     const handleInstall = async (plugin: AvailablePlugin) => {
         setProcessing(plugin.nx);
-        const res = await fetch("/api/plugin", {
+        const res = await xFetch("/plugin/installed", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 nx: plugin.nx,
                 name: plugin.name,
@@ -94,19 +105,16 @@ export default function PluginStoreList({ available, installed }: Props) {
         });
         setProcessing(null);
         if (res.ok) {
-            // Refresh to get the new _id from the server
             router.refresh();
         }
     };
 
-    // ── Update: set status "update" on the existing DB record ────────────
     const handleUpdate = async (nx: string) => {
         const record = installedMap.get(nx);
         if (!record) return;
         setProcessing(nx);
-        await fetch("/api/plugin", {
+        await xFetch("/plugin/installed", {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: record._id, status: "update" }),
         });
         updateLocal(nx, { status: "update" });
@@ -118,9 +126,8 @@ export default function PluginStoreList({ available, installed }: Props) {
         if (!record) return;
         const next = record.status === "active" ? "inactive" : "active";
         setProcessing(nx);
-        await fetch("/api/plugin", {
+        await xFetch("/plugin/installed", {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: record._id, status: next }),
         });
         updateLocal(nx, { status: next });
