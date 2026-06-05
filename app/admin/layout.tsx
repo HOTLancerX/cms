@@ -150,7 +150,7 @@ export default function AdminLayout({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col md:ml-64">
+      <div className="flex-1 flex flex-col md:ml-64 min-h-screen">
         {/* Top Navigation Bar */}
         <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm mb-6">
           <div className="container px-2 md:px-6">
@@ -221,7 +221,7 @@ export default function AdminLayout({
         </header>
 
         {/* Main Content */}
-        <main className="container px-2 md:px-6">
+        <main className="container px-2 md:px-6 min-h-screen">
           {children}
           <footer>
             <div className="py-6 text-center text-sm text-gray-500">

@@ -10,53 +10,28 @@ const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
  * Admin › Installed Plugins
  *
  * 1. Discovers every plugin folder in plugin/ via getInstalledPluginMetas()
- * 2. Fetches DB state from Express (tenant-scoped)
- * 3. Auto-registers newly discovered plugins into Express if not already there
- * 4. Merges and passes the list to the client component
+ * 2. Fetches current DB state from Express (tenant-scoped)
+ * 3. Merges: DB plugins take their persisted status; newly discovered plugins
+ *    that are NOT in the DB are shown with status "new" — they are never
+ *    auto-inserted. The admin must explicitly activate them.
  */
 export default async function PluginPage() {
     const fileMetas = await getInstalledPluginMetas();
 
     const headers = { "x-license-key": LICENSE_KEY, "Content-Type": "application/json" };
 
-    // Fetch current DB state
+    // Fetch current DB state — no writes here
     const dbRes = await fetch(`${EXPRESS_API}/plugin/installed`, {
-        headers, cache: "no-store",
+        headers,
+        cache: "no-store",
     });
     const { plugins: dbDocs = [] } = dbRes.ok ? await dbRes.json() : { plugins: [] };
-
     const dbMap = new Map(dbDocs.map((d: any) => [d.nx, d]));
 
-    // Auto-register any plugins found on disk but not yet in the tenant DB
-    await Promise.all(
-        fileMetas
-            .filter((meta) => !dbMap.has(meta.nx))
-            .map((meta) =>
-                fetch(`${EXPRESS_API}/plugin/installed`, {
-                    method: "POST",
-                    headers,
-                    body: JSON.stringify({
-                        nx: meta.nx,
-                        name: meta.name,
-                        version: meta.version,
-                        icon: meta.icon,
-                        color: meta.color,
-                        status: "inactive",
-                    }),
-                }).catch(() => null)
-            )
-    );
-
-    // Re-fetch after potential inserts
-    const freshRes = await fetch(`${EXPRESS_API}/plugin/installed`, {
-        headers, cache: "no-store",
-    });
-    const { plugins: freshDocs = [] } = freshRes.ok ? await freshRes.json() : { plugins: [] };
-    const freshMap = new Map(freshDocs.map((d: any) => [d.nx, d]));
-
-    // Merge: file metadata wins for display fields
+    // Merge: file metadata wins for display fields; status comes from DB.
+    // Plugins not yet in the DB get status "new" and a null _id.
     const plugins = fileMetas.map((meta) => {
-        const dbRecord = freshMap.get(meta.nx) as any;
+        const dbRecord = dbMap.get(meta.nx) as any;
         return {
             _id: dbRecord?._id ?? null,
             nx: meta.nx,
@@ -66,7 +41,8 @@ export default async function PluginPage() {
             author: meta.author,
             icon: meta.icon,
             color: meta.color,
-            status: dbRecord?.status ?? "inactive",
+            status: (dbRecord?.status ?? "new") as
+                "active" | "inactive" | "new" | "install" | "update" | "delete",
         };
     });
 

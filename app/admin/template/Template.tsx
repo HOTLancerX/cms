@@ -6,102 +6,180 @@ import { getHooks } from "@/hook";
 import { reregisterHooks } from "@/hook/PluginList";
 import { xFetch } from "@/lib/express";
 
-interface TemplateRecord {
-    _id: string;
-    type: string;
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface TemplateEntry {
+    // Identity — from hook registry
     key: string;
+    type: string;
     label: string;
     position: number;
+    pluginNx: string;
+    active: boolean; // plugin-declared first-boot hint
+    // State — resolved from DB
+    isDefault: boolean;
+    dbId: string | null; // null until the record has been saved to DB
+}
+
+// DB record shape returned by GET /template
+interface DbRecord {
+    _id: string;
+    type: string;
+    label: string;
     pluginNx: string;
     isDefault: boolean;
 }
 
+const CORE_NX = "com.system.core";
+
 const TYPE_ICON: Record<string, string> = {
     cat: "solar:folder-bold",
     post: "solar:document-bold",
+    header: "solar:sidebar-minimalistic-bold",
+    footer: "solar:list-bold",
 };
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function TemplateManager() {
-    const [templates, setTemplates] = useState<TemplateRecord[]>([]);
+    const [templates, setTemplates] = useState<TemplateEntry[]>([]);
     const [loading, setLoading] = useState(true);
-    const [processing, setProcessing] = useState<string | null>(null);
+    const [processing, setProcessing] = useState<string | null>(null); // label of busy card
     const [activeTab, setActiveTab] = useState<string>("all");
 
-    // ── Load: fetch active plugins → reregister hooks → sync to DB → fetch list ──
     useEffect(() => {
         (async () => {
             setLoading(true);
 
             // 1. Get active plugin nx IDs from DB
             const pluginRes = await xFetch("/plugin/installed", { cache: "no-store" });
-            const pluginData: { plugins: { nx: string; status: string }[] } = await pluginRes.json();
+            const pluginData: { plugins: { nx: string; status: string }[] } =
+                await pluginRes.json();
             const activeNxIds = (pluginData.plugins ?? [])
                 .filter((p) => p.status === "active")
                 .map((p) => p.nx);
+            const activeNxSet = new Set(activeNxIds);
 
-            // 2. Arm gate + re-register all hooks for active plugins
+            // 2. Re-register hooks so the in-memory registry is up to date
             reregisterHooks(activeNxIds);
 
-            // 3. Collect root.pages hooks that have a type (templates)
-            const rootPages = getHooks("root.pages").filter((p) => !!p.type);
+            // 3. Read templates directly from the hook registry — no DB write
+            const hookEntries = getHooks("root.pages").filter((p) => !!p.type);
 
-            // 4. Sync discovered templates to DB (upsert)
-            //    Pass `active` so the API can use it as a first-boot default hint
-            await Promise.all(
-                rootPages.map((p) =>
-                    xFetch("/template", {
-                        method: "POST",
-                        body: JSON.stringify({
-                            type: p.type,
-                            key: p.key,
-                            label: p.label,
-                            position: p.position,
-                            pluginNx: p.pluginNx ?? "",
-                            active: p.active === true,
-                        }),
-                    })
-                )
+            // 4. Filter to only core + active-plugin templates
+            const visible = hookEntries.filter(
+                (p) => p.pluginNx === CORE_NX || activeNxSet.has(p.pluginNx ?? "")
             );
 
-            // 5. Fetch the authoritative list from DB
-            const listRes = await xFetch("/template", { cache: "no-store" });
-            const dbTemplates: TemplateRecord[] = await listRes.json();
+            // 5. Fetch the DB list once — only to know which isDefault
+            const dbRes = await xFetch("/template", { cache: "no-store" });
+            const dbRecords: DbRecord[] = await dbRes.json();
 
-            // 6. Sort and display only templates whose plugin is still active
-            //    Core templates (CORE_NX) are always visible regardless of plugin status
-            const CORE_NX = "com.system.core";
-            const activePluginSet = new Set(activeNxIds);
-            const visible = dbTemplates
-                .filter((t) => t.pluginNx === CORE_NX || activePluginSet.has(t.pluginNx))
+            // Build lookup: "type::label::pluginNx" → { _id, isDefault }
+            const dbMap = new Map<string, { id: string; isDefault: boolean }>();
+            dbRecords.forEach((r) => {
+                dbMap.set(`${r.type}::${r.label}::${r.pluginNx}`, {
+                    id: r._id,
+                    isDefault: r.isDefault,
+                });
+            });
+
+            // 6. Merge registry entries with DB state
+            const merged: TemplateEntry[] = visible
+                .map((p) => {
+                    const dbEntry = dbMap.get(`${p.type}::${p.label}::${p.pluginNx}`);
+                    return {
+                        key: p.key ?? "",
+                        type: p.type!,
+                        label: p.label,
+                        position: p.position ?? 0,
+                        pluginNx: p.pluginNx ?? "",
+                        active: p.active === true,
+                        isDefault: dbEntry?.isDefault ?? false,
+                        dbId: dbEntry?.id ?? null,
+                    };
+                })
                 .sort((a, b) => a.type.localeCompare(b.type) || a.position - b.position);
 
-            setTemplates(visible);
+            setTemplates(merged);
             setLoading(false);
         })();
     }, []);
 
+    // ── Derived ───────────────────────────────────────────────────────────────
+
     const types = ["all", ...Array.from(new Set(templates.map((t) => t.type)))];
-    const visible = activeTab === "all"
-        ? templates
-        : templates.filter((t) => t.type === activeTab);
+    const visibleTemplates =
+        activeTab === "all" ? templates : templates.filter((t) => t.type === activeTab);
 
-    const handleSetDefault = async (tpl: TemplateRecord) => {
-        setProcessing(tpl._id);
+    // ── Set Default ───────────────────────────────────────────────────────────
+    // 1. Upsert the record into the DB (creates it if it was never saved)
+    // 2. PUT to set it as the default for its type
+    // 3. Update local state
 
-        await xFetch("/template", {
-            method: "PUT",
-            body: JSON.stringify({ id: tpl._id, type: tpl.type }),
-        });
+    const handleSetDefault = async (tpl: TemplateEntry) => {
+        const busyKey = `${tpl.type}::${tpl.label}`;
+        setProcessing(busyKey);
 
-        // Reflect change locally
-        setTemplates((prev) =>
-            prev.map((t) =>
-                t.type === tpl.type ? { ...t, isDefault: t._id === tpl._id } : t
-            )
-        );
+        try {
+            // Step 1 — upsert so the DB row definitely exists, get back the _id
+            const upsertRes = await xFetch("/template", {
+                method: "POST",
+                body: JSON.stringify({
+                    type: tpl.type,
+                    key: tpl.key,
+                    label: tpl.label,
+                    position: tpl.position,
+                    pluginNx: tpl.pluginNx,
+                    active: false, // explicit save — not a first-boot hint
+                }),
+            });
 
-        setProcessing(null);
+            // The upsert response may include the record; if not, re-fetch to get the id
+            let dbId = tpl.dbId;
+            if (!dbId) {
+                const listRes = await xFetch("/template", { cache: "no-store" });
+                const records: DbRecord[] = await listRes.json();
+                const match = records.find(
+                    (r) =>
+                        r.type === tpl.type &&
+                        r.label === tpl.label &&
+                        r.pluginNx === tpl.pluginNx
+                );
+                dbId = match?._id ?? null;
+            }
+
+            if (!dbId) {
+                console.error("Could not resolve DB id for template", tpl.label);
+                return;
+            }
+
+            // Step 2 — set as default
+            await xFetch("/template", {
+                method: "PUT",
+                body: JSON.stringify({ id: dbId, type: tpl.type }),
+            });
+
+            // Step 3 — reflect in local state
+            setTemplates((prev) =>
+                prev.map((t) =>
+                    t.type === tpl.type
+                        ? {
+                            ...t,
+                            isDefault: t.label === tpl.label && t.pluginNx === tpl.pluginNx,
+                            dbId: t.label === tpl.label && t.pluginNx === tpl.pluginNx
+                                ? dbId
+                                : t.dbId,
+                        }
+                        : t
+                )
+            );
+        } finally {
+            setProcessing(null);
+        }
     };
+
+    // ── Render ────────────────────────────────────────────────────────────────
 
     if (loading) {
         return (
@@ -128,13 +206,17 @@ export default function TemplateManager() {
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={`px-4 py-2 text-sm font-medium capitalize rounded-t-lg transition border-b-2 -mb-px ${activeTab === tab
-                            ? "border-indigo-500 text-indigo-600 bg-white"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
+                                ? "border-indigo-500 text-indigo-600 bg-white"
+                                : "border-transparent text-gray-500 hover:text-gray-700"
                             }`}
                     >
                         <span className="flex items-center gap-1.5">
                             <Icon
-                                icon={tab === "all" ? "solar:widget-bold" : (TYPE_ICON[tab] ?? "solar:file-bold")}
+                                icon={
+                                    tab === "all"
+                                        ? "solar:widget-bold"
+                                        : (TYPE_ICON[tab] ?? "solar:file-bold")
+                                }
                                 width={15}
                             />
                             {tab}
@@ -144,23 +226,24 @@ export default function TemplateManager() {
             </div>
 
             {/* Grid */}
-            {visible.length === 0 ? (
+            {visibleTemplates.length === 0 ? (
                 <div className="text-center py-20 text-gray-400">
                     <Icon icon="solar:layers-bold" width={48} className="mx-auto mb-3 opacity-40" />
                     <p>No templates registered for active plugins.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {visible.map((tpl) => {
-                        const isBusy = processing === tpl._id;
+                    {visibleTemplates.map((tpl) => {
+                        const busyKey = `${tpl.type}::${tpl.label}`;
+                        const isBusy = processing === busyKey;
                         const icon = TYPE_ICON[tpl.type] ?? "solar:file-bold";
 
                         return (
                             <div
-                                key={tpl._id}
+                                key={busyKey}
                                 className={`rounded-2xl overflow-hidden shadow-md border flex flex-col transition ${tpl.isDefault
-                                    ? "border-indigo-400 ring-2 ring-indigo-300"
-                                    : "border-gray-200"
+                                        ? "border-indigo-400 ring-2 ring-indigo-300"
+                                        : "border-gray-200"
                                     }`}
                             >
                                 {/* Card header */}
@@ -192,6 +275,11 @@ export default function TemplateManager() {
                                         <span className="text-xs text-gray-400">
                                             position {tpl.position}
                                         </span>
+                                        {!tpl.dbId && (
+                                            <span className="text-xs text-amber-500 font-medium">
+                                                not saved yet
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div className="mt-auto pt-3 border-t border-gray-100">

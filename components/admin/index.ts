@@ -17,6 +17,12 @@ import BlogCategoryLayout1 from "@/components/page/blog-category/Layout1";
 import BlogCategoryLayout2 from "@/components/page/blog-category/Layout2";
 import PageLayout1 from "@/components/page/page/Layout1";
 import PageLayout2 from "@/components/page/page/Layout2";
+import Header1 from "@/components/page/header/Header1";
+import Header2 from "@/components/page/header/Header2";
+import Header3 from "@/components/page/header/Header3";
+import Footer1 from "@/components/page/footer/Footer1";
+import Footer2 from "@/components/page/footer/Footer2";
+import Footer3 from "@/components/page/footer/Footer3";
 
 /** The nx identifier stamped onto every core-registered field. */
 export const CORE_NX = "com.system.core";
@@ -315,6 +321,74 @@ export function register(): void {
             position: 20,
             active: false,
             component: PageLayout2,
+        },
+    ], CORE_NX);
+
+    // ─── Site header templates ────────────────────────────────────────────────
+    addHook("root.pages", [
+        {
+            key: "header",
+            label: "Header Layout 1",
+            type: "header",
+            slug: "layout",
+            style: "left",
+            position: 10,
+            active: true,           // first-boot default
+            component: Header1,
+        },
+        {
+            key: "header",
+            label: "Header Layout 2",
+            type: "header",
+            slug: "layout",
+            style: "left",
+            position: 20,
+            active: false,
+            component: Header2,
+        },
+        {
+            key: "header",
+            label: "Header Layout 3",
+            type: "header",
+            slug: "layout",
+            style: "left",
+            position: 30,
+            active: false,
+            component: Header3,
+        },
+    ], CORE_NX);
+
+    // ─── Site footer templates ────────────────────────────────────────────────
+    addHook("root.pages", [
+        {
+            key: "footer",
+            label: "Footer Layout 1",
+            type: "footer",
+            slug: "layout",
+            style: "left",
+            position: 10,
+            active: true,           // first-boot default
+            component: Footer1,
+        },
+        {
+            key: "footer",
+            label: "Footer Layout 2",
+            type: "footer",
+            slug: "layout",
+            style: "left",
+            position: 20,
+            active: false,
+            component: Footer2,
+        },
+        {
+            key: "footer",
+            label: "Footer Layout 3",
+            type: "footer",
+            slug: "layout",
+            style: "left",
+            position: 30,
+            active: false,
+            component: Footer3,
         },
     ], CORE_NX);
 }

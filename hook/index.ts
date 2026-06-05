@@ -194,10 +194,12 @@ export function addHook(
     if (!hooks[hookName]) {
         hooks[hookName] = [];
     }
-    // Avoid duplicates in the gated registry too
+    // Avoid duplicates in the gated registry.
+    // Use pluginNx + label as the dedup key so multiple layouts that share
+    // the same key (e.g. "header", "footer", "blog") are all preserved.
     stamped.forEach((f) => {
         const exists = hooks[hookName].some(
-            (h) => h.pluginNx === f.pluginNx && h.key === f.key
+            (h) => h.pluginNx === f.pluginNx && h.label === f.label
         );
         if (!exists) hooks[hookName].push(f);
     });

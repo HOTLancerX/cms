@@ -11,8 +11,9 @@
  *   import { getRootPages } from "@/hook/rootPages";
  */
 
-import { getAllRootPages } from "@/hook";
+import { getAllRootPages, registerCoreHooks } from "@/hook";
 import type { FormHookField } from "@/hook";
+import { register as coreRegister } from "@/components/admin";
 
 interface RequireContext {
     keys(): string[];
@@ -28,6 +29,10 @@ const pluginContext = require.context(
     true,
     /^\.\/[^/]+\/index\.(ts|tsx|js|jsx)$/
 );
+
+// Always register core hooks first so header/footer/blog/page templates
+// are in the permanent store before any plugin adds its own entries.
+registerCoreHooks(coreRegister);
 
 // Call register() on every plugin — addHook("root.pages") writes to the
 // permanent store which deduplicates, so repeated calls are safe.
