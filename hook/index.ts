@@ -27,15 +27,21 @@ export interface FormHookField {
     /**
      * Declares the field's rendering behaviour.
      * - undefined / omitted  → standard component (Text, Select, Switch, etc.)
-     * - "content"            → rich-text editor (Content component)
-     * - "gallery"            → single-image Gallery picker
-     * - "gallery-multiple"   → multi-image Gallery picker (value stored as JSON array string)
-     * - "linked-cats"        → multi-select checkbox list fetched from /cat?type=<linkedCatType>
-     * - "specification"      → CategorySpecification box builder (value stored as JSON array string)
+     * - "content"                → rich-text editor (Content component)
+     * - "gallery"                → single-image Gallery picker
+     * - "gallery-multiple"       → multi-image Gallery picker (value stored as JSON array string)
+     * - "linked-cats"            → multi-select checkbox list fetched from /cat?type=<linkedCatType>
+     * - "specification"          → CategorySpecification box builder (value stored as JSON array string)
+     * - "category-flat"          → flat <select> category picker; value = selected category _id,
+     *                              updates the form's core category state
+     * - "category-hierarchical"  → drill-down category picker; value = selected category _id,
+     *                              also updates the form's core category + categoryPath state
      */
-    fieldType?: "content" | "gallery" | "gallery-multiple" | "linked-cats" | "specification";
+    fieldType?: "content" | "gallery" | "gallery-multiple" | "linked-cats" | "specification" | "category-flat" | "category-hierarchical";
     /** For fieldType "linked-cats": the cat type to fetch options from */
     linkedCatType?: string;
+    /** For fieldType "category-flat" or "category-hierarchical": the cat type to fetch */
+    hierarchicalCatType?: string;
     component?: ComponentType<any>;
     path?: ComponentType<any>;
     options?: { label: string; value: string }[];

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { FormHooks } from "@/hook";
-import { getHooks, getPostType } from "@/hook";
+import { getHooks } from "@/hook";
 import { xFetch } from "@/lib/express";
 
 export interface PostFormProps {
@@ -17,12 +17,6 @@ export interface PostFormProps {
     onSuccess?: (postId: string) => void;
 }
 
-interface CategoryOption {
-    _id: string;
-    title: string;
-    slug: string;
-}
-
 export default function PostForm({ type, activePlugins, postId, onSuccess }: PostFormProps) {
     const router = useRouter();
     const isEdit = Boolean(postId);
@@ -34,55 +28,30 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
         setFields(getHooks("post.form", type));
     }, [type, activePlugins]);
 
-    const leftFields = fields.filter((f) => f.style === "left");
+    const leftFields  = fields.filter((f) => f.style === "left");
     const rightFields = fields.filter((f) => f.style === "right");
 
-    // ── Dynamic category selector ───────────────────────────────────────────
-    // Derives category type automatically as "{postType}-category".
-    // Only active when the post type has hasCategory !== false.
-    // Selector is hidden when the post type opts out or no categories exist.
-    const catType = `${type}-category`;
-    const [categories, setCategories] = useState<CategoryOption[]>([]);
-
-    useEffect(() => {
-        // Read hasCategory from the registry — populated after reregisterHooks runs.
-        // Default to true when the type isn't found yet (safe: selector stays hidden
-        // until categories actually load anyway).
-        const postTypeDef = getPostType(type);
-        const wantsCategory = postTypeDef ? postTypeDef.hasCategory !== false : true;
-        if (!wantsCategory) {
-            setCategories([]);
-            return;
-        }
-        xFetch(`/cat?type=${encodeURIComponent(catType)}`, { cache: "no-store" })
-            .then((r) => r.json())
-            .then((data) => setCategories(data.cats ?? []))
-            .catch(() => setCategories([]));
-    }, [type, catType, activePlugins]); // re-run when activePlugins changes so registry is fresh
-
     // ── Core form state ─────────────────────────────────────────────────────
-    const [title, setTitle] = useState("");
-    const [slug, setSlug] = useState("");
-    const [status, setStatus] = useState("published");
-    const [category, setCategory] = useState("");
-    const [info, setInfo] = useState<Record<string, string>>({});
+    const [title, setTitle]               = useState("");
+    const [slug, setSlug]                 = useState("");
+    const [status, setStatus]             = useState("published");
+    const [category, setCategory]         = useState("");
+    const [categoryPath, setCategoryPath] = useState<string[]>([]);
+    const [info, setInfo]                 = useState<Record<string, string>>({});
 
-    const [loading, setLoading] = useState(isEdit);
-    const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState("");
+    const [loading, setLoading]   = useState(isEdit);
+    const [saving, setSaving]     = useState(false);
+    const [message, setMessage]   = useState("");
     const [notFound, setNotFound] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
     // ── Slug availability check ─────────────────────────────────────────────
-    // "idle" | "checking" | "available" | "taken"
     const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
     const slugDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    // Track the slug that was loaded in edit mode so we don't flag it as taken
-    const originalSlug = useRef<string>("");
+    const originalSlug    = useRef<string>("");
 
     const checkSlug = useCallback((value: string) => {
         if (!value) { setSlugStatus("idle"); return; }
-        // In edit mode, if slug hasn't changed from the original, it's fine
         if (isEdit && value === originalSlug.current) { setSlugStatus("idle"); return; }
         setSlugStatus("checking");
         if (slugDebounceRef.current) clearTimeout(slugDebounceRef.current);
@@ -90,7 +59,7 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
             try {
                 const params = new URLSearchParams({ slug: value });
                 if (isEdit && postId) params.set("excludeId", postId);
-                const res = await xFetch(`/post?${params}`, { cache: "no-store" });
+                const res  = await xFetch(`/post?${params}`, { cache: "no-store" });
                 const data = await res.json();
                 setSlugStatus(data.available ? "available" : "taken");
             } catch {
@@ -99,85 +68,93 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
         }, 400);
     }, [isEdit, postId]);
 
-    // ── Load existing post when in edit mode ────────────────────────────────
+    // ── Load existing post (edit mode) ──────────────────────────────────────
     useEffect(() => {
         if (!postId) return;
-
         setLoading(true);
         xFetch(`/post?id=${postId}`, { cache: "no-store" })
             .then((r) => r.json())
             .then((data) => {
-                if (!data.post) {
-                    setNotFound(true);
-                    return;
-                }
+                if (!data.post) { setNotFound(true); return; }
                 const p = data.post;
                 setTitle(p.title ?? "");
                 setSlug(p.slug ?? "");
                 setStatus(p.status ?? "published");
                 setCategory(p.category ?? "");
+                setCategoryPath(p.category ? [p.category] : []);
                 originalSlug.current = p.slug ?? "";
 
                 const infoMap: Record<string, string> = {};
                 (data.info ?? []).forEach((item: { name: string; value: string }) => {
                     infoMap[item.name] = item.value;
                 });
+                // Seed category so any registered category component renders the saved value
+                if (p.category) infoMap["category"] = p.category;
                 setInfo(infoMap);
             })
             .catch(() => setNotFound(true))
             .finally(() => setLoading(false));
     }, [postId]);
 
-    const handleInfoChange = (key: string, value: string) => {
-        setInfo((prev) => ({ ...prev, [key]: value }));
+    /**
+     * Central info change handler.
+     *
+     * The special key "category" is reserved for category picker components
+     * (CategorySelect, CategoryHierarchicalSelect).
+     *
+     * CategorySelect emits a plain id string.
+     * CategoryHierarchicalSelect emits JSON: { id, path }.
+     * Both are handled here — core category + categoryPath stay in sync.
+     */
+    const handleInfoChange = (key: string, val: string) => {
+        setInfo((prev) => ({ ...prev, [key]: val }));
+
+        if (key === "category") {
+            try {
+                const parsed = JSON.parse(val);
+                if (parsed && typeof parsed === "object" && "id" in parsed) {
+                    setCategory(parsed.id);
+                    setCategoryPath(parsed.path ?? []);
+                    return;
+                }
+            } catch { /* not JSON — treat as plain id */ }
+            setCategory(val);
+            setCategoryPath(val ? [val] : []);
+        }
     };
 
     const handleTitleChange = (val: string) => {
         setTitle(val);
         if (!isEdit) {
-            const generated = val
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, "-")
-                .replace(/(^-|-$)/g, "");
-            setSlug(generated);
-            checkSlug(generated);
+            const g = val.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+            setSlug(g);
+            checkSlug(g);
         }
-    };
-
-    const handleSlugChange = (val: string) => {
-        setSlug(val);
-        checkSlug(val);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (slugStatus === "taken") return; // hard block
+        if (slugStatus === "taken") return;
         setSaving(true);
         setMessage("");
-
         try {
             const payload = {
                 title, slug, status, type, info,
                 ...(category ? { category } : {}),
                 ...(isEdit ? { _id: postId } : {}),
             };
-
-            const res = await xFetch("/post", {
+            const res  = await xFetch("/post", {
                 method: isEdit ? "PUT" : "POST",
                 body: JSON.stringify(payload),
             });
             const data = await res.json();
-
             if (!res.ok) {
                 setMessage(`Error: ${data.error}`);
             } else {
                 setMessage("Saved successfully!");
                 if (!isEdit) {
-                    setTitle("");
-                    setSlug("");
-                    setStatus("published");
-                    setCategory("");
-                    setInfo({});
+                    setTitle(""); setSlug(""); setStatus("published");
+                    setCategory(""); setCategoryPath([]); setInfo({});
                 }
                 onSuccess?.(data.post?._id ?? postId ?? "");
             }
@@ -201,28 +178,33 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
         }
     };
 
-    // ctx is the ambient form context passed to every plugin component.
-    // Components can read e.g. ctx?.title without the form knowing what they need.
-    const ctx = { title, postId, type };
+    // ctx: ambient context passed to every field component
+    const ctx = { title, postId, type, categoryId: category, categoryPath };
 
+    // ── Uniform field renderer — no special cases ───────────────────────────
     const renderFields = (fieldList: FormHooks) =>
         fieldList.map((field) => {
-            const Component = field.component;
+            const { key, label, component: Component, options, hierarchicalCatType } = field;
             if (!Component) return null;
             return (
                 <Component
-                    key={`${field.key}-${field.position}`}
-                    name={field.key}
-                    label={field.label}
-                    value={info[field.key] || ""}
-                    onChange={(v: string) => handleInfoChange(field.key, v)}
-                    options={field.options}
-                    ctx={ctx}
+                    key={`${key}-${field.position}`}
+                    name={key}
+                    label={label}
+                    value={info[key] ?? ""}
+                    onChange={(v: string) => handleInfoChange(key, v)}
+                    options={options}
+                    ctx={{
+                        ...ctx,
+                        // Forward catType so CategorySelect / CategoryHierarchicalSelect
+                        // know which category type to fetch — no manual wiring needed
+                        ...(hierarchicalCatType ? { catType: hierarchicalCatType } : {}),
+                    }}
                 />
             );
         });
 
-    // ── Loading state (edit mode only) ──────────────────────────────────────
+    // ── Guards ──────────────────────────────────────────────────────────────
     if (loading) {
         return (
             <div className="flex items-center justify-center py-24 text-gray-400">
@@ -242,64 +224,48 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
         );
     }
 
+    // ── Render ──────────────────────────────────────────────────────────────
     return (
         <form onSubmit={handleSubmit}>
             {message && (
-                <div
-                    className={`mb-5 rounded-lg px-4 py-3 text-sm font-medium border ${message.startsWith("Error")
+                <div className={`mb-5 rounded-lg px-4 py-3 text-sm font-medium border ${
+                    message.startsWith("Error")
                         ? "bg-red-400/10 text-red-400 border-red-400/25"
                         : "bg-emerald-400/10 text-emerald-400 border-emerald-400/25"
-                        }`}
-                >
+                }`}>
                     {message}
                 </div>
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8">
+
                 {/* ── Left Column ── */}
                 <div className="flex flex-col gap-5">
-                    <div className="flex flex-col gap-1.5">
-                        <label htmlFor="title" className="text-xs font-semibold">
-                            Title
-                        </label>
+                    <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
+                        <label htmlFor="title" className="text-xs font-semibold">Title</label>
                         <input
-                            id="title"
-                            type="text"
-                            value={title}
+                            id="title" type="text" value={title} required
                             onChange={(e) => handleTitleChange(e.target.value)}
                             className="w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500"
                             placeholder="Enter title"
-                            required
                         />
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
-                        <label htmlFor="slug" className="text-xs font-semibold">
-                            Slug
-                        </label>
+                    <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
+                        <label htmlFor="slug" className="text-xs font-semibold">Slug</label>
                         <input
-                            id="slug"
-                            type="text"
-                            value={slug}
-                            onChange={(e) => handleSlugChange(e.target.value)}
-                            className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition ${slugStatus === "taken"
-                                ? "border-red-400 focus:border-red-400"
-                                : slugStatus === "available"
-                                    ? "border-emerald-400 focus:border-emerald-400"
-                                    : "focus:border-indigo-500"
-                                }`}
+                            id="slug" type="text" value={slug} required
+                            onChange={(e) => { setSlug(e.target.value); checkSlug(e.target.value); }}
+                            className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition ${
+                                slugStatus === "taken"      ? "border-red-400 focus:border-red-400"
+                                : slugStatus === "available" ? "border-emerald-400 focus:border-emerald-400"
+                                : "focus:border-indigo-500"
+                            }`}
                             placeholder="auto-generated-slug"
-                            required
                         />
-                        {slugStatus === "checking" && (
-                            <p className="text-xs text-gray-400">Checking availability…</p>
-                        )}
-                        {slugStatus === "available" && (
-                            <p className="text-xs text-emerald-500">✓ Slug is available</p>
-                        )}
-                        {slugStatus === "taken" && (
-                            <p className="text-xs text-red-500">✗ This slug is already taken</p>
-                        )}
+                        {slugStatus === "checking"  && <p className="text-xs text-gray-400">Checking availability…</p>}
+                        {slugStatus === "available" && <p className="text-xs text-emerald-500">✓ Slug is available</p>}
+                        {slugStatus === "taken"     && <p className="text-xs text-red-500">✗ This slug is already taken</p>}
                     </div>
 
                     {renderFields(leftFields)}
@@ -307,13 +273,10 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
 
                 {/* ── Right Column ── */}
                 <div className="flex flex-col gap-5">
-                    <div className="flex flex-col gap-1.5">
-                        <label htmlFor="status" className="text-xs font-semibold">
-                            Status
-                        </label>
+                    <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
+                        <label htmlFor="status" className="text-xs font-semibold">Status</label>
                         <select
-                            id="status"
-                            value={status}
+                            id="status" value={status}
                             onChange={(e) => setStatus(e.target.value)}
                             className="appearance-none w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500"
                         >
@@ -322,50 +285,26 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
                         </select>
                     </div>
 
-                    {/* ── Dynamic category selector ── */}
-                    {/* Appears automatically once categories of this type exist */}
-                    {categories.length > 0 && (
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="category" className="text-xs font-semibold">
-                                Category
-                            </label>
-                            <select
-                                id="category"
-                                value={category}
-                                onChange={(e) => setCategory(e.target.value)}
-                                className="appearance-none w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500"
-                            >
-                                <option value="">— No category —</option>
-                                {categories.map((c) => (
-                                    <option key={c._id} value={c._id}>
-                                        {c.title}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
                     {renderFields(rightFields)}
 
                     <button
                         type="submit"
                         disabled={saving || slugStatus === "taken"}
-                        className="mt-2 w-full rounded-lg bg-indigo-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed"
+                        className="p-2 w-full rounded-lg bg-indigo-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed"
                     >
                         {saving ? "Saving…" : isEdit ? "Save Changes" : "Publish"}
                     </button>
 
                     {isEdit && (
                         <button
-                            type="button"
-                            onClick={handleDelete}
-                            disabled={deleting}
+                            type="button" onClick={handleDelete} disabled={deleting}
                             className="w-full rounded-lg bg-red-50 px-6 py-3 text-sm font-semibold text-red-500 transition hover:bg-red-100 disabled:opacity-55 disabled:cursor-not-allowed"
                         >
                             {deleting ? "Deleting…" : "Delete Post"}
                         </button>
                     )}
                 </div>
+
             </div>
         </form>
     );

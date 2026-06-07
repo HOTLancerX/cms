@@ -10,7 +10,7 @@
  */
 
 import { addHook, addPostType, addCatType } from "@/hook";
-import { Text, Textarea, Tags } from "@/components/ui";
+import { Text, Textarea, Tags, CategorySelect } from "@/components/ui";
 import BlogLayout1 from "@/components/page/blog/Layout1";
 import BlogLayout2 from "@/components/page/blog/Layout2";
 import BlogCategoryLayout1 from "@/components/page/blog-category/Layout1";
@@ -230,6 +230,15 @@ export function register(): void {
 
     // ─── Post form fields ───────────────────────────────────────────────────
     addHook("post.form", [
+        {
+            key: "category",
+            label: "Category",
+            type: "blog",
+            style: "right",
+            position: 5,
+            component: CategorySelect,
+            hierarchicalCatType: "blog-category",
+        },
         {
             key: "seo_meta_title",
             label: "SEO Title",

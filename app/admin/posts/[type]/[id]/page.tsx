@@ -79,7 +79,7 @@ export default function PostAddEditPage() {
                 )}
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <>
                 <PostForm
                     type={type}
                     activePlugins={activePlugins}
@@ -91,7 +91,7 @@ export default function PostAddEditPage() {
                         }
                     }}
                 />
-            </div>
+            </>
         </div>
     );
 }
