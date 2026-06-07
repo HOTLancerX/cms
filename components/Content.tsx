@@ -7,6 +7,7 @@ import { GalleryModal } from './Gallery';
 import { Icon } from '@iconify/react';
 import { useToast } from './ui/Toast';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { xFetch } from '@/lib/express';
 
 const SunEditor = dynamic(() => import("suneditor-react"), { ssr: false });
 
@@ -31,21 +32,25 @@ export default function Content({ content, onChange, label = "Content", title, s
     const [showCustomPrompt, setShowCustomPrompt] = useState(false);
     const [customPrompt, setCustomPrompt] = useState('');
 
-    // Fetch dynamic system prompts from DB
+    // Fetch dynamic system prompts from DB via Express server
     useEffect(() => {
-        fetch('/api/admin/category?type=prompt&status=active')
-            .then(r => r.ok ? r.json() : { categories: [] })
+        xFetch('/cat?type=prompt&includeInfo=true', { cache: 'no-store' })
+            .then(r => r.ok ? r.json() : { cats: [] })
             .then(data => {
-                const prompts = (data.categories || []).map((c: any) => ({
-                    id: c.id,
-                    name: c.title,
-                    prompt: c.description || '',
-                    apiKey: c.metaTitle || '',
-                    model: c.metaDescription || 'gemini-2.5-flash',
-                    slug: c.slug || '',
-                }));
+                const prompts = (data.cats || []).map((c: any) => {
+                    // info is an array of { name, value } pairs
+                    const info: { name: string; value: string }[] = c.info ?? [];
+                    const get = (name: string) => info.find((i) => i.name === name)?.value ?? '';
+                    return {
+                        id: c._id,
+                        name: c.title,
+                        prompt: get('description'),
+                        apiKey: get('metaTitle'),
+                        model: get('metaDescription') || 'gemini-2.5-flash',
+                        slug: c.slug || '',
+                    };
+                });
                 setSystemPrompts(prompts);
-                // Auto-select by slug prop if provided, otherwise first item
                 if (prompts.length > 0) {
                     const matched = slug ? prompts.find((p: any) => p.slug === slug) : null;
                     setSelectedPrompt(matched ? matched.id : prompts[0].id);
