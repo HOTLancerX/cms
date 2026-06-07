@@ -201,6 +201,10 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
         }
     };
 
+    // ctx is the ambient form context passed to every plugin component.
+    // Components can read e.g. ctx?.title without the form knowing what they need.
+    const ctx = { title, postId, type };
+
     const renderFields = (fieldList: FormHooks) =>
         fieldList.map((field) => {
             const Component = field.component;
@@ -213,6 +217,7 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
                     value={info[field.key] || ""}
                     onChange={(v: string) => handleInfoChange(field.key, v)}
                     options={field.options}
+                    ctx={ctx}
                 />
             );
         });

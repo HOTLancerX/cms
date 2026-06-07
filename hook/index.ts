@@ -7,6 +7,12 @@ export interface FieldProps {
     value: string;
     onChange: (value: string) => void;
     options?: { label: string; value: string }[];
+    /**
+     * Optional ambient context passed by the parent form.
+     * Components can read e.g. ctx?.title, ctx?.postId without the form
+     * needing to know anything about the component.
+     */
+    ctx?: Record<string, unknown>;
 }
 
 // ─── Hook field definition registered by plugins ───
@@ -18,6 +24,18 @@ export interface FormHookField {
     active?: boolean;
     style: "left" | "right";
     position: number;
+    /**
+     * Declares the field's rendering behaviour.
+     * - undefined / omitted  → standard component (Text, Select, Switch, etc.)
+     * - "content"            → rich-text editor (Content component)
+     * - "gallery"            → single-image Gallery picker
+     * - "gallery-multiple"   → multi-image Gallery picker (value stored as JSON array string)
+     * - "linked-cats"        → multi-select checkbox list fetched from /cat?type=<linkedCatType>
+     * - "specification"      → CategorySpecification box builder (value stored as JSON array string)
+     */
+    fieldType?: "content" | "gallery" | "gallery-multiple" | "linked-cats" | "specification";
+    /** For fieldType "linked-cats": the cat type to fetch options from */
+    linkedCatType?: string;
     component?: ComponentType<any>;
     path?: ComponentType<any>;
     options?: { label: string; value: string }[];

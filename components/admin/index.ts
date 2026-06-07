@@ -160,6 +160,24 @@ export function register(): void {
             parent: "builder",
             position: 120,
         },
+        // ── Location ──
+        {
+            key: "location",
+            label: "Location",
+            icon: "solar:map-point-bold",
+            slug: "category/location",
+            parent: "",
+            position: 130,
+        },
+        // ── AI Prompts ──
+        {
+            key: "prompt",
+            label: "AI Prompts",
+            icon: "solar:stars-bold",
+            slug: "category/prompt",
+            parent: "",
+            position: 131,
+        },
     ], CORE_NX);
 
     // ─── Core post types ────────────────────────────────────────────────────
@@ -192,6 +210,22 @@ export function register(): void {
             color: "from-violet-500 to-purple-600",
             position: 10,
         },
+        {
+            key: "location",
+            label: "Location",
+            postType: "",
+            icon: "solar:map-point-bold",
+            color: "from-sky-500 to-cyan-600",
+            position: 50,
+        },
+        {
+            key: "prompt",
+            label: "AI Prompt",
+            postType: "",
+            icon: "solar:stars-bold",
+            color: "from-fuchsia-500 to-purple-600",
+            position: 51,
+        },
     ], CORE_NX);
 
     // ─── Post form fields ───────────────────────────────────────────────────
@@ -222,31 +256,135 @@ export function register(): void {
         },
     ], CORE_NX);
 
-    // ─── Cat form fields ────────────────────────────────────────────────────
+    // ─── Cat form fields (universal — apply to all category types) ─────────
     addHook("cat.form", [
         {
-            key: "seo_meta_title",
-            label: "SEO Title",
+            key: "shortDescription",
+            label: "Short Description",
             type: "",
             style: "left",
-            position: 9991,
+            position: 100,
+            fieldType: "content",
+        },
+        {
+            key: "description",
+            label: "Description",
+            type: "",
+            style: "left",
+            position: 110,
+            fieldType: "content",
+        },
+        {
+            key: "images",
+            label: "Images",
+            type: "",
+            style: "right",
+            position: 100,
+            fieldType: "gallery-multiple",
+        },
+        {
+            key: "gallery",
+            label: "Gallery",
+            type: "",
+            style: "right",
+            position: 110,
+            fieldType: "gallery-multiple",
+        },
+    ], CORE_NX);
+
+    // ─── Location cat form fields ───────────────────────────────────────────
+    addHook("cat.form", [
+        {
+            key: "address",
+            label: "Address",
+            type: "location",
+            style: "left",
+            position: 10,
             component: Text,
         },
         {
-            key: "seo_meta_description",
-            label: "SEO Description",
-            type: "",
+            key: "city",
+            label: "City",
+            type: "location",
             style: "left",
-            position: 9992,
+            position: 20,
+            component: Text,
+        },
+        {
+            key: "state",
+            label: "State / Province",
+            type: "location",
+            style: "left",
+            position: 30,
+            component: Text,
+        },
+        {
+            key: "country",
+            label: "Country",
+            type: "location",
+            style: "left",
+            position: 40,
+            component: Text,
+        },
+        {
+            key: "zip",
+            label: "ZIP / Postal Code",
+            type: "location",
+            style: "right",
+            position: 10,
+            component: Text,
+        },
+        {
+            key: "latitude",
+            label: "Latitude",
+            type: "location",
+            style: "right",
+            position: 20,
+            component: Text,
+        },
+        {
+            key: "longitude",
+            label: "Longitude",
+            type: "location",
+            style: "right",
+            position: 30,
+            component: Text,
+        },
+        {
+            key: "map_embed",
+            label: "Map Embed URL",
+            type: "location",
+            style: "right",
+            position: 40,
+            component: Text,
+        },
+    ], CORE_NX);
+
+    // ─── AI Prompt cat form fields ──────────────────────────────────────────
+    addHook("cat.form", [
+        {
+            key: "description",
+            label: "System Prompt",
+            type: "prompt",
+            style: "left",
+            position: 10,
             component: Textarea,
         },
         {
-            key: "seo_meta_keyword",
-            label: "SEO Keyword",
-            type: "",
-            style: "left",
-            position: 9993,
-            component: Tags,
+            key: "metaTitle",
+            label: "API Key",
+            type: "prompt",
+            style: "right",
+            position: 10,
+            component: Text,
+        },
+        {
+            key: "metaDescription",
+            label: "Model",
+            type: "prompt",
+            style: "right",
+            position: 20,
+            component: Text,
         },
     ], CORE_NX);
 
