@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { xFetch } from "@/lib/express";
 
-type PluginStatus = "active" | "inactive" | "new" | "install" | "update" | "delete";
+type PluginStatus = "active" | "inactive" | "new" | "install" | "update" | "delete" | "expired" | "not_started";
 
 interface PluginRecord {
     _id: string | null;
@@ -16,6 +16,8 @@ interface PluginRecord {
     author: string;
     icon: string;
     color: string;
+    startDate?: string | null;
+    endDate?: string | null;
     status: PluginStatus;
 }
 
@@ -41,12 +43,14 @@ function resolveGradient(color: string): string {
 }
 
 const STATUS_CONFIG: Record<PluginStatus, { label: string; cls: string }> = {
-    active: { label: "Active", cls: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300" },
-    inactive: { label: "Inactive", cls: "bg-gray-100 text-gray-500 ring-1 ring-gray-300" },
-    new: { label: "New", cls: "bg-violet-100 text-violet-700 ring-1 ring-violet-300" },
-    install: { label: "Install", cls: "bg-blue-100 text-blue-700 ring-1 ring-blue-300" },
-    update: { label: "Update", cls: "bg-orange-100 text-orange-700 ring-1 ring-orange-300" },
-    delete: { label: "Delete", cls: "bg-red-100 text-red-700 ring-1 ring-red-300" },
+    active:      { label: "Active",      cls: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300" },
+    inactive:    { label: "Inactive",    cls: "bg-gray-100 text-gray-500 ring-1 ring-gray-300" },
+    new:         { label: "New",         cls: "bg-violet-100 text-violet-700 ring-1 ring-violet-300" },
+    install:     { label: "Install",     cls: "bg-blue-100 text-blue-700 ring-1 ring-blue-300" },
+    update:      { label: "Update",      cls: "bg-orange-100 text-orange-700 ring-1 ring-orange-300" },
+    delete:      { label: "Delete",      cls: "bg-red-100 text-red-700 ring-1 ring-red-300" },
+    expired:     { label: "Expired",     cls: "bg-red-100 text-red-600 ring-1 ring-red-300" },
+    not_started: { label: "Not Started", cls: "bg-yellow-100 text-yellow-700 ring-1 ring-yellow-300" },
 };
 
 export default function PluginList({ initialPlugins }: { initialPlugins: PluginRecord[] }) {
@@ -110,6 +114,7 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
 
     const activeCount = plugins.filter((p) => p.status === "active").length;
     const newCount = plugins.filter((p) => p.status === "new").length;
+    const expiredCount = plugins.filter((p) => p.status === "expired").length;
 
     return (
         <div className="space-y-6">
@@ -122,6 +127,11 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
                         {newCount > 0 && (
                             <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-xs font-semibold ring-1 ring-violet-300">
                                 {newCount} new discovered
+                            </span>
+                        )}
+                        {expiredCount > 0 && (
+                            <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-semibold ring-1 ring-red-300">
+                                {expiredCount} expired
                             </span>
                         )}
                     </div>
@@ -147,6 +157,8 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
                     {plugins.map((plugin) => {
                         const isActive = plugin.status === "active";
                         const isNew = plugin.status === "new";
+                        const isExpired = plugin.status === "expired";
+                        const isNotStarted = plugin.status === "not_started";
                         const isBusy = processing === plugin.nx;
                         const statusCfg = STATUS_CONFIG[plugin.status] ?? STATUS_CONFIG.inactive;
 
@@ -155,12 +167,14 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
                                 key={plugin.nx}
                                 className={`rounded-2xl overflow-hidden shadow-md border flex flex-col transition ${isNew
                                         ? "border-violet-300 ring-2 ring-violet-200"
+                                        : isExpired
+                                        ? "border-red-200 ring-2 ring-red-100"
                                         : "border-white/20"
                                     }`}
                             >
                                 {/* Coloured header */}
                                 <div
-                                    className="p-5 flex items-center gap-4"
+                                    className={`p-5 flex items-center gap-4 ${isExpired ? "opacity-60" : ""}`}
                                     style={{ background: resolveGradient(plugin.color) }}
                                 >
                                     <div className="bg-white/20 rounded-xl p-2.5">
@@ -189,6 +203,25 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
                                         <span className="text-xs text-gray-400">by {plugin.author}</span>
                                     </div>
 
+                                    {/* Expiry / not-started warning */}
+                                    {(isExpired || isNotStarted) && plugin.endDate && (
+                                        <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
+                                            isExpired
+                                                ? "bg-red-50 text-red-600"
+                                                : "bg-yellow-50 text-yellow-700"
+                                        }`}>
+                                            <Icon
+                                                icon={isExpired ? "solar:danger-circle-bold" : "solar:clock-circle-bold"}
+                                                width={14}
+                                                className="shrink-0"
+                                            />
+                                            {isExpired
+                                                ? `Expired on ${new Date(plugin.endDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}. Plugin is not accepting requests.`
+                                                : `Starts on ${new Date(plugin.startDate!).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}.`
+                                            }
+                                        </div>
+                                    )}
+
                                     {/* Actions */}
                                     <div className="flex items-center gap-2 mt-auto pt-3 border-t border-gray-100">
                                         {isNew ? (
@@ -205,14 +238,35 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
                                                     <><Icon icon="solar:play-bold" width={16} />Activate</>
                                                 )}
                                             </button>
+                                        ) : isExpired ? (
+                                            // Expired — show disabled state, admin can only delete
+                                            <>
+                                                <button
+                                                    disabled
+                                                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-400 bg-gray-100 cursor-not-allowed"
+                                                    title="Plugin has expired and cannot be activated"
+                                                >
+                                                    <Icon icon="solar:lock-keyhole-bold" width={16} />
+                                                    Expired
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(plugin)}
+                                                    disabled={isBusy}
+                                                    className="inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm bg-red-50 text-red-500 hover:bg-red-100 transition disabled:opacity-40"
+                                                    title="Remove from database"
+                                                >
+                                                    <Icon icon="solar:trash-bin-trash-bold" width={20} />
+                                                </button>
+                                            </>
                                         ) : (
                                             <>
                                                 {/* Toggle active / inactive */}
                                                 <button
                                                     onClick={() => handleToggle(plugin)}
-                                                    disabled={isBusy}
+                                                    disabled={isBusy || isNotStarted}
                                                     className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white transition disabled:opacity-40 hover:opacity-90"
                                                     style={{ background: isActive ? "#f97316" : "#10b981" }}
+                                                    title={isNotStarted ? "Plugin has not started yet" : undefined}
                                                 >
                                                     {isBusy ? (
                                                         <Icon icon="svg-spinners:ring-resize" width={16} />

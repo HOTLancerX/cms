@@ -13,6 +13,9 @@ const headers = { "x-license-key": LICENSE_KEY };
 
 /**
  * Returns the nx identifiers of every active plugin for this tenant.
+ * Plugins with status "expired" or "not_started" are excluded automatically
+ * because the Express server stamps those statuses based on the domain's
+ * plugin date windows.
  */
 export async function getActivePluginNames(): Promise<string[]> {
     try {
@@ -23,7 +26,7 @@ export async function getActivePluginNames(): Promise<string[]> {
         if (!res.ok) return [];
         const { plugins = [] } = await res.json() as { plugins: any[] };
         return plugins
-            .filter((p: any) => p.status === "active")
+            .filter((p: any) => p.status === "active") // "expired" / "not_started" excluded
             .map((p: any) => p.nx as string);
     } catch {
         return [];

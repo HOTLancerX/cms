@@ -27,7 +27,7 @@ export function useActivePlugins(): string[] | null {
             .then((r) => r.json())
             .then((data: { plugins: { nx: string; status: string }[] }) => {
                 const ids = (data.plugins ?? [])
-                    .filter((p) => p.status === "active")
+                    .filter((p) => p.status === "active") // "expired" / "not_started" are excluded automatically
                     .map((p) => p.nx);
                 reregisterHooks(ids);
                 setActivePlugins(ids);

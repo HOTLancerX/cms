@@ -41,8 +41,10 @@ export default async function PluginPage() {
             author: meta.author,
             icon: meta.icon,
             color: meta.color,
+            startDate: dbRecord?.startDate ?? null,
+            endDate: dbRecord?.endDate ?? null,
             status: (dbRecord?.status ?? "new") as
-                "active" | "inactive" | "new" | "install" | "update" | "delete",
+                "active" | "inactive" | "new" | "install" | "update" | "delete" | "expired" | "not_started",
         };
     });
 
