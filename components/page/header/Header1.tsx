@@ -1,16 +1,21 @@
 import Link from "next/link";
 
+interface Header1Props {
+    settings?: Record<string, any>;
+}
+
 /**
  * Site Header — Layout 1
  * Light minimal style: white background, logo left, navigation right.
+ * Receives settings from (root)/layout.tsx (SSR, no DB calls here).
  */
-export default function Header1() {
+export default function Header1({ settings = {} }: Header1Props) {
     return (
         <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
             <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
                 {/* Logo */}
                 <Link href="/" className="text-xl font-extrabold text-gray-900 tracking-tight">
-                    MySite
+                    {settings.siteName || "MySite"}
                 </Link>
 
                 {/* Navigation */}

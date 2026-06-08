@@ -2,6 +2,7 @@ import connectDB from "@/lib/mongodb";
 import Template from "@/models/template";
 import { getActivePluginNames } from "@/hook/PluginListServer";
 import { getRootPages } from "@/hook/rootPages";
+import { Settings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,10 @@ export default async function RootLayout({
 }) {
     await connectDB();
 
-    const activeNxList = await getActivePluginNames();
+    const [activeNxList, settings] = await Promise.all([
+        getActivePluginNames(),
+        Settings(),
+    ]);
     const activeNxSet = new Set(activeNxList);
 
     const [headerLayout, footerLayout] = await Promise.all([
@@ -55,14 +59,14 @@ export default async function RootLayout({
         resolveLayout("footer", activeNxSet),
     ]);
 
-    const HeaderComponent = headerLayout?.component as React.ComponentType | null ?? null;
-    const FooterComponent = footerLayout?.component as React.ComponentType | null ?? null;
+    const HeaderComponent = headerLayout?.component as React.ComponentType<any> | null ?? null;
+    const FooterComponent = footerLayout?.component as React.ComponentType<any> | null ?? null;
 
     return (
         <>
-            {HeaderComponent && <HeaderComponent />}
+            {HeaderComponent && <HeaderComponent settings={settings} />}
             {children}
-            {FooterComponent && <FooterComponent />}
+            {FooterComponent && <FooterComponent settings={settings} />}
         </>
     );
 }

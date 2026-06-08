@@ -4,19 +4,23 @@ import { getAdminPages } from "@/hook/adminPages";
 export const dynamic = "force-dynamic";
 
 interface AdminPageProps {
-    params: Promise<{ slug: string }>;
+    params: Promise<{ slug: string[] }>;
 }
 
 export default async function AdminDynamicPage({ params }: AdminPageProps) {
     const { slug } = await params;
 
+    // Join segments back into a path string, e.g. ["product", "settings"] → "product/settings"
+    const slugPath = Array.isArray(slug) ? slug.join("/") : slug;
+
     // Retrieve all registered pages (bypasses gate, never cleared)
     const pages = getAdminPages();
 
     // Find matching page by key
-    // Supports nested slugs: "hello" matches "hello" and "hello/khan"
+    // Exact match: "product/settings" === "product/settings"
+    // Prefix match: "product/settings/edit" startsWith "product/settings/"
     const pageDef = pages.find(
-        (p) => p.key === slug || slug.startsWith(p.key + "/")
+        (p) => p.key === slugPath || slugPath.startsWith(p.key + "/")
     );
 
     if (!pageDef || !pageDef.path) {
@@ -27,10 +31,10 @@ export default async function AdminDynamicPage({ params }: AdminPageProps) {
 
     return (
         <main className="cms-page">
-            <h1 className="cms-page-title">{pageDef.label}</h1>
-            <div className="bg-[#1a1d2e] border border-[#2e3450] rounded-xl p-6 shadow-2xl">
+            <h1 className="mb-4 block font-bold">{pageDef.label}</h1>
+            <>
                 <DynamicComponent />
-            </div>
+            </>
         </main>
     );
 }

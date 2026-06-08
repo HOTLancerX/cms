@@ -10,7 +10,7 @@
  */
 
 import { addHook, addPostType, addCatType } from "@/hook";
-import { Text, Textarea, Tags, CategorySelect } from "@/components/ui";
+import { Text, Textarea, Tags, CategorySelect, Switch } from "@/components/ui";
 import BlogLayout1 from "@/components/page/blog/Layout1";
 import BlogLayout2 from "@/components/page/blog/Layout2";
 import BlogCategoryLayout1 from "@/components/page/blog-category/Layout1";
@@ -177,6 +177,15 @@ export function register(): void {
             slug: "category/prompt",
             parent: "",
             position: 131,
+        },
+        // ── Settings ──
+        {
+            key: "settings",
+            label: "Settings",
+            icon: "solar:settings-bold",
+            slug: "settings",
+            parent: "",
+            position: 200,
         },
     ], CORE_NX);
 
@@ -536,6 +545,93 @@ export function register(): void {
             position: 30,
             active: false,
             component: Footer3,
+        },
+    ], CORE_NX);
+
+    // ─── Core settings form fields ────────────────────────────────────────────
+    // Plugins can inject additional fields via addHook("setting.form", [...], nx)
+    // type: "settings" means the field appears on the main /admin/settings page.
+    // Leave type: "" for fields that appear on ALL settings pages (core + plugin).
+    addHook("setting.form", [
+        {
+            key: "siteName",
+            label: "Site Name",
+            type: "settings",
+            style: "left",
+            position: 10,
+            component: Text,
+        },
+        {
+            key: "siteDescription",
+            label: "Site Description",
+            type: "settings",
+            style: "left",
+            position: 20,
+            component: Textarea,
+        },
+        {
+            key: "logo",
+            label: "Header Logo URL",
+            type: "settings",
+            style: "left",
+            position: 30,
+            component: Text,
+        },
+        {
+            key: "favicon",
+            label: "Favicon URL",
+            type: "settings",
+            style: "left",
+            position: 40,
+            component: Text,
+        },
+        {
+            key: "phone",
+            label: "Phone",
+            type: "settings",
+            style: "right",
+            position: 10,
+            component: Text,
+        },
+        {
+            key: "email",
+            label: "Email",
+            type: "settings",
+            style: "right",
+            position: 20,
+            component: Text,
+        },
+        {
+            key: "address",
+            label: "Address",
+            type: "settings",
+            style: "right",
+            position: 30,
+            component: Text,
+        },
+        {
+            key: "seo_meta_title",
+            label: "Default SEO Title",
+            type: "settings",
+            style: "right",
+            position: 40,
+            component: Text,
+        },
+        {
+            key: "seo_meta_description",
+            label: "Default SEO Description",
+            type: "settings",
+            style: "right",
+            position: 50,
+            component: Textarea,
+        },
+        {
+            key: "seo_meta_keywords",
+            label: "Default SEO Keywords",
+            type: "settings",
+            style: "right",
+            position: 60,
+            component: Tags,
         },
     ], CORE_NX);
 }
