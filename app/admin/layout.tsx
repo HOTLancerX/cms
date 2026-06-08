@@ -8,7 +8,7 @@ import { buildNavTree, type NavNode } from "@/components/admin/nav";
 import { useActivePlugins } from "@/hook/useActivePlugins";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
-
+import CacheResetButton from "@/components/admin/CacheResetButton";
 
 // ─── Convert NavNode tree → SidebarItem shape expected by Sidebar ─────────────
 type SidebarItem = {
@@ -61,7 +61,6 @@ export default function AdminLayout({
   }, [loading, user, router]);
 
   // ── Active plugins — calls reregisterHooks internally, polls every 30 s ────
-  // This populates _navItems (via addHook("admin.nav")) before we build the tree.
   const activePlugins = useActivePlugins();
 
   // Build nav tree after reregisterHooks has run (activePlugins !== null)
@@ -143,8 +142,9 @@ export default function AdminLayout({
       {/* Sidebar */}
       <div
         id="sidebar"
-        className={`fixed top-0 left-0 h-screen w-64 z-50 transition-all duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } md:translate-x-0`}
+        className={`fixed top-0 left-0 h-screen w-64 z-50 transition-all duration-300 ease-in-out ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } md:translate-x-0`}
       >
         <Sidebar items={sidebarItems} onClose={() => setSidebarOpen(false)} />
       </div>
@@ -206,6 +206,9 @@ export default function AdminLayout({
                     <Icon icon="mdi:account-group" width={18} />
                   </Link>
                 </div>
+
+                {/* Reset Cache — only visible when NEXT_PUBLIC_CACHE=production */}
+                <CacheResetButton />
 
                 {/* Logout Button */}
                 <button

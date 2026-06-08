@@ -9,6 +9,7 @@ import { getActivePluginNames } from "@/hook/PluginListServer";
 import { getRootPages } from "@/hook/rootPages";
 import { getPostTypes } from "@/hook/PostType";
 import { getCatTypes } from "@/hook/CategoryType";
+import { withCache } from "@/lib/cache";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -17,20 +18,111 @@ interface RootPageProps {
     params: Promise<{ slug: string[] }>;
 }
 
-// ─── Template resolver ────────────────────────────────────────────────────────
-
 const CORE_NX = "com.system.core";
+
+// ─── Cached DB helpers ────────────────────────────────────────────────────────
+
+/** Active plugin list — cached 24 h */
+const getActivePluginNamesCached = () =>
+    withCache("plugins:active", getActivePluginNames)();
+
+/** Default template for a given content type — cached 24 h */
+async function getDefaultTemplate(type: string) {
+    return withCache(`template:default:${type}`, async () => {
+        await connectDB();
+        return Template.findOne({ type, isDefault: true }).lean() as Promise<any>;
+    })();
+}
+
+/** Permalink map — cached 24 h */
+async function getPermalinkMap(
+    postTypes: ReturnType<typeof getPostTypes>,
+    catTypes: ReturnType<typeof getCatTypes>
+): Promise<Record<string, string>> {
+    return withCache("permalink:map", async () => {
+        await connectDB();
+
+        // Seed any missing defaults (idempotent)
+        const toInsert = [
+            ...postTypes.map((pt) => ({
+                contentType: pt.key,
+                prefix: pt.key,
+            })),
+            ...catTypes.map((ct) => ({
+                contentType: ct.key,
+                prefix: `${ct.postType}/category`,
+            })),
+        ];
+        if (toInsert.length > 0) {
+            try {
+                await Permalink.insertMany(toInsert, { ordered: false });
+            } catch {
+                // Duplicate key errors are expected and safe to ignore
+            }
+        }
+
+        const docs = await Permalink.find({}).lean();
+        const map: Record<string, string> = {};
+        (docs as any[]).forEach((d: any) => { map[d.contentType] = d.prefix ?? ""; });
+        return map;
+    })();
+}
+
+/** Individual post with its info map — cached 24 h per slug */
+async function getPost(slug: string, type: string) {
+    return withCache(`post:${type}:${slug}`, async () => {
+        await connectDB();
+        const post = await Post.findOne({
+            slug,
+            type,
+            status: "published",
+        }).lean() as any;
+
+        if (!post) return null;
+
+        const infoRecords = await PostInfo.find({ postId: post._id }).lean() as any[];
+        const infoMap = infoRecords.reduce<Record<string, string>>((acc, r) => {
+            acc[r.name] = r.value;
+            return acc;
+        }, {});
+
+        return { ...post, info: infoMap };
+    })();
+}
+
+/** Individual category with its info map — cached 24 h per slug */
+async function getCat(slug: string, type: string) {
+    return withCache(`cat:${type}:${slug}`, async () => {
+        await connectDB();
+        const cat = await Cat.findOne({
+            slug,
+            type,
+            status: "published",
+        }).lean() as any;
+
+        if (!cat) return null;
+
+        const infoRecords = await CatInfo.find({ catId: cat._id }).lean() as any[];
+        const infoMap = infoRecords.reduce<Record<string, string>>((acc, r) => {
+            acc[r.name] = r.value;
+            return acc;
+        }, {});
+
+        return { ...cat, info: infoMap };
+    })();
+}
+
+// ─── Template resolver ────────────────────────────────────────────────────────
 
 async function resolveTemplate(type: string, activeNxSet: Set<string>) {
     const rootPages = getRootPages();
     const candidates = rootPages.filter(
-        // CORE_NX templates are always available — they bypass the plugin gate
         (p) => p.type === type && p.slug === "dynamic" &&
             (p.pluginNx === CORE_NX || activeNxSet.has(p.pluginNx!))
     );
     if (candidates.length === 0) return null;
 
-    const dbDefault = await Template.findOne({ type, isDefault: true }).lean() as any;
+    const dbDefault = await getDefaultTemplate(type);
     if (dbDefault) {
         const match = candidates.find(
             (p) => p.label === dbDefault.label && p.pluginNx === dbDefault.pluginNx
@@ -38,61 +130,15 @@ async function resolveTemplate(type: string, activeNxSet: Set<string>) {
         if (match) return match;
     }
 
-    const activeHint = candidates.find((p) => p.active === true);
-    if (activeHint) return activeHint;
-
-    return candidates[0];
+    return candidates.find((p) => p.active === true) ?? candidates[0];
 }
 
-// ─── Permalink map loader ─────────────────────────────────────────────────────
+// ─── Permalink helpers ────────────────────────────────────────────────────────
 
-async function loadPermalinkMap(
-    postTypes: ReturnType<typeof getPostTypes>,
-    catTypes: ReturnType<typeof getCatTypes>
-): Promise<Record<string, string>> {
-    // Seed any missing defaults (idempotent)
-    const toInsert = [
-        ...postTypes.map((pt) => ({
-            contentType: pt.key,
-            prefix: pt.key,
-        })),
-        ...catTypes.map((ct) => ({
-            contentType: ct.key,
-            prefix: `${ct.postType}/category`,
-        })),
-    ];
-    if (toInsert.length > 0) {
-        try {
-            await Permalink.insertMany(toInsert, { ordered: false });
-        } catch {
-            // Duplicate key errors are expected and safe to ignore
-        }
-    }
-
-    const docs = await Permalink.find({}).lean();
-    const map: Record<string, string> = {};
-    (docs as any[]).forEach((d: any) => { map[d.contentType] = d.prefix ?? ""; });
-    return map;
-}
-
-/**
- * Normalise a prefix string into an array of path segments.
- * "" → []   "hello" → ["hello"]   "news/blog" → ["news", "blog"]
- */
 function prefixSegments(prefix: string): string[] {
     return prefix.trim().replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
 }
 
-/**
- * Check whether the incoming slug array matches a configured prefix + slug.
- *
- * Returns the content slug if matched, null otherwise.
- *
- * Examples:
- *   prefix=""      slugParts=["my-post"]          → "my-post"
- *   prefix="hello" slugParts=["hello","my-post"]  → "my-post"
- *   prefix="news/blog" slugParts=["news","blog","my-post"] → "my-post"
- */
 function matchPrefix(slugParts: string[], prefix: string): string | null {
     const segs = prefixSegments(prefix);
     if (slugParts.length !== segs.length + 1) return null;
@@ -112,16 +158,15 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
     const postTypes = getPostTypes();
     const catTypes = getCatTypes();
 
-    // Load active plugins, permalink config, and registered types in parallel
     const [activeNxList, permalinkMap] = await Promise.all([
-        getActivePluginNames(),
-        loadPermalinkMap(postTypes, catTypes),
+        getActivePluginNamesCached(),
+        getPermalinkMap(postTypes, catTypes),
     ]);
 
     const activeNxSet = new Set(activeNxList);
     const rootPages = getRootPages();
 
-    // ─── Static single pages (e.g. /hello registered via root.pages) ─────────
+    // ─── Static single pages ──────────────────────────────────────────────────
     if (slug.length === 1) {
         const staticPage = rootPages.find(
             (p) =>
@@ -141,33 +186,19 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
         const contentSlug = matchPrefix(slug, prefix);
         if (contentSlug === null) continue;
 
-        const post = await Post.findOne({
-            slug: contentSlug,
-            type: postType.key,
-            status: "published",
-        }).lean() as any;
-
-        if (!post) continue;
+        const postData = await getPost(contentSlug, postType.key);
+        if (!postData) continue;
 
         const template = await resolveTemplate(postType.key, activeNxSet);
         if (!template?.component) {
-            // Fall back to generic "post" template if no type-specific one
             const fallback = await resolveTemplate("post", activeNxSet);
             if (!fallback?.component) continue;
-            const infoRecords = await PostInfo.find({ postId: post._id }).lean() as any[];
-            const infoMap = infoRecords.reduce<Record<string, string>>((acc, r) => {
-                acc[r.name] = r.value; return acc;
-            }, {});
             const C = fallback.component as any;
-            return <C data={{ ...post, info: infoMap }} />;
+            return <C data={postData} />;
         }
 
-        const infoRecords = await PostInfo.find({ postId: post._id }).lean() as any[];
-        const infoMap = infoRecords.reduce<Record<string, string>>((acc, r) => {
-            acc[r.name] = r.value; return acc;
-        }, {});
         const PostComponent = template.component as any;
-        return <PostComponent data={{ ...post, info: infoMap }} />;
+        return <PostComponent data={postData} />;
     }
 
     // ─── Category types ───────────────────────────────────────────────────────
@@ -176,32 +207,19 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
         const contentSlug = matchPrefix(slug, prefix);
         if (contentSlug === null) continue;
 
-        const cat = await Cat.findOne({
-            slug: contentSlug,
-            type: catType.key,
-            status: "published",
-        }).lean() as any;
-
-        if (!cat) continue;
+        const catData = await getCat(contentSlug, catType.key);
+        if (!catData) continue;
 
         const template = await resolveTemplate(catType.postType, activeNxSet);
         if (!template?.component) {
             const fallback = await resolveTemplate("cat", activeNxSet);
             if (!fallback?.component) continue;
-            const infoRecords = await CatInfo.find({ catId: cat._id }).lean() as any[];
-            const infoMap = infoRecords.reduce<Record<string, string>>((acc, r) => {
-                acc[r.name] = r.value; return acc;
-            }, {});
             const C = fallback.component as any;
-            return <C data={{ ...cat, info: infoMap }} />;
+            return <C data={catData} />;
         }
 
-        const infoRecords = await CatInfo.find({ catId: cat._id }).lean() as any[];
-        const infoMap = infoRecords.reduce<Record<string, string>>((acc, r) => {
-            acc[r.name] = r.value; return acc;
-        }, {});
         const CatComponent = template.component as any;
-        return <CatComponent data={{ ...cat, info: infoMap }} />;
+        return <CatComponent data={catData} />;
     }
 
     notFound();
