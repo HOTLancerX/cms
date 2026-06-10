@@ -115,8 +115,8 @@ export default function ColumnControls({ column, device, onChange }: Props) {
 
                 {/* Sections from element definition */}
                 {sections.map((section) => (
-                    <div key={section.section} className="mb-4">
-                        <h4 className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide mb-3">
+                    <div key={section.section} className="mb-2">
+                        <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2">
                             {section.section}
                         </h4>
                         {section.controls.map((ctrl) => {
@@ -124,12 +124,13 @@ export default function ColumnControls({ column, device, onChange }: Props) {
                             const isResponsive = ctrl.responsive === true;
                             return (
                                 <div key={ctrl.name} className="mb-3">
-                                    {/* Device indicator badge for responsive controls */}
+                                    {/* Device indicator badge for responsive controls
                                     {isResponsive && (
                                         <div className="flex items-center gap-1 mb-1">
                                             <Icon icon="mdi:monitor" width="12" className="text-neutral-400" />
                                         </div>
                                     )}
+                                    */}
                                     {ctrl.render(value, (v: any) => updateValue(ctrl.name, v, isResponsive))}
                                 </div>
                             );
