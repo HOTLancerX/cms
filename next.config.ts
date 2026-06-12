@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Prevent Turbopack from tracing filesystem operations in these packages
-  serverExternalPackages: ["@/data/plugin"],
+  // Tell Next.js bundler these packages are Node.js-only — never bundle them
+  // for the browser. mongoose uses `async_hooks`, `net`, `tls`, etc.
+  serverExternalPackages: ["mongoose", "mongodb"],
   images: {
     remotePatterns: [
       {

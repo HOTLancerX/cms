@@ -1,52 +1,62 @@
-import Link from "next/link";
+import Link from 'next/link';
+import MenuClients from '@/components/MenuClients';
+import MobileDrawer from './MobileDrawer';
+import type { MenuItem } from '@/models/Menu';
 
-/**
- * Site Header — Layout 3
- * Dark transparent style: dark semi-transparent bar with accent underline,
- * suited for pages with hero images/backgrounds behind.
- */
-export default function Header3() {
+interface Header3Props {
+    settings?: Record<string, any>;
+    topItems?:       MenuItem[];
+    mainItems?:      MenuItem[];
+    rightItems?:     MenuItem[];
+    mobileItems?:    MenuItem[];
+    builderContent?: Record<string, any[]>;
+}
+
+export default function Header3({
+    settings = {},
+    topItems       = [],
+    mainItems      = [],
+    rightItems     = [],
+    mobileItems    = [],
+    builderContent = {},
+}: Header3Props) {
+    const isSticky      = settings.header_sticky      !== 'false';
+    const isTransparent = settings.header_transparent === 'true';
+
+    const darkSettings = {
+        ...settings,
+        nav_text:         settings.nav_text         || '#9ca3af',
+        nav_hover_text:   settings.nav_hover_text   || '#ffffff',
+        nav_hover_bg:     settings.nav_hover_bg     || 'rgba(255,255,255,0.08)',
+        nav_box_bg:       settings.nav_box_bg       || '#1a1d2e',
+        nav_box_text:     settings.nav_box_text     || '#e5e7eb',
+        nav_border_color: settings.nav_border_color || 'rgba(255,255,255,0.1)',
+    };
+
     return (
-        <header className="bg-[#0f1117]/95 backdrop-blur-sm sticky top-0 z-50 border-b border-white/10">
-            <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-                {/* Logo */}
-                <Link href="/" className="text-xl font-extrabold text-white tracking-tight">
-                    My<span className="text-violet-400">Site</span>
+        <header className={`z-50 border-b border-white/10 backdrop-blur-sm ${isSticky ? 'sticky top-0' : 'relative'} ${isTransparent ? 'bg-transparent' : 'bg-[#0f1117]/95'}`}>
+            {topItems.length > 0 && (
+                <div className="bg-black/30 text-gray-400 text-xs px-6 py-1.5">
+                    <div className="max-w-6xl mx-auto flex items-center justify-end">
+                        <MenuClients menuItems={topItems} settings={darkSettings} builderContent={builderContent} className="flex items-center" />
+                    </div>
+                </div>
+            )}
+            <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-6">
+                <Link href="/" className="text-xl font-extrabold text-white tracking-tight shrink-0">
+                    {settings.siteName || <><span>My</span><span className="text-violet-400">Site</span></>}
                 </Link>
-
-                {/* Navigation */}
-                <nav className="hidden md:flex items-center gap-7">
-                    {[
-                        { label: "Home", href: "/" },
-                        { label: "Blog", href: "/blog" },
-                        { label: "About", href: "/about" },
-                        { label: "Contact", href: "/contact" },
-                    ].map(({ label, href }) => (
-                        <Link
-                            key={href}
-                            href={href}
-                            className="text-sm font-medium text-gray-400 hover:text-white transition relative group"
-                        >
-                            {label}
-                            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-violet-400 group-hover:w-full transition-all duration-200" />
-                        </Link>
-                    ))}
-                </nav>
-
-                {/* CTA */}
-                <Link
-                    href="/contact"
-                    className="hidden md:inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-500 hover:bg-violet-600 text-white text-sm font-semibold transition shadow-lg shadow-violet-500/25"
-                >
-                    Get Started
-                </Link>
-
-                {/* Mobile hamburger placeholder */}
-                <button className="md:hidden p-2 rounded-lg text-gray-400 hover:bg-white/10 transition" aria-label="Open menu">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                </button>
+                {mainItems.length > 0 ? (
+                    <div className="hidden md:flex flex-1">
+                        <MenuClients menuItems={mainItems} settings={darkSettings} builderContent={builderContent} className="flex items-center" />
+                    </div>
+                ) : <div className="flex-1" />}
+                {rightItems.length > 0 && (
+                    <div className="hidden md:flex items-center">
+                        <MenuClients menuItems={rightItems} settings={darkSettings} builderContent={builderContent} className="flex items-center" />
+                    </div>
+                )}
+                <MobileDrawer items={mobileItems} siteName={settings.siteName} iconColor="#9ca3af" />
             </div>
         </header>
     );

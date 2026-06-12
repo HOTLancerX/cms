@@ -10,7 +10,7 @@
  */
 
 import { addHook, addPostType, addCatType } from "@/hook";
-import { Text, Textarea, Tags, CategorySelect, Switch } from "@/components/ui";
+import { Text, Textarea, Tags, CategorySelect, Switch, Select, Number, ColorPicker } from "@/components/ui";
 import BlogLayout1 from "@/components/page/blog/Layout1";
 import BlogLayout2 from "@/components/page/blog/Layout2";
 import BlogCategoryLayout1 from "@/components/page/blog-category/Layout1";
@@ -177,6 +177,23 @@ export function register(): void {
             slug: "category/prompt",
             parent: "",
             position: 131,
+        },
+        // ── Menu ──
+        {
+            key: "menu",
+            label: "Menu",
+            icon: "solar:menu-dots-bold",
+            slug: "menu",
+            parent: "",
+            position: 115,
+        },
+        {
+            key: "menu-add",
+            label: "Add Menu",
+            icon: "solar:add-circle-bold",
+            slug: "menu/add",
+            parent: "menu",
+            position: 1,
         },
         // ── Settings ──
         {
@@ -518,6 +535,14 @@ export function register(): void {
             component: Text,
         },
         {
+            key: "homepage",
+            label: "Homepage Builder ID",
+            type: "settings",
+            style: "left",
+            position: 50,
+            component: Text,
+        },
+        {
             key: "phone",
             label: "Phone",
             type: "settings",
@@ -564,6 +589,222 @@ export function register(): void {
             style: "right",
             position: 60,
             component: Tags,
+        },
+    ], CORE_NX);
+
+    // ─── Navigation colour/style settings ────────────────────────────────────
+    // type: "nav" → appears on the Navigation tab of the Settings page
+    addHook("setting.form", [
+        // ── Text colours ──
+        {
+            key: "nav_text",
+            label: "Nav Text Colour",
+            type: "nav",
+            style: "left",
+            position: 10,
+            component: ColorPicker,
+        },
+        {
+            key: "nav_hover_text",
+            label: "Nav Hover Text Colour",
+            type: "nav",
+            style: "left",
+            position: 20,
+            component: ColorPicker,
+        },
+        {
+            key: "nav_highlight",
+            label: "Nav Highlight / Active Colour",
+            type: "nav",
+            style: "left",
+            position: 30,
+            component: ColorPicker,
+        },
+        {
+            key: "nav_active_text",
+            label: "Active Item Text Colour",
+            type: "nav",
+            style: "left",
+            position: 40,
+            component: ColorPicker,
+        },
+        // ── Background colours ──
+        {
+            key: "nav_bg",
+            label: "Nav Background",
+            type: "nav",
+            style: "right",
+            position: 10,
+            component: ColorPicker,
+        },
+        {
+            key: "nav_hover_bg",
+            label: "Nav Hover Background",
+            type: "nav",
+            style: "right",
+            position: 20,
+            component: ColorPicker,
+        },
+        {
+            key: "nav_box_bg",
+            label: "Dropdown Panel Background",
+            type: "nav",
+            style: "right",
+            position: 30,
+            component: ColorPicker,
+        },
+        {
+            key: "nav_box_text",
+            label: "Dropdown Panel Text Colour",
+            type: "nav",
+            style: "right",
+            position: 40,
+            component: ColorPicker,
+        },
+        {
+            key: "nav_border_color",
+            label: "Dropdown Border Colour",
+            type: "nav",
+            style: "right",
+            position: 50,
+            component: ColorPicker,
+        },
+        {
+            key: "nav_active_bg",
+            label: "Active Item Background",
+            type: "nav",
+            style: "right",
+            position: 60,
+            component: ColorPicker,
+        },
+        // ── Typography / spacing ──
+        {
+            key: "nav_font_size",
+            label: "Nav Font Size (px)",
+            type: "nav",
+            style: "left",
+            position: 50,
+            component: Number,
+        },
+        {
+            key: "nav_font_weight",
+            label: "Nav Font Weight",
+            type: "nav",
+            style: "left",
+            position: 60,
+            component: Select,
+            options: [
+                { value: "400", label: "400 — Regular" },
+                { value: "500", label: "500 — Medium" },
+                { value: "600", label: "600 — Semi-bold" },
+                { value: "700", label: "700 — Bold" },
+            ],
+        },
+        {
+            key: "nav_gap",
+            label: "Nav Item Gap (px)",
+            type: "nav",
+            style: "left",
+            position: 70,
+            component: Number,
+        },
+    ], CORE_NX);
+
+    // ─── Header menu slot assignments ─────────────────────────────────────────
+    // type: "header" → appears on the Header tab of the Settings page.
+    // Each setting value is a menu location string, e.g. "header-1".
+    // The header template reads these keys to know which menu to render where.
+    addHook("setting.form", [
+        {
+            key: "header_main_menu",
+            label: "Main Menu",
+            type: "header",
+            style: "left",
+            position: 10,
+            component: Select,
+            options: [
+                { value: "", label: "— None —" },
+                ...Array.from({ length: 10 }, (_, i) => ({
+                    value: `header-${i + 1}`,
+                    label: `Header ${i + 1}`,
+                })),
+            ],
+        },
+        {
+            key: "header_mobile_menu",
+            label: "Mobile Menu",
+            type: "header",
+            style: "left",
+            position: 20,
+            component: Select,
+            options: [
+                { value: "", label: "— None —" },
+                ...Array.from({ length: 10 }, (_, i) => ({
+                    value: `mobile-${i + 1}`,
+                    label: `Mobile ${i + 1}`,
+                })),
+            ],
+        },
+        {
+            key: "header_top_menu",
+            label: "Top Bar Menu",
+            type: "header",
+            style: "left",
+            position: 30,
+            component: Select,
+            options: [
+                { value: "", label: "— None —" },
+                ...Array.from({ length: 10 }, (_, i) => ({
+                    value: `header-${i + 1}`,
+                    label: `Header ${i + 1}`,
+                })),
+            ],
+        },
+        {
+            key: "header_right_menu",
+            label: "Right Side Menu",
+            type: "header",
+            style: "right",
+            position: 10,
+            component: Select,
+            options: [
+                { value: "", label: "— None —" },
+                ...Array.from({ length: 10 }, (_, i) => ({
+                    value: `header-${i + 1}`,
+                    label: `Header ${i + 1}`,
+                })),
+            ],
+        },
+        {
+            key: "header_footer_menu",
+            label: "Footer Menu",
+            type: "header",
+            style: "right",
+            position: 20,
+            component: Select,
+            options: [
+                { value: "", label: "— None —" },
+                ...Array.from({ length: 10 }, (_, i) => ({
+                    value: `footer-${i + 1}`,
+                    label: `Footer ${i + 1}`,
+                })),
+            ],
+        },
+        {
+            key: "header_sticky",
+            label: "Sticky Header",
+            type: "header",
+            style: "right",
+            position: 30,
+            component: Switch,
+        },
+        {
+            key: "header_transparent",
+            label: "Transparent Header (on hero)",
+            type: "header",
+            style: "right",
+            position: 40,
+            component: Switch,
         },
     ], CORE_NX);
 }

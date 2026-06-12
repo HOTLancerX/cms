@@ -1,48 +1,60 @@
-import Link from "next/link";
+import Link from 'next/link';
+import MenuClients from '@/components/MenuClients';
+import MobileDrawer from './MobileDrawer';
+import type { MenuItem } from '@/models/Menu';
 
-/**
- * Site Header — Layout 2
- * Dark gradient style: violet-to-purple gradient bar, centered logo, right nav.
- */
-export default function Header2() {
+interface Header2Props {
+    settings?: Record<string, any>;
+    topItems?:       MenuItem[];
+    mainItems?:      MenuItem[];
+    rightItems?:     MenuItem[];
+    mobileItems?:    MenuItem[];
+    builderContent?: Record<string, any[]>;
+}
+
+export default function Header2({
+    settings = {},
+    topItems       = [],
+    mainItems      = [],
+    rightItems     = [],
+    mobileItems    = [],
+    builderContent = {},
+}: Header2Props) {
+    const isSticky = settings.header_sticky !== 'false';
+
+    const darkSettings = {
+        ...settings,
+        nav_text:       settings.nav_text       || '#e9d5ff',
+        nav_hover_text: settings.nav_hover_text || '#ffffff',
+        nav_hover_bg:   settings.nav_hover_bg   || 'rgba(255,255,255,0.12)',
+        nav_box_bg:     settings.nav_box_bg     || '#4c1d95',
+        nav_box_text:   settings.nav_box_text   || '#f3e8ff',
+    };
+
     return (
-        <header className="bg-linear-to-r from-violet-600 to-purple-700 sticky top-0 z-50 shadow-lg">
-            <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-                {/* Logo */}
-                <Link href="/" className="text-xl font-extrabold text-white tracking-tight">
-                    MySite
+        <header className={`z-50 shadow-lg bg-gradient-to-r from-violet-600 to-purple-700 ${isSticky ? 'sticky top-0' : 'relative'}`}>
+            {topItems.length > 0 && (
+                <div className="bg-violet-900/60 text-violet-200 text-xs px-6 py-1.5">
+                    <div className="max-w-6xl mx-auto flex items-center justify-end">
+                        <MenuClients menuItems={topItems} settings={darkSettings} builderContent={builderContent} className="flex items-center" />
+                    </div>
+                </div>
+            )}
+            <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-6">
+                <Link href="/" className="text-xl font-extrabold text-white tracking-tight shrink-0">
+                    {settings.siteName || 'MySite'}
                 </Link>
-
-                {/* Navigation */}
-                <nav className="hidden md:flex items-center gap-7">
-                    <Link href="/" className="text-sm font-medium text-violet-100 hover:text-white transition">
-                        Home
-                    </Link>
-                    <Link href="/blog" className="text-sm font-medium text-violet-100 hover:text-white transition">
-                        Blog
-                    </Link>
-                    <Link href="/about" className="text-sm font-medium text-violet-100 hover:text-white transition">
-                        About
-                    </Link>
-                    <Link href="/contact" className="text-sm font-medium text-violet-100 hover:text-white transition">
-                        Contact
-                    </Link>
-                </nav>
-
-                {/* CTA */}
-                <Link
-                    href="/contact"
-                    className="hidden md:inline-flex items-center px-4 py-2 rounded-lg bg-white text-violet-700 text-sm font-semibold hover:bg-violet-50 transition shadow-md"
-                >
-                    Get Started
-                </Link>
-
-                {/* Mobile hamburger placeholder */}
-                <button className="md:hidden p-2 rounded-lg text-violet-200 hover:bg-white/10 transition" aria-label="Open menu">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                </button>
+                {mainItems.length > 0 ? (
+                    <div className="hidden md:flex flex-1">
+                        <MenuClients menuItems={mainItems} settings={darkSettings} builderContent={builderContent} className="flex items-center" />
+                    </div>
+                ) : <div className="flex-1" />}
+                {rightItems.length > 0 && (
+                    <div className="hidden md:flex items-center">
+                        <MenuClients menuItems={rightItems} settings={darkSettings} builderContent={builderContent} className="flex items-center" />
+                    </div>
+                )}
+                <MobileDrawer items={mobileItems} siteName={settings.siteName} iconColor="#ede9fe" />
             </div>
         </header>
     );

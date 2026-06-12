@@ -5,5 +5,7 @@ export { Radio } from "./Radio";
 export { Checkbox } from "./Checkbox";
 export { Switch } from "./Switch";
 export { Tags } from "./Tags";
+export { Number } from "./Number";
+export { ColorPicker } from "./ColorPicker";
 export { CategorySelect } from "./CategorySelect";
 export { CategoryHierarchicalSelect } from "./CategoryHierarchicalSelect";
