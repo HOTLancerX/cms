@@ -1,3 +1,14 @@
+/**
+ * Blog Layout 1 — Clean editorial style.
+ *
+ * Receives `data`, `settings`, `permalinkMap`, and `pageData` from the
+ * slug page. pageData.categoryName + pageData.categorySlug are injected
+ * by plugin/news/lib/serverHooks.ts so the category badge links correctly
+ * using the DB permalink prefix — no hardcoding.
+ */
+
+import Link from 'next/link';
+
 interface BlogPostProps {
     data: {
         _id: string;
@@ -8,40 +19,64 @@ interface BlogPostProps {
         updatedAt: string;
         info: Record<string, string>;
     };
+    settings?: Record<string, any>;
+    permalinkMap?: Record<string, string>;
+    /** Injected by serverDataHooks: { categoryName, categorySlug } */
+    pageData?: {
+        categoryName?: string | null;
+        categorySlug?: string | null;
+    };
 }
 
-/**
- * Blog post template — Layout 1
- * Clean editorial style: large hero title, meta bar, content body, info sidebar.
- */
-export default function BlogLayout1({ data }: BlogPostProps) {
+function buildUrl(prefix: string, slug: string): string {
+    const p = prefix.trim().replace(/^\/+|\/+$/g, '');
+    return p ? `/${p}/${slug}` : `/${slug}`;
+}
+
+export default function BlogLayout1({ data, permalinkMap = {}, pageData }: BlogPostProps) {
     const publishedAt = data.createdAt
-        ? new Date(data.createdAt).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-        })
+        ? new Date(data.createdAt).toLocaleDateString('en-US', {
+              year: 'numeric', month: 'long', day: 'numeric',
+          })
         : null;
 
-    const seoTitle = data.info?.seo_meta_title || data.info?.seo_title || "";
-    const seoDesc = data.info?.seo_meta_description || data.info?.seo_description || "";
-    const seoKeywords = data.info?.seo_meta_keyword || "";
+    const seoTitle    = data.info?.seo_meta_title    || data.info?.seo_title        || '';
+    const seoDesc     = data.info?.seo_meta_description || data.info?.seo_description || '';
+    const seoKeywords = data.info?.seo_meta_keyword  || '';
+    const description = data.info?.description       || '';
 
-    // Collect remaining info fields (exclude known SEO keys shown separately)
-    const knownKeys = new Set(["seo_meta_title", "seo_title", "seo_meta_description", "seo_description", "seo_meta_keyword"]);
-    const extraInfo = Object.entries(data.info || {}).filter(([k]) => !knownKeys.has(k));
+    const knownKeys  = new Set(['seo_meta_title', 'seo_title', 'seo_meta_description', 'seo_description', 'seo_meta_keyword', 'description', 'shortDescription', 'images', 'gallery', 'category']);
+    const extraInfo  = Object.entries(data.info || {}).filter(([k]) => !knownKeys.has(k));
+
+    const catName    = pageData?.categoryName ?? null;
+    const catSlug    = pageData?.categorySlug ?? null;
+    const catPrefix  = (permalinkMap['blog-category'] ?? 'blog/category')
+        .trim().replace(/^\/+|\/+$/g, '');
+    const catUrl     = catSlug ? buildUrl(catPrefix, catSlug) : null;
 
     return (
         <main className="min-h-screen bg-white">
             {/* ── Hero ── */}
-            <header className="bg-linear-to-br from-violet-600 to-indigo-700 px-6 py-20 text-center">
+            <header className="bg-gradient-to-br from-violet-600 to-indigo-700 px-6 py-20 text-center">
                 <div className="max-w-3xl mx-auto">
-                    <span className="inline-block text-xs font-semibold uppercase tracking-widest text-violet-200 mb-4 px-3 py-1 rounded-full bg-white/10">
-                        Blog
-                    </span>
+                    {/* Category badge */}
+                    {catName && catUrl ? (
+                        <Link
+                            href={catUrl}
+                            className="inline-block text-xs font-semibold uppercase tracking-widest text-violet-200 mb-4 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                        >
+                            {catName}
+                        </Link>
+                    ) : (
+                        <span className="inline-block text-xs font-semibold uppercase tracking-widest text-violet-200 mb-4 px-3 py-1 rounded-full bg-white/10">
+                            Blog
+                        </span>
+                    )}
+
                     <h1 className="text-4xl sm:text-5xl font-extrabold text-white leading-tight mb-6">
                         {data.title}
                     </h1>
+
                     <div className="flex items-center justify-center gap-4 text-sm text-violet-200 flex-wrap">
                         {publishedAt && (
                             <span className="flex items-center gap-1.5">
@@ -51,12 +86,7 @@ export default function BlogLayout1({ data }: BlogPostProps) {
                                 {publishedAt}
                             </span>
                         )}
-                        <span className="flex items-center gap-1.5">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                            </svg>
-                            <span className="capitalize">{data.status}</span>
-                        </span>
+                        <span className="capitalize">{data.status}</span>
                         <span className="font-mono text-violet-300 text-xs">{data.slug}</span>
                     </div>
                 </div>
@@ -66,11 +96,18 @@ export default function BlogLayout1({ data }: BlogPostProps) {
             <div className="max-w-5xl mx-auto px-6 py-14 grid grid-cols-1 lg:grid-cols-3 gap-10">
                 {/* Main content */}
                 <article className="lg:col-span-2 space-y-8">
-                    <div className="prose prose-lg max-w-none text-gray-700 bg-gray-50 rounded-2xl p-8 border border-gray-100">
-                        <p className="text-gray-400 italic text-sm">
-                            Post content renders here. Connect your rich-text body field to replace this placeholder.
-                        </p>
-                    </div>
+                    {description ? (
+                        <div
+                            className="prose prose-lg max-w-none text-gray-700"
+                            dangerouslySetInnerHTML={{ __html: description }}
+                        />
+                    ) : (
+                        <div className="prose prose-lg max-w-none text-gray-700 bg-gray-50 rounded-2xl p-8 border border-gray-100">
+                            <p className="text-gray-400 italic text-sm">
+                                Post content renders here. Connect your rich-text body field to replace this placeholder.
+                            </p>
+                        </div>
+                    )}
 
                     {/* Extra plugin fields */}
                     {extraInfo.length > 0 && (
@@ -83,7 +120,7 @@ export default function BlogLayout1({ data }: BlogPostProps) {
                                 {extraInfo.map(([key, value]) => (
                                     <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-2 px-5 py-3.5 bg-white hover:bg-gray-50 transition">
                                         <dt className="text-xs font-mono font-semibold text-violet-500 uppercase tracking-wide min-w-[180px]">
-                                            {key.replace(/_/g, " ")}
+                                            {key.replace(/_/g, ' ')}
                                         </dt>
                                         <dd className="text-sm text-gray-700 break-all">{value}</dd>
                                     </div>
@@ -95,15 +132,21 @@ export default function BlogLayout1({ data }: BlogPostProps) {
 
                 {/* Sidebar */}
                 <aside className="space-y-6">
+                    {/* Category card */}
+                    {catName && catUrl && (
+                        <div className="rounded-2xl border border-violet-100 bg-violet-50 p-5">
+                            <p className="text-xs font-bold text-violet-500 uppercase tracking-wider mb-2">Category</p>
+                            <Link href={catUrl}
+                                className="text-sm font-semibold text-violet-800 hover:text-violet-600 transition-colors">
+                                {catName}
+                            </Link>
+                        </div>
+                    )}
+
                     {/* SEO card */}
                     {(seoTitle || seoDesc || seoKeywords) && (
                         <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-6 space-y-4">
-                            <h3 className="text-sm font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-2">
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                                </svg>
-                                SEO
-                            </h3>
+                            <h3 className="text-sm font-bold text-indigo-700 uppercase tracking-wider">SEO</h3>
                             {seoTitle && (
                                 <div>
                                     <p className="text-xs text-indigo-400 font-semibold mb-1">Title</p>
@@ -120,7 +163,7 @@ export default function BlogLayout1({ data }: BlogPostProps) {
                                 <div>
                                     <p className="text-xs text-indigo-400 font-semibold mb-1">Keywords</p>
                                     <div className="flex flex-wrap gap-1.5 mt-1">
-                                        {seoKeywords.split(",").map((kw) => kw.trim()).filter(Boolean).map((kw) => (
+                                        {seoKeywords.split(',').map(kw => kw.trim()).filter(Boolean).map(kw => (
                                             <span key={kw} className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">
                                                 {kw}
                                             </span>
@@ -131,7 +174,7 @@ export default function BlogLayout1({ data }: BlogPostProps) {
                         </div>
                     )}
 
-                    {/* Post meta card */}
+                    {/* Post meta */}
                     <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-3">
                         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Post Details</h3>
                         <dl className="space-y-2 text-sm">

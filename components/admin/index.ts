@@ -15,6 +15,8 @@ import BlogLayout1 from "@/components/page/blog/Layout1";
 import BlogLayout2 from "@/components/page/blog/Layout2";
 import BlogCategoryLayout1 from "@/components/page/blog-category/Layout1";
 import BlogCategoryLayout2 from "@/components/page/blog-category/Layout2";
+import BlogBox1 from "@/components/page/blog-box/Box-1";
+import BlogBox2 from "@/components/page/blog-box/Box-2";
 import PageLayout1 from "@/components/page/page/Layout1";
 import PageLayout2 from "@/components/page/page/Layout2";
 import Header1 from "@/components/page/header/Header1";
@@ -356,8 +358,6 @@ export function register(): void {
     ], CORE_NX);
 
     // ─── Blog post page templates ────────────────────────────────────────────
-    // Registered as core so they are always available in the Template manager
-    // regardless of which plugins are activated.
     addHook("root.pages", [
         {
             key: "blog",
@@ -366,7 +366,7 @@ export function register(): void {
             slug: "dynamic",
             style: "left",
             position: 10,
-            active: true,           // first-boot default
+            active: true,
             component: BlogLayout1,
         },
         {
@@ -390,7 +390,7 @@ export function register(): void {
             slug: "dynamic",
             style: "left",
             position: 10,
-            active: true,           // first-boot default
+            active: true,
             component: BlogCategoryLayout1,
         },
         {
@@ -402,6 +402,32 @@ export function register(): void {
             position: 20,
             active: false,
             component: BlogCategoryLayout2,
+        },
+    ], CORE_NX);
+
+    // ─── Blog box templates ───────────────────────────────────────────────────
+    // type: "blog-box" — selectable in the Template manager.
+    // BlogGridClient resolves the active box via getHooks("root.pages").
+    addHook("root.pages", [
+        {
+            key: "blog-box",
+            label: "Blog Box 1",
+            type: "blog-box",
+            slug: "dynamic",
+            style: "left",
+            position: 10,
+            active: true,
+            component: BlogBox1,
+        },
+        {
+            key: "blog-box",
+            label: "Blog Box 2",
+            type: "blog-box",
+            slug: "dynamic",
+            style: "left",
+            position: 20,
+            active: false,
+            component: BlogBox2,
         },
     ], CORE_NX);
 
