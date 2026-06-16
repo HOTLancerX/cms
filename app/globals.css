@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+
+
+.container {
+  margin-left: auto;
+  margin-right: auto;
+}
 /* ─── Builder Animations ─── */
 @keyframes fadeSlideIn {
   from {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
@@ -178,8 +178,13 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
         }
     };
 
-    // ctx: ambient context passed to every field component
-    const ctx = { title, postId, type, categoryId: category, categoryPath };
+    // ctx: ambient context passed to every field component — memoised to
+    // prevent unnecessary re-renders of plugin-injected field components.
+    const ctx = useMemo(
+        () => ({ title, postId, type, categoryId: category, categoryPath }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [title, postId, type, category, categoryPath.join(",")]
+    );
 
     // ── Uniform field renderer — no special cases ───────────────────────────
     const renderFields = (fieldList: FormHooks) =>

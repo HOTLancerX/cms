@@ -1,9 +1,10 @@
-import mongoose, { Schema, type Document } from "mongoose";
+import mongoose, { Schema, type Document, type Types } from "mongoose";
 
 export interface ICat extends Document {
     title: string;
     slug: string;
     type: string;
+    parentId: Types.ObjectId | null;
     status: "draft" | "published" | "trash";
     createdAt: Date;
     updatedAt: Date;
@@ -11,9 +12,10 @@ export interface ICat extends Document {
 
 const CatSchema = new Schema<ICat>(
     {
-        title: { type: String, required: true },
-        slug: { type: String, required: true, unique: true },
-        type: { type: String, default: "" },
+        title:    { type: String, required: true },
+        slug:     { type: String, required: true, unique: true },
+        type:     { type: String, default: "" },
+        parentId: { type: Schema.Types.ObjectId, ref: "Cat", default: null, index: true },
         status: {
             type: String,
             enum: ["draft", "published", "trash"],

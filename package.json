@@ -27,7 +27,9 @@
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "react-icons": "^4.11.0",
+    "react-slick": "^0.31.0",
     "sharp": "^0.34.5",
+    "slick-carousel": "^1.8.1",
     "suneditor": "^2.47.0",
     "suneditor-react": "^3.6.1"
   },
@@ -36,6 +38,7 @@
     "@types/node": "25.9.1",
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
+    "@types/react-slick": "^0.23.13",
     "@types/webpack-env": "^1.18.8",
     "eslint": "10.4.0",
     "eslint-config-next": "16.2.6",

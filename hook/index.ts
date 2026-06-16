@@ -360,3 +360,77 @@ export function addCatType(
 export function getAllCatTypes(): CatTypeField[] {
     return [..._catTypes];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Server-side Data Hook Registry
+//
+// Allows plugins to register async data-provider functions that are called
+// by the slug page (page.tsx) before rendering a template. This is the
+// WordPress filter/action pattern — the slug page calls runDataHook() and
+// any plugin that registered a handler for that content type gets to enrich
+// the data passed to the template as `pageData`.
+//
+// Example (in plugin/product/index.ts register()):
+//
+//   addDataHook("product-category", getCategoryPageData);
+//
+// Example (in page.tsx, after fetching catData):
+//
+//   const pageData = await runDataHook("product-category", catData._id, catData.slug);
+//
+// The hook fn receives (id: string, slug: string, data: any) and returns
+// any plain-serialisable object. The result is passed as `pageData` prop.
+//
+// Rules:
+//   - Permanent store — never cleared by clearHooks()
+//   - One handler per contentType key (last registration wins on duplicates)
+//   - The fn must be async and return a plain serialisable object
+//   - No React components — server-side only
+// ─────────────────────────────────────────────────────────────────────────────
+
+type DataHookFn = (id: string, slug: string, data?: any) => Promise<any>;
+
+const _dataHooks: Map<string, DataHookFn> = new Map();
+
+/**
+ * Register a server-side data provider for a content type.
+ *
+ * @param contentType - e.g. "product-category", "product"
+ * @param fn          - async function (id, slug, data?) => pageData
+ * @param pluginNx    - plugin identifier (used for gate check)
+ */
+export function addDataHook(
+    contentType: string,
+    fn: DataHookFn,
+    pluginNx: string
+): void {
+    if (!isPluginActive(pluginNx)) return;
+    _dataHooks.set(contentType, fn);
+}
+
+/**
+ * Run the registered data hook for a content type.
+ * Returns undefined if no hook is registered for that type.
+ *
+ * @param contentType - e.g. "product-category"
+ * @param id          - MongoDB _id string of the document
+ * @param slug        - slug of the document
+ * @param data        - optional raw document (for context)
+ */
+export async function runDataHook(
+    contentType: string,
+    id: string,
+    slug: string,
+    data?: any
+): Promise<any | undefined> {
+    const fn = _dataHooks.get(contentType);
+    if (!fn) return undefined;
+    return fn(id, slug, data);
+}
+
+/**
+ * Returns true if a data hook is registered for the given content type.
+ */
+export function hasDataHook(contentType: string): boolean {
+    return _dataHooks.has(contentType);
+}

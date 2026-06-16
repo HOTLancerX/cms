@@ -10,6 +10,8 @@ import { getRootPages } from "@/hook/rootPages";
 import { getPostTypes } from "@/hook/PostType";
 import { getCatTypes } from "@/hook/CategoryType";
 import { withCache } from "@/lib/cache";
+import { Settings } from "@/lib/settings";
+import { runServerDataHook } from "@/hook/serverDataHooks";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -166,6 +168,11 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
     const activeNxSet = new Set(activeNxList);
     const rootPages = getRootPages();
 
+    // Fetch settings once here — passed as a prop to every template component.
+    // This keeps server-only Mongoose imports out of the plugin/component tree
+    // and avoids the async_hooks bundling error.
+    const settings = await Settings();
+
     // ─── Static single pages ──────────────────────────────────────────────────
     if (slug.length === 1) {
         const staticPage = rootPages.find(
@@ -176,7 +183,7 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
         );
         if (staticPage?.component) {
             const Component = staticPage.component;
-            return <Component />;
+            return <Component settings={settings} permalinkMap={permalinkMap} />;
         }
     }
 
@@ -189,16 +196,26 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
         const postData = await getPost(contentSlug, postType.key);
         if (!postData) continue;
 
+        // Run any server-side data hook registered for this post type.
+        // Plugins register via registerServerDataHook() in lib/serverHooks.ts
+        // (auto-discovered by hook/serverDataHooks.ts — no manual imports).
+        const pageData = await runServerDataHook(
+            postType.key,
+            String(postData._id),
+            postData.slug,
+            postData
+        );
+
         const template = await resolveTemplate(postType.key, activeNxSet);
         if (!template?.component) {
             const fallback = await resolveTemplate("post", activeNxSet);
             if (!fallback?.component) continue;
             const C = fallback.component as any;
-            return <C data={postData} />;
+            return <C data={postData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
         }
 
         const PostComponent = template.component as any;
-        return <PostComponent data={postData} />;
+        return <PostComponent data={postData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
     }
 
     // ─── Category types ───────────────────────────────────────────────────────
@@ -210,16 +227,29 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
         const catData = await getCat(contentSlug, catType.key);
         if (!catData) continue;
 
-        const template = await resolveTemplate(catType.postType, activeNxSet);
+        // Run any server-side data hook registered for this category type.
+        // Plugins register via registerServerDataHook() in their lib/serverHooks.ts
+        // which is imported at the top of this file. Fully generic — no plugin
+        // names or postType strings here.
+        const pageData = await runServerDataHook(
+            catType.key,
+            String(catData._id),
+            catData.slug,
+            catData
+        );
+
+        // Resolve template by catType.key (e.g. "product-category"),
+        // then fall back to the generic "cat" template if none is registered.
+        const template = await resolveTemplate(catType.key, activeNxSet);
         if (!template?.component) {
             const fallback = await resolveTemplate("cat", activeNxSet);
             if (!fallback?.component) continue;
             const C = fallback.component as any;
-            return <C data={catData} />;
+            return <C data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
         }
 
         const CatComponent = template.component as any;
-        return <CatComponent data={catData} />;
+        return <CatComponent data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
     }
 
     notFound();
