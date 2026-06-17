@@ -61,13 +61,15 @@ declare var require: {
     (id: string): any;
 };
 
+// Plugin server hooks
 const serverHookContext = require.context(
     "../plugin",
     true,
     /^\.\/[^/]+\/lib\/serverHooks\.(ts|js)$/
 );
-
 serverHookContext.keys().forEach((key: string) => {
-    // Executing the module runs its top-level registerServerDataHook() calls.
     serverHookContext(key);
 });
+
+// Core server hooks — always registered regardless of active plugins
+import "./coreServerHooks";

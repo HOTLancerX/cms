@@ -21,10 +21,9 @@ interface BlogPostProps {
     };
     settings?: Record<string, any>;
     permalinkMap?: Record<string, string>;
-    /** Injected by serverDataHooks: { categoryName, categorySlug } */
+    /** Injected by serverDataHooks: full ancestor chain root → leaf */
     pageData?: {
-        categoryName?: string | null;
-        categorySlug?: string | null;
+        categoryAncestors?: { _id: string; title: string; slug: string }[];
     };
 }
 
@@ -48,30 +47,31 @@ export default function BlogLayout1({ data, permalinkMap = {}, pageData }: BlogP
     const knownKeys  = new Set(['seo_meta_title', 'seo_title', 'seo_meta_description', 'seo_description', 'seo_meta_keyword', 'description', 'shortDescription', 'images', 'gallery', 'category']);
     const extraInfo  = Object.entries(data.info || {}).filter(([k]) => !knownKeys.has(k));
 
-    const catName    = pageData?.categoryName ?? null;
-    const catSlug    = pageData?.categorySlug ?? null;
-    const catPrefix  = (permalinkMap['blog-category'] ?? 'blog/category')
+    const categoryAncestors = pageData?.categoryAncestors ?? [];
+    const catPrefix = (permalinkMap['blog-category'] ?? 'blog/category')
         .trim().replace(/^\/+|\/+$/g, '');
-    const catUrl     = catSlug ? buildUrl(catPrefix, catSlug) : null;
 
     return (
         <main className="min-h-screen bg-white">
             {/* ── Hero ── */}
             <header className="bg-gradient-to-br from-violet-600 to-indigo-700 px-6 py-20 text-center">
                 <div className="max-w-3xl mx-auto">
-                    {/* Category badge */}
-                    {catName && catUrl ? (
-                        <Link
-                            href={catUrl}
-                            className="inline-block text-xs font-semibold uppercase tracking-widest text-violet-200 mb-4 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                        >
-                            {catName}
-                        </Link>
-                    ) : (
-                        <span className="inline-block text-xs font-semibold uppercase tracking-widest text-violet-200 mb-4 px-3 py-1 rounded-full bg-white/10">
-                            Blog
-                        </span>
-                    )}
+                    {/* Breadcrumb: Home › Parent › Child › SubChild › Post Title */}
+                    <nav className="flex items-center gap-1.5 text-sm text-violet-200 mb-4 flex-wrap"
+                        aria-label="breadcrumb">
+                        <Link href="/" className="hover:text-white transition-colors">Home</Link>
+                        {categoryAncestors.map(ancestor => (
+                            <span key={ancestor._id} className="flex items-center gap-1.5">
+                                <span className="text-violet-300/60">›</span>
+                                <Link href={buildUrl(catPrefix, ancestor.slug)}
+                                    className="hover:text-white transition-colors">
+                                    {ancestor.title}
+                                </Link>
+                            </span>
+                        ))}
+                        <span className="text-violet-300/60">›</span>
+                        <span className="text-white font-medium">{data.title}</span>
+                    </nav>
 
                     <h1 className="text-4xl sm:text-5xl font-extrabold text-white leading-tight mb-6">
                         {data.title}
@@ -133,15 +133,15 @@ export default function BlogLayout1({ data, permalinkMap = {}, pageData }: BlogP
                 {/* Sidebar */}
                 <aside className="space-y-6">
                     {/* Category card */}
-                    {catName && catUrl && (
-                        <div className="rounded-2xl border border-violet-100 bg-violet-50 p-5">
-                            <p className="text-xs font-bold text-violet-500 uppercase tracking-wider mb-2">Category</p>
-                            <Link href={catUrl}
-                                className="text-sm font-semibold text-violet-800 hover:text-violet-600 transition-colors">
-                                {catName}
+                    {categoryAncestors.map(ancestor => (
+                        <span key={ancestor._id} className="flex items-center gap-1.5">
+                            <span className="text-violet-300/60">›</span>
+                            <Link href={buildUrl(catPrefix, ancestor.slug)}
+                                className="hover:text-white transition-colors">
+                                {ancestor.title}
                             </Link>
-                        </div>
-                    )}
+                        </span>
+                    ))}
 
                     {/* SEO card */}
                     {(seoTitle || seoDesc || seoKeywords) && (
