@@ -72,4 +72,7 @@ serverHookContext.keys().forEach((key: string) => {
 });
 
 // Core server hooks — always registered regardless of active plugins
-import "./coreServerHooks";
+// Use require() (not import) so this runs AFTER _registry is initialised.
+// A static import would be hoisted above the `const _registry = new Map()`
+// assignment, causing a TDZ ReferenceError on `_registry`.
+require("./coreServerHooks");
