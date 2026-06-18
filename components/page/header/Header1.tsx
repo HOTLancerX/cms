@@ -32,21 +32,21 @@ export default function Header1({
                     </div>
                 </div>
             )}
-            <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-6">
+            <div className="container h-16 flex items-center justify-between w-full gap-6">
                 <Link href="/" className="text-xl font-extrabold text-gray-900 tracking-tight shrink-0">
                     {settings.siteName || 'MySite'}
                 </Link>
+                <MobileDrawer items={mobileItems} siteName={settings.siteName} iconColor="#374151" />
                 {mainItems.length > 0 ? (
-                    <div className="hidden md:flex flex-1">
+                    <div className="hidden md:flex justify-end flex-1">
                         <MenuClients menuItems={mainItems} settings={settings} builderContent={builderContent} className="flex items-center" />
                     </div>
                 ) : <div className="flex-1" />}
                 {rightItems.length > 0 && (
-                    <div className="hidden md:flex items-center">
+                    <div className="hidden md:flex justify-end items-center">
                         <MenuClients menuItems={rightItems} settings={settings} builderContent={builderContent} className="flex items-center" />
                     </div>
                 )}
-                <MobileDrawer items={mobileItems} siteName={settings.siteName} iconColor="#374151" />
             </div>
         </header>
     );
