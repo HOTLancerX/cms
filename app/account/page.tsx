@@ -38,6 +38,19 @@ export default function AccountPage() {
             {/* Quick links */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
                 <Link
+                    href="/account/orders"
+                    className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition group"
+                >
+                    <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition">
+                        <Icon icon="solar:bag-bold" width={20} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-800">My Orders</p>
+                        <p className="text-xs text-gray-400">Track and view your order history</p>
+                    </div>
+                    <Icon icon="solar:arrow-right-linear" width={16} className="ml-auto text-gray-300 group-hover:text-gray-500 transition" />
+                </Link>
+                <Link
                     href="/account/settings"
                     className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition group"
                 >

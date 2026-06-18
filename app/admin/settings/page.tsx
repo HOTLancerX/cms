@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import FormSettings from "@/components/admin/FormSettings";
 import { useActivePlugins } from "@/hook/useActivePlugins";
 import useSettings from "@/lib/useSettings";
+import ProductSettingsPage from "@/plugin/product/settings/ProductSettingsPage";
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
@@ -38,6 +39,13 @@ const CORE_TABS: Tab[] = [
         icon:        "solar:menu-dots-bold",
         settingType: "nav",
         description: "Nav bar colours, typography and spacing.",
+    },
+    {
+        key:         "product",
+        label:       "Product",
+        icon:        "solar:cart-large-bold",
+        settingType: "product-settings",
+        description: "Store currency, shipping rates, checkout form fields and payment gateways.",
     },
 ];
 
@@ -117,6 +125,10 @@ export default function AdminSettingsPage() {
                     activePlugins={activePlugins}
                     initialValues={settings}
                 />
+            )}
+
+            {activeTab === "product" && (
+                <ProductSettingsPage />
             )}
         </div>
     );
