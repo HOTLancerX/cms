@@ -16,12 +16,13 @@ export default async function AdminDynamicPage({ params }: AdminPageProps) {
     // Retrieve all registered pages (bypasses gate, never cleared)
     const pages = getAdminPages();
 
-    // Find matching page by key
-    // Exact match: "product/settings" === "product/settings"
-    // Prefix match: "product/settings/edit" startsWith "product/settings/"
-    const pageDef = pages.find(
-        (p) => p.key === slugPath || slugPath.startsWith(p.key + "/")
-    );
+    // Find matching page by key — prefer the most specific (longest) match.
+    // Rules:
+    //   Exact match  : key === slugPath
+    //   Prefix match : slugPath starts with key (key should end with "/")
+    const pageDef = pages
+        .filter((p) => p.key === slugPath || slugPath.startsWith(p.key))
+        .sort((a, b) => b.key.length - a.key.length)[0];
 
     if (!pageDef || !pageDef.path) {
         notFound();

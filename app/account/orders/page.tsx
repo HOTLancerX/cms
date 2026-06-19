@@ -69,7 +69,7 @@ export default function AccountOrdersPage() {
         try {
             const qs = new URLSearchParams({ page: String(p), limit: "10" });
             if (status) qs.set("status", status);
-            const res = await fetch(`/api/orders?${qs}`);
+            const res = await fetch(`/api/orders?${qs}`, { credentials: 'include' });
             if (res.ok) {
                 const json = await res.json();
                 setData(json);
