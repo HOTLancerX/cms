@@ -3,26 +3,26 @@
 /**
  * Provider.tsx
  *
- * Manages auth state by polling Express /auth/me directly.
- * The Express server sets an HttpOnly auth_token cookie on login;
- * every request to /auth/me is validated against it.
+ * Manages auth state from NextAuth session (JWT cookie — works on Vercel).
+ * Express is still the login authority; NextAuth stores the result.
  *
- * No NextAuth — session is owned entirely by Express.
+ * useUser() returns the full user object from the session.
+ * refresh() re-fetches Express /auth/me to pick up profile changes,
+ * then triggers a NextAuth session update.
  */
 
 import {
     createContext,
     useContext,
     useCallback,
-    useEffect,
     useState,
     type ReactNode,
 } from "react";
+import { SessionProvider, useSession } from "next-auth/react";
 
 const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
 const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
 
-// ─── Full DB user shape exposed to the app ────────────────────────────────────
 export interface SessionUser {
     _id: string;
     name: string;
@@ -41,42 +41,31 @@ export interface SessionUser {
 interface UserContextValue {
     user: SessionUser | null;
     loading: boolean;
-    /** Re-fetch user — call after login, logout, or profile updates */
     refresh: () => void;
 }
 
 const UserContext = createContext<UserContextValue>({
     user: null,
     loading: true,
-    refresh: () => { },
+    refresh: () => {},
 });
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
 function UserProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<SessionUser | null>(null);
-    const [loading, setLoading] = useState(true);
+    const { data: session, status, update } = useSession();
     const [tick, setTick] = useState(0);
 
-    const fetchUser = useCallback(() => {
-        setLoading(true);
-        fetch(`${EXPRESS_API}/auth/me`, {
-            credentials: "include",
-            headers: {
-                "Content-Type": "application/json",
-                "x-license-key": LICENSE_KEY,
-            },
-        })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => setUser((data?.user as SessionUser) ?? null))
-            .catch(() => setUser(null))
-            .finally(() => setLoading(false));
-    }, []);
+    const user: SessionUser | null = session?.user
+        ? (session.user as any as SessionUser)
+        : null;
 
-    useEffect(() => {
-        fetchUser();
-    }, [fetchUser, tick]);
+    const loading = status === "loading";
 
-    const refresh = () => setTick((t) => t + 1);
+    // refresh() re-fetches Express /auth/me and syncs the NextAuth session
+    const refresh = useCallback(() => {
+        // Trigger NextAuth session re-fetch
+        update();
+        setTick((t) => t + 1);
+    }, [update]);
 
     return (
         <UserContext.Provider value={{ user, loading, refresh }}>
@@ -85,12 +74,14 @@ function UserProvider({ children }: { children: ReactNode }) {
     );
 }
 
-// ─── Root provider ─────────────────────────────────────────────────────────────
 export function Providers({ children }: { children: ReactNode }) {
-    return <UserProvider>{children}</UserProvider>;
+    return (
+        <SessionProvider>
+            <UserProvider>{children}</UserProvider>
+        </SessionProvider>
+    );
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 export function useUser(): UserContextValue {
     return useContext(UserContext);
 }

@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
+import { signIn } from "next-auth/react";
 import { useUser } from "@/context/Provider";
 
 const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
@@ -73,6 +74,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
 
     // ── Login ─────────────────────────────────────────────────────────────────
     const handleLogin = async (loginVal: string, pass: string): Promise<boolean> => {
+        // 1. Validate against Express (license check + password check)
         const res = await fetch(`${EXPRESS_API}/auth/login`, {
             method: "POST",
             credentials: "include",
@@ -84,6 +86,18 @@ export default function AuthForm({ mode }: AuthFormProps) {
 
         if (!res.ok) {
             setError(data.message ?? data.error ?? "No account found or password incorrect.");
+            return false;
+        }
+
+        // 2. Create a NextAuth session (works on Vercel — no cross-domain cookie)
+        const result = await signIn("credentials", {
+            redirect:  false,
+            login:     loginVal.trim(),
+            password:  pass,
+        });
+
+        if (result?.error) {
+            setError("Authentication failed. Please try again.");
             return false;
         }
 
