@@ -5,6 +5,8 @@ import Cat from "@/models/cat";
 import CatInfo from "@/models/cat_info";
 import Template from "@/models/template";
 import Permalink from "@/models/permalink";
+import User from "@/models/Users";
+import UserInfo from "@/models/Users_info";
 import { getActivePluginNames } from "@/hook/PluginListServer";
 import { getRootPages } from "@/hook/rootPages";
 import { getPostTypes } from "@/hook/PostType";
@@ -46,6 +48,8 @@ async function getPermalinkMap(
 
         // Seed any missing defaults (idempotent)
         const toInsert = [
+            // Seller profile pages — driven by User.slug, not a Post type
+            { contentType: "seller", prefix: "seller" },
             ...postTypes.map((pt) => ({
                 contentType: pt.key,
                 prefix: pt.key,
@@ -89,6 +93,51 @@ async function getPost(slug: string, type: string) {
         }, {});
 
         return { ...post, info: infoMap };
+    })();
+}
+
+/**
+ * Seller page — looks up a User by slug (type === "seller") and returns
+ * a synthetic "post-like" data object so the template receives the same
+ * shape as a regular post. The server hook (seller/lib/serverHooks.ts)
+ * then enriches pageData with the full seller + products.
+ */
+async function getSellerBySlug(userSlug: string) {
+    return withCache(`seller:${userSlug}`, async () => {
+        await connectDB();
+        const user = await User.findOne({
+            slug:   userSlug,
+            type:   "seller",
+            status: "active",
+        }).lean() as any;
+
+        if (!user) return null;
+
+        const userInfoDocs = await UserInfo.find({ userId: user._id }).lean() as any[];
+        const infoMap: Record<string, string> = {};
+        userInfoDocs.forEach((d: any) => { infoMap[d.name] = d.value; });
+
+        // Return a fully-serialized plain object (no ObjectId / Date instances).
+        // info.userId is the key the serverHook reads to fetch seller data.
+        return {
+            _id:       String(user._id),
+            title:     String(user.name   ?? ""),
+            slug:      String(user.slug   ?? ""),
+            type:      "seller",
+            status:    "published",
+            createdAt: user.createdAt instanceof Date
+                ? user.createdAt.toISOString()
+                : String(user.createdAt ?? ""),
+            updatedAt: user.updatedAt instanceof Date
+                ? user.updatedAt.toISOString()
+                : String(user.updatedAt ?? ""),
+            info: {
+                ...Object.fromEntries(
+                    Object.entries(infoMap).map(([k, v]) => [k, String(v)])
+                ),
+                userId: String(user._id),
+            },
+        };
     })();
 }
 
@@ -189,6 +238,9 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
 
     // ─── Post types ───────────────────────────────────────────────────────────
     for (const postType of postTypes) {
+        // Seller post type is handled separately below via User lookup
+        if (postType.key === "seller") continue;
+
         const prefix = permalinkMap[postType.key] ?? "";
         const contentSlug = matchPrefix(slug, prefix);
         if (contentSlug === null) continue;
@@ -196,9 +248,6 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
         const postData = await getPost(contentSlug, postType.key);
         if (!postData) continue;
 
-        // Run any server-side data hook registered for this post type.
-        // Plugins register via registerServerDataHook() in lib/serverHooks.ts
-        // (auto-discovered by hook/serverDataHooks.ts — no manual imports).
         const pageData = await runServerDataHook(
             postType.key,
             String(postData._id),
@@ -216,6 +265,42 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
 
         const PostComponent = template.component as any;
         return <PostComponent data={postData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
+    }
+
+    // ─── Seller pages — resolved from User.slug, no Post document needed ─────
+    // URL pattern: /<seller-prefix>/<user-slug>  (default: /seller/<slug>)
+    // Permalink prefix "seller" is seeded below on first request.
+    {
+        // Seed seller permalink default if missing
+        try {
+            await Permalink.updateOne(
+                { contentType: "seller" },
+                { $setOnInsert: { contentType: "seller", prefix: "seller" } },
+                { upsert: true }
+            );
+        } catch { /* ignore */ }
+
+        const sellerPrefix = permalinkMap["seller"] ?? "seller";
+        const sellerSlug   = matchPrefix(slug, sellerPrefix);
+
+        if (sellerSlug !== null) {
+            const sellerData = await getSellerBySlug(sellerSlug);
+
+            if (sellerData) {
+                const pageData = await runServerDataHook(
+                    "seller",
+                    sellerData._id,
+                    sellerData.slug,
+                    sellerData
+                );
+
+                const template = await resolveTemplate("seller", activeNxSet);
+                if (template?.component) {
+                    const SellerComponent = template.component as any;
+                    return <SellerComponent data={sellerData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
+                }
+            }
+        }
     }
 
     // ─── Category types ───────────────────────────────────────────────────────
