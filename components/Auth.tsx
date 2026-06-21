@@ -82,22 +82,27 @@ export default function AuthForm({ mode }: AuthFormProps) {
             body: JSON.stringify({ login: loginVal.trim(), password: pass }),
         });
 
-        const data = await res.json() as { error?: string; message?: string };
+        const data = await res.json() as { error?: string; message?: string; user?: any };
 
         if (!res.ok) {
             setError(data.message ?? data.error ?? "No account found or password incorrect.");
             return false;
         }
 
-        // 2. Create a NextAuth session (works on Vercel — no cross-domain cookie)
+        if (!data.user?._id) {
+            setError("Login failed. Please try again.");
+            return false;
+        }
+
+        // 2. Pass the already-validated user to NextAuth — no second Express call.
+        //    NextAuth writes a signed JWT cookie that works on Vercel.
         const result = await signIn("credentials", {
             redirect:  false,
-            login:     loginVal.trim(),
-            password:  pass,
+            userData:  JSON.stringify(data.user),
         });
 
         if (result?.error) {
-            setError("Authentication failed. Please try again.");
+            setError("Session creation failed. Please try again.");
             return false;
         }
 

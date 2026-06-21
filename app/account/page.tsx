@@ -10,7 +10,7 @@ export default function AccountPage() {
     if (!user) return null;
 
     return (
-        <div className="max-w-2xl mx-auto py-10 space-y-6">
+        <div className="w-full space-y-6">
             {/* Avatar + greeting */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex items-center gap-6">
                 {user.image ? (

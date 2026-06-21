@@ -1,140 +1,165 @@
 "use client";
 
-/**
- * Account layout — any authenticated user type can access.
- *
- * On mount, calls Express GET /auth/me with x-license-key to:
- *  1. Verify the domain license (resolveTenant middleware)
- *  2. Confirm the user is authenticated (requireAuth middleware)
- *
- * Outcomes:
- *  • 200  — user is valid, render children
- *  • 401 license error — show the human-readable license message from Express
- *  • 401 auth error    — redirect to /login
- *  • network error     — show a generic error banner
- */
-
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { Icon } from "@iconify/react";
+import { useSession } from "next-auth/react";
+import { DEFAULT_USER_NAV, type UserNavItem } from "./usernav";
+import { getAllUserNavItems } from "@/hook";
 
-const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
-const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+export default function AccountLayout({ children }: { children: React.ReactNode }) {
+    const router   = useRouter();
+    const pathname = usePathname();
 
-// Messages that come from resolveTenant (domain/license errors)
-const LICENSE_KEYWORDS = ["license", "expired", "disabled", "not active", "not started"];
+    // ── Auth via NextAuth — no Express fetch ──────────────────────────────────
+    const { data: session, status } = useSession();
+    const user = session?.user as any ?? null;
 
-function isLicenseError(message: string): boolean {
-    const lower = message.toLowerCase();
-    return LICENSE_KEYWORDS.some((kw) => lower.includes(kw));
-}
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
-type VerifyState = "loading" | "ok" | "license_error" | "auth_error" | "network_error";
-
-export default function AccountLayout({
-    children,
-}: Readonly<{
-    children: React.ReactNode;
-}>) {
-    const router = useRouter();
-    const [state, setState] = useState<VerifyState>("loading");
-    const [licenseMessage, setLicenseMessage] = useState("");
-
+    // Redirect to login when unauthenticated
     useEffect(() => {
-        let cancelled = false;
-
-        fetch(`${EXPRESS_API}/auth/me`, {
-            credentials: "include",
-            headers: {
-                "Content-Type": "application/json",
-                "x-license-key": LICENSE_KEY,
-            },
-        })
-            .then(async (res) => {
-                if (cancelled) return;
-
-                if (res.ok) {
-                    setState("ok");
-                    return;
-                }
-
-                // Parse the error body Express always returns as { message: "..." }
-                let message = "";
-                try {
-                    const body = await res.json() as { message?: string };
-                    message = body.message ?? "";
-                } catch {
-                    // ignore parse errors
-                }
-
-                if (res.status === 401 && isLicenseError(message)) {
-                    setLicenseMessage(message);
-                    setState("license_error");
-                } else {
-                    // Not authenticated — redirect to login
-                    setState("auth_error");
-                }
-            })
-            .catch(() => {
-                if (!cancelled) setState("network_error");
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, []);
-
-    // Redirect unauthenticated users
-    useEffect(() => {
-        if (state === "auth_error") {
+        if (status === "unauthenticated") {
             router.replace("/login");
         }
-    }, [state, router]);
+    }, [status, router]);
 
-    if (state === "loading" || state === "auth_error") {
+    // ── Loading / redirecting ─────────────────────────────────────────────────
+    if (status === "loading" || status === "unauthenticated") {
         return (
-            <div className="flex items-center justify-center min-h-screen text-gray-400">
-                <Icon icon="svg-spinners:ring-resize" width={32} />
+            <div className="flex items-center justify-center min-h-screen text-gray-300">
+                <Icon icon="svg-spinners:ring-resize" width={36} />
             </div>
         );
     }
 
-    if (state === "license_error") {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
-                <div className="max-w-md w-full bg-white rounded-2xl border border-red-100 shadow-sm p-8 text-center space-y-4">
-                    <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto">
-                        <Icon icon="solar:shield-warning-bold" width={24} className="text-red-500" />
-                    </div>
-                    <h1 className="text-lg font-semibold text-gray-900">Access Unavailable</h1>
-                    <p className="text-sm text-gray-500 leading-relaxed">{licenseMessage}</p>
-                </div>
-            </div>
-        );
-    }
+    // ── Nav items — defaults merged with plugin-registered items ──────────────
+    const pluginNav: UserNavItem[] = getAllUserNavItems().map(n => ({
+        key:      n.key,
+        label:    n.label,
+        icon:     n.icon,
+        href:     `/account/${n.slug}`,
+        position: n.position,
+    }));
 
-    if (state === "network_error") {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
-                <div className="max-w-md w-full bg-white rounded-2xl border border-yellow-100 shadow-sm p-8 text-center space-y-4">
-                    <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center mx-auto">
-                        <Icon icon="solar:wifi-problem-bold" width={24} className="text-yellow-500" />
+    const seen = new Set<string>();
+    const navItems: UserNavItem[] = [...DEFAULT_USER_NAV, ...pluginNav]
+        .sort((a, b) => a.position - b.position)
+        .filter(item => {
+            if (seen.has(item.href)) return false;
+            seen.add(item.href);
+            return true;
+        });
+
+    const isActive = (href: string) =>
+        href === "/account"
+            ? pathname === "/account"
+            : pathname?.startsWith(href) ?? false;
+
+    // ── Sidebar ───────────────────────────────────────────────────────────────
+    const Sidebar = (
+        <aside className="flex flex-col gap-6">
+            {/* User card */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col items-center text-center gap-3">
+                {user?.image ? (
+                    <img src={user.image} alt={user.name}
+                        className="w-16 h-16 rounded-full object-cover ring-2 ring-main/20" />
+                ) : (
+                    <div className="w-16 h-16 rounded-full bg-main/10 flex items-center justify-center text-main font-bold text-2xl">
+                        {user?.name?.charAt(0).toUpperCase() ?? "?"}
                     </div>
-                    <h1 className="text-lg font-semibold text-gray-900">Cannot Reach Server</h1>
-                    <p className="text-sm text-gray-500">
-                        Unable to connect to the authentication server. Please try again shortly.
+                )}
+                <div>
+                    <p className="text-sm font-bold text-gray-900">{user?.name ?? "—"}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 break-all">
+                        {user?.email ?? user?.phone ?? ""}
                     </p>
+                    {user?.type && (
+                        <span className="inline-block mt-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-600 capitalize">
+                            {user.type}
+                        </span>
+                    )}
                 </div>
             </div>
-        );
-    }
 
-    // state === "ok"
+            {/* Nav */}
+            <nav className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {navItems.map((item, i) => {
+                    const active = isActive(item.href);
+                    return (
+                        <Link
+                            key={item.key}
+                            href={item.href}
+                            onClick={() => setSidebarOpen(false)}
+                            className={`flex items-center gap-3 px-5 py-3.5 text-sm font-medium transition-colors
+                                ${i > 0 ? "border-t border-gray-50" : ""}
+                                ${active
+                                    ? "bg-main/5 text-main"
+                                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                }`}
+                        >
+                            <Icon icon={item.icon} width={18}
+                                className={active ? "text-main" : "text-gray-400"} />
+                            {item.label}
+                            {active && (
+                                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-main" />
+                            )}
+                        </Link>
+                    );
+                })}
+            </nav>
+        </aside>
+    );
+
     return (
-        <main className="bg-gray-100 min-h-screen">
-            <div className="container mx-auto p-2 md:p-4">
-                {children}
+        <div className="min-h-screen bg-gray-50">
+            {/* Mobile top bar */}
+            <div className="md:hidden sticky top-0 z-30 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-3">
+                    {user?.image ? (
+                        <img src={user.image} alt={user.name}
+                            className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                        <div className="w-8 h-8 rounded-full bg-main/10 flex items-center justify-center text-main font-bold text-sm">
+                            {user?.name?.charAt(0).toUpperCase() ?? "?"}
+                        </div>
+                    )}
+                    <span className="text-sm font-semibold text-gray-800">
+                        {user?.name ?? "Account"}
+                    </span>
+                </div>
+                <button
+                    onClick={() => setSidebarOpen(v => !v)}
+                    className="p-2 rounded-xl hover:bg-gray-100 transition text-gray-500"
+                    aria-label="Toggle menu"
+                >
+                    <Icon icon={sidebarOpen ? "mdi:close" : "mdi:menu"} width={22} />
+                </button>
             </div>
-        </main>
+
+            {/* Mobile drawer */}
+            {sidebarOpen && (
+                <>
+                    <div className="fixed inset-0 bg-black/30 z-40 md:hidden"
+                        onClick={() => setSidebarOpen(false)} />
+                    <div className="fixed left-0 top-0 h-full w-72 bg-gray-50 z-50 md:hidden overflow-y-auto p-4 space-y-4 shadow-xl">
+                        {Sidebar}
+                    </div>
+                </>
+            )}
+
+            {/* Desktop layout */}
+            <div className="container mx-auto px-4 py-6 md:py-8">
+                <div className="flex gap-6 items-start">
+                    <div className="hidden md:block w-64 shrink-0 sticky top-8">
+                        {Sidebar}
+                    </div>
+                    <main className="flex-1 min-w-0">
+                        {children}
+                    </main>
+                </div>
+            </div>
+        </div>
     );
 }

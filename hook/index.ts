@@ -177,9 +177,18 @@ export function addHook(
             );
             if (!exists) _navItems.push({ ...f, pluginNx });
         });
-        // Gate check still applies for the normal hooks registry
         if (!isPluginActive(pluginNx)) return;
-        // nav items don't go into the FormHookField registry
+        return;
+    }
+
+    // ── user.nav → permanent user nav registry (no gate, never cleared) ──────
+    if (hookName === "user.nav") {
+        (fields as NavHookField[]).forEach((f) => {
+            const exists = _userNavItems.some(
+                (n) => n.pluginNx === pluginNx && n.key === f.key
+            );
+            if (!exists) _userNavItems.push({ ...f, pluginNx });
+        });
         return;
     }
 
@@ -199,14 +208,22 @@ export function addHook(
 
     // admin.pages always goes into the permanent store (no gate, never cleared)
     if (hookName === "admin.pages") {
-        // Avoid duplicates on hot-reload re-registration
         stamped.forEach((f) => {
             const exists = _adminPages.some(
                 (r) => r.pluginNx === f.pluginNx && r.key === f.key
             );
             if (!exists) _adminPages.push(f);
         });
-        // Also fall through to the normal registry for client-side consumers
+    }
+
+    // user.page always goes into the permanent store (no gate, never cleared)
+    if (hookName === "user.page") {
+        stamped.forEach((f) => {
+            const exists = _userPages.some(
+                (r) => r.pluginNx === f.pluginNx && r.key === f.key
+            );
+            if (!exists) _userPages.push(f);
+        });
     }
 
     // ── Gate check for all other hooks (and root.pages in normal registry) ────
@@ -279,9 +296,28 @@ export function registerCoreHooks(registerFn: () => void): void {
     }
 }
 
-// ─── Nav registry (permanent, never cleared) ──────────────────────────────────
-// addHook("admin.nav", ...) writes here. Separate from FormHookField registry.
+// ─── Nav registry (permanent, never cleared) ─────────────────────────────────
 const _navItems: NavHookField[] = [];
+
+// ─── User pages registry (permanent, never cleared) ──────────────────────────
+const _userPages: FormHookField[] = [];
+
+// ─── User nav registry (permanent, never cleared) ────────────────────────────
+const _userNavItems: NavHookField[] = [];
+
+/**
+ * Returns every user.page entry ever registered across all plugins.
+ */
+export function getAllUserPages(): FormHookField[] {
+    return [..._userPages].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+}
+
+/**
+ * Returns all registered user.nav items across all plugins.
+ */
+export function getAllUserNavItems(): NavHookField[] {
+    return [..._userNavItems].sort((a, b) => a.position - b.position);
+}
 
 /**
  * Returns all registered admin.nav items across all plugins.

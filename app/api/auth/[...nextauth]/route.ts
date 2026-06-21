@@ -4,26 +4,25 @@
  * NextAuth v4 — Credentials provider backed by Express.
  *
  * Flow:
- *   1. Browser POSTs credentials to Express /auth/login (with x-license-key).
- *      Express validates the license, authenticates the user, and returns
- *      { user: { _id, name, email, type, ... } }.
- *   2. NextAuth stores the user object in a signed, encrypted JWT cookie
- *      (httpOnly, SameSite=lax).  Works on Vercel — no cross-domain cookie needed.
- *   3. All Next.js API routes call getServerSession() to resolve the caller —
- *      no outbound fetch to Express required.
+ *   1. Auth.tsx calls Express /auth/login directly to validate credentials
+ *      and get the user object back.
+ *   2. Auth.tsx then calls signIn("credentials", { userData: JSON.stringify(user) })
+ *      passing the already-validated user as a JSON string.
+ *   3. authorize() here just parses and returns that user — no second Express call.
+ *   4. NextAuth writes a signed JWT cookie (httpOnly, SameSite=lax).
+ *      Works on Vercel — no cross-domain cookie needed.
+ *   5. All API routes call getServerSession() to resolve the caller.
  *
  * Express is still used for:
- *   - The actual credential validation (password check, license check)
- *   - Google OAuth redirect (unchanged)
- *   - Any Express-only endpoints (admin panel data, etc.)
+ *   - The actual credential validation (password + license check) in step 1
+ *   - Google OAuth redirect
+ *   - Admin-panel Express-only endpoints
  */
 
-import NextAuth, { type AuthOptions, type Session, type User } from "next-auth";
+import NextAuth, { type AuthOptions, type User } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
-const EXPRESS_API  = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
-const LICENSE_KEY  = process.env.NEXT_PUBLIC_LICENSE_KEY     ?? "";
-const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET          ?? process.env.JWT_SECRET ?? "";
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET ?? process.env.JWT_SECRET ?? "";
 
 export const authOptions: AuthOptions = {
     secret: NEXTAUTH_SECRET,
@@ -40,57 +39,38 @@ export const authOptions: AuthOptions = {
 
     providers: [
         CredentialsProvider({
-            name: "Express",
+            name: "Credentials",
             credentials: {
-                login:    { label: "Email / Phone / Username", type: "text" },
-                password: { label: "Password",                 type: "password" },
+                // The entire user object (already validated by Express) as JSON
+                userData: { label: "User Data", type: "text" },
             },
 
             async authorize(credentials) {
-                if (!credentials?.login || !credentials?.password) return null;
+                if (!credentials?.userData) return null;
 
                 try {
-                    const res = await fetch(`${EXPRESS_API}/auth/login`, {
-                        method:  "POST",
-                        headers: {
-                            "Content-Type":  "application/json",
-                            "x-license-key": LICENSE_KEY,
-                        },
-                        body: JSON.stringify({
-                            login:    credentials.login,
-                            password: credentials.password,
-                        }),
-                    });
-
-                    if (!res.ok) return null;
-
-                    const data = await res.json() as {
-                        user?: {
-                            _id:    string;
-                            name:   string;
-                            email?: string;
-                            phone?: string;
-                            type:   string;
-                            image?: string;
-                            slug?:  string;
-                            status: string;
-                            address?: string;
-                            state?:   string;
-                            city?:    string;
-                            zipCode?: string;
-                        };
+                    const u = JSON.parse(credentials.userData) as {
+                        _id:      string;
+                        name:     string;
+                        email?:   string;
+                        phone?:   string;
+                        type:     string;
+                        image?:   string;
+                        slug?:    string;
+                        status:   string;
+                        address?: string;
+                        state?:   string;
+                        city?:    string;
+                        zipCode?: string;
                     };
 
-                    const u = data.user;
                     if (!u?._id) return null;
 
-                    // NextAuth User shape — id is required
                     return {
                         id:       u._id,
                         name:     u.name,
                         email:    u.email ?? u.phone ?? "",
                         image:    u.image,
-                        // extra fields carried in the JWT
                         _id:      u._id,
                         type:     u.type,
                         slug:     u.slug,
@@ -109,7 +89,6 @@ export const authOptions: AuthOptions = {
     ],
 
     callbacks: {
-        // Persist all custom fields from authorize() into the JWT
         async jwt({ token, user }) {
             if (user) {
                 token._id     = (user as any)._id     ?? user.id;
@@ -125,7 +104,6 @@ export const authOptions: AuthOptions = {
             return token;
         },
 
-        // Expose custom fields to useSession() / getServerSession()
         async session({ session, token }) {
             if (session.user) {
                 (session.user as any)._id     = token._id     as string;
