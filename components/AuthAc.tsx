@@ -202,6 +202,14 @@ export default function AuthAc() {
                     {/* Menu items */}
                     <div className="py-1">
                         <Link
+                            href="/account"
+                            onClick={() => setPopupOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                        >
+                            <Icon icon="solar:settings-bold" width={16} className="text-gray-400" />
+                            My Account
+                        </Link>
+                        <Link
                             href="/account/settings"
                             onClick={() => setPopupOpen(false)}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
@@ -209,6 +217,27 @@ export default function AuthAc() {
                             <Icon icon="solar:settings-bold" width={16} className="text-gray-400" />
                             Account Settings
                         </Link>
+
+                        {user.type === "seller" && (
+                            <>
+                                <Link
+                                    href="/account/post/product"
+                                    onClick={() => setPopupOpen(false)}
+                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                                >
+                                    <Icon icon="solar:shield-bold" width={16} className="text-violet-500" />
+                                    Seller Product
+                                </Link>
+                                <Link
+                                    href="/account/seller-orders"
+                                    onClick={() => setPopupOpen(false)}
+                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                                >
+                                    <Icon icon="solar:shield-bold" width={16} className="text-violet-500" />
+                                    Seller Orders
+                                </Link>
+                            </>
+                        )}
 
                         {user.type === "admin" && (
                             <Link

@@ -6,20 +6,24 @@
  * mode="add"  → admin creates a new user (all fields, including type/status)
  * mode="edit" → existing user edits their own profile (restricted fields)
  *
+ * Seller section (store name, cover photo, description) is shown
+ * automatically when type === "seller".
+ *
  * Plugin fields are injected via addHook("User.form", [...], pluginNx)
- * and rendered in left/right columns exactly like post.form / cat.form.
+ * and rendered in their designated sections.
  */
 
 import { useState, useEffect } from "react";
+import { Icon } from "@iconify/react";
 import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
+import Gallery from "@/components/Gallery";
+
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface UserFormProps {
-    /** "add" = admin creating a new user; "edit" = updating an existing user */
     mode: "add" | "edit";
-    /** When true, role and status selectors are shown (admin-only fields) */
     showAdminFields?: boolean;
-    /** Existing user data — required when mode="edit" */
     initialData?: {
         _id: string;
         name: string;
@@ -35,61 +39,99 @@ export interface UserFormProps {
         zipCode?: string;
         info?: Record<string, string>;
     };
-    /** Active plugin nx IDs — passed from the server/parent page */
     activePlugins: string[];
-    /** Called after a successful save */
     onSuccess?: (userId: string) => void;
 }
 
-export default function UserForm({ mode, initialData, activePlugins, onSuccess, showAdminFields }: UserFormProps) {
-    // ── Plugin-injected fields ──────────────────────────────────────────────
-    const [pluginFields, setPluginFields] = useState<FormHooks>([]);
+// ── Role config ────────────────────────────────────────────────────────────────
 
+const ROLES: { value: string; label: string; icon: string; color: string }[] = [
+    { value: "user",     label: "User",     icon: "solar:user-bold",             color: "text-indigo-600 bg-indigo-50 border-indigo-200"  },
+    { value: "reporter", label: "Reporter", icon: "solar:document-bold",         color: "text-sky-600 bg-sky-50 border-sky-200"           },
+    { value: "editor",   label: "Editor",   icon: "solar:pen-bold",              color: "text-blue-600 bg-blue-50 border-blue-200"        },
+    { value: "seller",   label: "Seller",   icon: "solar:shop-bold",             color: "text-amber-600 bg-amber-50 border-amber-200"     },
+    { value: "admin",    label: "Admin",    icon: "solar:shield-bold",           color: "text-violet-600 bg-violet-50 border-violet-200"  },
+];
+
+const STATUS_OPTIONS = [
+    { value: "active",    label: "Active",    icon: "solar:check-circle-bold",   color: "text-emerald-600 bg-emerald-50"  },
+    { value: "inactive",  label: "Inactive",  icon: "solar:pause-circle-bold",   color: "text-gray-500 bg-gray-50"        },
+    { value: "suspended", label: "Suspended", icon: "solar:close-circle-bold",   color: "text-red-600 bg-red-50"          },
+];
+
+// ── Sub-components ─────────────────────────────────────────────────────────────
+
+function SectionHeader({ icon, iconBg, iconColor, title, subtitle }: {
+    icon: string; iconBg: string; iconColor: string; title: string; subtitle?: string;
+}) {
+    return (
+        <div className="flex items-center gap-3 mb-5">
+            <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>
+                <Icon icon={icon} width={17} className={iconColor} />
+            </span>
+            <div>
+                <p className="text-sm font-bold text-gray-800">{title}</p>
+                {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+            </div>
+        </div>
+    );
+}
+
+function Field({ label, required, hint, children }: {
+    label: string; required?: boolean; hint?: string; children: React.ReactNode;
+}) {
+    return (
+        <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-gray-600">
+                {label}
+                {required && <span className="text-red-400 ml-0.5">*</span>}
+            </label>
+            {children}
+            {hint && <p className="text-[11px] text-gray-400">{hint}</p>}
+        </div>
+    );
+}
+
+const inputCls = "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10";
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
+export default function UserForm({ mode, initialData, activePlugins, onSuccess, showAdminFields }: UserFormProps) {
+    const [pluginFields, setPluginFields] = useState<FormHooks>([]);
     useEffect(() => {
-        // activePlugins already re-registered by useActivePlugins in the parent page.
-        // Just read the current hook state.
         setPluginFields(getHooks("User.form"));
     }, [activePlugins]);
 
-    // Fields with type "admin" are only shown when showAdminFields=true (i.e. admin edit/add page).
-    // Fields with an empty/undefined type are universal and shown everywhere (e.g. /account/settings).
-    const visibleFields = pluginFields.filter(
-        (f) => !f.type || f.type === "" || showAdminFields
-    );
-    const leftPluginFields  = visibleFields.filter((f) => f.style === "left");
-    const rightPluginFields = visibleFields.filter((f) => f.style === "right");
+    const visibleFields    = pluginFields.filter(f => !f.type || f.type === "" || showAdminFields);
+    const leftPluginFields  = visibleFields.filter(f => f.style === "left");
+    const rightPluginFields = visibleFields.filter(f => f.style === "right");
 
-    // ── Core form state ─────────────────────────────────────────────────────
-    const [name, setName] = useState(initialData?.name ?? "");
-    const [slug, setSlug] = useState(initialData?.slug ?? "");
-    const [email, setEmail] = useState(initialData?.email ?? "");
-    const [phone, setPhone] = useState(initialData?.phone ?? "");
+    // ── Core state ─────────────────────────────────────────────────────────
+    const [name,     setName]     = useState(initialData?.name     ?? "");
+    const [slug,     setSlug]     = useState(initialData?.slug     ?? "");
+    const [email,    setEmail]    = useState(initialData?.email    ?? "");
+    const [phone,    setPhone]    = useState(initialData?.phone    ?? "");
     const [password, setPassword] = useState("");
-    const [type, setType] = useState(initialData?.type ?? "user");
-    const [image, setImage] = useState(initialData?.image ?? "");
-    const [status, setStatus] = useState(initialData?.status ?? "active");
-    const [address, setAddress] = useState(initialData?.address ?? "");
-    const [state, setState] = useState(initialData?.state ?? "");
-    const [city, setCity] = useState(initialData?.city ?? "");
-    const [zipCode, setZipCode] = useState(initialData?.zipCode ?? "");
-    const [info, setInfo] = useState<Record<string, string>>(initialData?.info ?? {});
+    const [showPw,   setShowPw]   = useState(false);
+    const [type,     setType]     = useState(initialData?.type     ?? "user");
+    const [image,    setImage]    = useState(initialData?.image    ?? "");
+    const [status,   setStatus]   = useState(initialData?.status   ?? "active");
+    const [address,  setAddress]  = useState(initialData?.address  ?? "");
+    const [state,    setState]    = useState(initialData?.state    ?? "");
+    const [city,     setCity]     = useState(initialData?.city     ?? "");
+    const [zipCode,  setZipCode]  = useState(initialData?.zipCode  ?? "");
+    const [info,     setInfo]     = useState<Record<string, string>>(initialData?.info ?? {});
+    const [saving,   setSaving]   = useState(false);
+    const [message,  setMessage]  = useState("");
 
-    const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState("");
+    const isSeller = type === "seller";
 
-    const handleInfoChange = (key: string, value: string) => {
-        setInfo((prev) => ({ ...prev, [key]: value }));
-    };
+    const handleInfoChange = (key: string, val: string) => setInfo(prev => ({ ...prev, [key]: val }));
 
     const handleNameChange = (val: string) => {
         setName(val);
         if (mode === "add") {
-            setSlug(
-                val
-                    .toLowerCase()
-                    .replace(/[^a-z0-9]+/g, "-")
-                    .replace(/(^-|-$)/g, "")
-            );
+            setSlug(val.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""));
         }
     };
 
@@ -102,44 +144,25 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
             name, slug, email, phone, type, image, status,
             address, state, city, zipCode, info,
         };
-
-        // Only include password when it has a value
         if (password) payload.password = password;
+
+        const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+        const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+        const headers = { "Content-Type": "application/json", "x-license-key": LICENSE_KEY };
 
         try {
             let res: Response;
-
-            const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
-            const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
-            const headers = {
-                "Content-Type": "application/json",
-                "x-license-key": LICENSE_KEY,
-            };
-
             if (mode === "add") {
-                res = await fetch(`${EXPRESS_API}/user`, {
-                    method: "POST",
-                    headers,
-                    credentials: "include",
-                    body: JSON.stringify(payload),
-                });
+                res = await fetch(`${EXPRESS_API}/user`, { method: "POST", headers, credentials: "include", body: JSON.stringify(payload) });
             } else {
-                res = await fetch(`${EXPRESS_API}/user`, {
-                    method: "PUT",
-                    headers,
-                    credentials: "include",
-                    body: JSON.stringify({ id: initialData!._id, ...payload }),
-                });
+                res = await fetch(`${EXPRESS_API}/user`, { method: "PUT", headers, credentials: "include", body: JSON.stringify({ id: initialData!._id, ...payload }) });
             }
-
             const data = await res.json();
-
             if (!res.ok) {
                 setMessage(`Error: ${data.error}`);
             } else {
                 setMessage("Saved successfully!");
                 if (mode === "add") {
-                    // Reset form
                     setName(""); setSlug(""); setEmail(""); setPhone("");
                     setPassword(""); setType("user"); setImage("");
                     setStatus("active"); setAddress(""); setState("");
@@ -155,236 +178,377 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
     };
 
     const renderPluginFields = (fieldList: FormHooks) =>
-        fieldList.map((field) => {
+        fieldList.map(field => {
             const Component = field.component;
             if (!Component) return null;
             return (
-                <Component
-                    key={`${field.key}-${field.position}`}
-                    name={field.key}
-                    label={field.label}
+                <Component key={`${field.key}-${field.position}`}
+                    name={field.key} label={field.label}
                     value={info[field.key] || ""}
                     onChange={(v: string) => handleInfoChange(field.key, v)}
-                    options={field.options}
-                />
+                    options={field.options} />
             );
         });
 
-    const inputCls =
-        "w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500";
-    const labelCls = "text-xs font-semibold";
-
     return (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-6">
+
+            {/* ── Save message ── */}
             {message && (
-                <div
-                    className={`mb-5 rounded-lg px-4 py-3 text-sm font-medium border ${message.startsWith("Error")
-                        ? "bg-red-400/10 text-red-400 border-red-400/25"
-                        : "bg-emerald-400/10 text-emerald-400 border-emerald-400/25"
-                        }`}
-                >
+                <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold border ${
+                    message.startsWith("Error")
+                        ? "bg-red-50 text-red-600 border-red-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                }`}>
+                    <Icon icon={message.startsWith("Error") ? "solar:close-circle-bold" : "solar:check-circle-bold"} width={18} />
                     {message}
                 </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8">
-                {/* ── Left Column ── */}
-                <div className="flex flex-col gap-5">
-                    {/* Name */}
-                    <div className="flex flex-col gap-1.5">
-                        <label htmlFor="name" className={labelCls}>Full Name</label>
-                        <input
-                            id="name"
-                            type="text"
-                            value={name}
-                            onChange={(e) => handleNameChange(e.target.value)}
-                            className={inputCls}
-                            placeholder="John Doe"
-                            required
-                        />
-                    </div>
-
-                    {/* Slug — only editable by admin (add or showAdminFields) */}
-                    {(mode === "add" || showAdminFields) && (
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="slug" className={labelCls}>Slug</label>
-                            <input
-                                id="slug"
-                                type="text"
-                                value={slug}
-                                onChange={(e) => setSlug(e.target.value)}
-                                className={inputCls}
-                                placeholder="auto-generated-slug"
-                                required
+            {/* ══════════════════════════════════════════════════════════════
+                PROFILE PICTURE  — visible to everyone
+            ══════════════════════════════════════════════════════════════ */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-50">
+                    <SectionHeader icon="solar:user-circle-bold" iconBg="bg-indigo-50" iconColor="text-indigo-600"
+                        title="Profile Picture" subtitle="Choose a photo that represents you" />
+                    <div className="flex items-start gap-5">
+                        {/* Live preview */}
+                        <div className="shrink-0">
+                            {image ? (
+                                <img src={image} alt="Avatar preview"
+                                    className="w-20 h-20 rounded-2xl object-cover border-2 border-indigo-100 shadow-sm" />
+                            ) : (
+                                <div className="w-20 h-20 rounded-2xl bg-linear-to-br from-indigo-100 to-purple-100 flex items-center justify-center border-2 border-dashed border-indigo-200">
+                                    <Icon icon="solar:user-bold" width={30} className="text-indigo-400" />
+                                </div>
+                            )}
+                        </div>
+                        {/* Gallery picker */}
+                        <div className="flex-1 min-w-0">
+                            <Gallery
+                                multiple={false}
+                                value={image}
+                                onChange={v => setImage(typeof v === "string" ? v : v[0] ?? "")}
+                                placeholder="Pick profile photo from gallery"
                             />
-                        </div>
-                    )}
-
-                    {/* Email */}
-                    <div className="flex flex-col gap-1.5">
-                        <label htmlFor="email" className={labelCls}>Email</label>
-                        <input
-                            id="email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className={inputCls}
-                            placeholder="john@example.com"
-                            required
-                        />
-                    </div>
-
-                    {/* Phone */}
-                    <div className="flex flex-col gap-1.5">
-                        <label htmlFor="phone" className={labelCls}>Phone</label>
-                        <input
-                            id="phone"
-                            type="tel"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            className={inputCls}
-                            placeholder="+1 555 000 0000"
-                        />
-                    </div>
-
-                    {/* Password */}
-                    <div className="flex flex-col gap-1.5">
-                        <label htmlFor="password" className={labelCls}>
-                            {mode === "add" ? "Password" : "New Password (leave blank to keep current)"}
-                        </label>
-                        <input
-                            id="password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className={inputCls}
-                            placeholder={mode === "add" ? "••••••••" : "Leave blank to keep current"}
-                            required={mode === "add"}
-                            autoComplete="new-password"
-                        />
-                    </div>
-
-                    {/* Profile image URL */}
-                    <div className="flex flex-col gap-1.5">
-                        <label htmlFor="image" className={labelCls}>Profile Image URL</label>
-                        <input
-                            id="image"
-                            type="url"
-                            value={image}
-                            onChange={(e) => setImage(e.target.value)}
-                            className={inputCls}
-                            placeholder="https://example.com/avatar.jpg"
-                        />
-                    </div>
-
-                    {/* Address block */}
-                    <div className="flex flex-col gap-1.5">
-                        <label htmlFor="address" className={labelCls}>Address</label>
-                        <input
-                            id="address"
-                            type="text"
-                            value={address}
-                            onChange={(e) => setAddress(e.target.value)}
-                            className={inputCls}
-                            placeholder="123 Main St"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="city" className={labelCls}>City</label>
-                            <input
-                                id="city"
-                                type="text"
-                                value={city}
-                                onChange={(e) => setCity(e.target.value)}
-                                className={inputCls}
-                                placeholder="New York"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="state" className={labelCls}>State</label>
-                            <input
-                                id="state"
-                                type="text"
-                                value={state}
-                                onChange={(e) => setState(e.target.value)}
-                                className={inputCls}
-                                placeholder="NY"
-                            />
+                            {image && (
+                                <button type="button" onClick={() => setImage("")}
+                                    className="mt-2 text-xs font-semibold text-red-500 hover:text-red-600 transition flex items-center gap-1">
+                                    <Icon icon="solar:close-circle-bold" width={13} />
+                                    Remove photo
+                                </button>
+                            )}
                         </div>
                     </div>
-
-                    <div className="flex flex-col gap-1.5">
-                        <label htmlFor="zipCode" className={labelCls}>Zip Code</label>
-                        <input
-                            id="zipCode"
-                            type="text"
-                            value={zipCode}
-                            onChange={(e) => setZipCode(e.target.value)}
-                            className={inputCls}
-                            placeholder="10001"
-                        />
-                    </div>
-
-                    {/* Plugin-injected left fields */}
-                    {renderPluginFields(leftPluginFields)}
-                </div>
-
-                {/* ── Right Column ── */}
-                <div className="flex flex-col gap-5">
-                    {/* Role — admin only */}
-                    {(mode === "add" || showAdminFields) && (
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="type" className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                                Role
-                            </label>
-                            <select
-                                id="type"
-                                value={type}
-                                onChange={(e) => setType(e.target.value)}
-                                className={`appearance-none ${inputCls}`}
-                            >
-                                <option value="user">User</option>
-                                <option value="reporter">Reporter</option>
-                                <option value="editor">Editor</option>
-                                <option value="seller">Seller</option>
-                                <option value="admin">Admin</option>
-                            </select>
-                        </div>
-                    )}
-
-                    {/* Status — admin only */}
-                    {(mode === "add" || showAdminFields) && (
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="status" className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                                Status
-                            </label>
-                            <select
-                                id="status"
-                                value={status}
-                                onChange={(e) => setStatus(e.target.value)}
-                                className={`appearance-none ${inputCls}`}
-                            >
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                                <option value="suspended">Suspended</option>
-                            </select>
-                        </div>
-                    )}
-
-                    {/* Plugin-injected right fields */}
-                    {renderPluginFields(rightPluginFields)}
-
-                    <button
-                        type="submit"
-                        disabled={saving}
-                        className="mt-2 w-full rounded-lg bg-indigo-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed"
-                    >
-                        {saving ? "Saving…" : mode === "add" ? "Create User" : "Save Changes"}
-                    </button>
                 </div>
             </div>
+
+            {/* ══════════════════════════════════════════════════════════════
+                SELLER SECTION — only when type === seller
+            ══════════════════════════════════════════════════════════════ */}
+            {isSeller && (
+                <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
+                    <div className="h-1 bg-linear-to-r from-amber-400 to-orange-400" />
+                    <div className="px-5 py-4">
+                        <SectionHeader icon="solar:shop-bold" iconBg="bg-amber-50" iconColor="text-amber-600"
+                            title="Seller / Store Profile" subtitle="Information shown on your public store page" />
+
+                        <div className="space-y-5">
+                            {/* Cover photo */}
+                            <Field label="Store Cover Photo" hint="Recommended: 1200 × 400 px — shown as a banner on your store page">
+                                <div className="space-y-2">
+                                    {info.seller_cover && (
+                                        <div className="relative w-full h-28 rounded-2xl overflow-hidden border border-amber-100">
+                                            <img src={info.seller_cover} alt="Cover preview"
+                                                className="w-full h-full object-cover" />
+                                            <button type="button"
+                                                onClick={() => handleInfoChange("seller_cover", "")}
+                                                className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition">
+                                                <Icon icon="solar:close-bold" width={13} />
+                                            </button>
+                                        </div>
+                                    )}
+                                    <Gallery
+                                        multiple={false}
+                                        value={info.seller_cover ?? ""}
+                                        onChange={v => handleInfoChange("seller_cover", typeof v === "string" ? v : v[0] ?? "")}
+                                        placeholder="Pick cover photo from gallery"
+                                    />
+                                </div>
+                            </Field>
+
+                            {/* Store name */}
+                            <Field label="Store Name" hint="Publicly visible store display name">
+                                <input type="text"
+                                    value={info.seller_store_name ?? ""}
+                                    onChange={e => handleInfoChange("seller_store_name", e.target.value)}
+                                    className={inputCls}
+                                    placeholder="e.g. John's Electronics" />
+                            </Field>
+
+                            {/* Store description */}
+                            <Field label="Store Description">
+                                <textarea rows={3}
+                                    value={info.seller_description ?? ""}
+                                    onChange={e => handleInfoChange("seller_description", e.target.value)}
+                                    className={`${inputCls} resize-none`}
+                                    placeholder="Tell customers what you sell…" />
+                            </Field>
+
+                            {/* Store contact */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <Field label="WhatsApp / Business Phone">
+                                    <input type="tel"
+                                        value={info.seller_whatsapp ?? ""}
+                                        onChange={e => handleInfoChange("seller_whatsapp", e.target.value)}
+                                        className={inputCls}
+                                        placeholder="+1 555 000 0000" />
+                                </Field>
+                                <Field label="Business Email">
+                                    <input type="email"
+                                        value={info.seller_business_email ?? ""}
+                                        onChange={e => handleInfoChange("seller_business_email", e.target.value)}
+                                        className={inputCls}
+                                        placeholder="store@example.com" />
+                                </Field>
+                            </div>
+
+                            {/* Plugin-injected right fields (admin-only like seller_approved) */}
+                            {renderPluginFields(rightPluginFields)}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════
+                PERSONAL INFO — two-column grid on desktop
+            ══════════════════════════════════════════════════════════════ */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="h-1 bg-linear-to-r from-indigo-500 to-purple-500" />
+                <div className="px-5 py-4">
+                    <SectionHeader icon="solar:user-id-bold" iconBg="bg-indigo-50" iconColor="text-indigo-600"
+                        title="Personal Information" subtitle="Your name, contact details and login credentials" />
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        {/* Full name */}
+                        <Field label="Full Name" required>
+                            <input id="name" type="text" value={name}
+                                onChange={e => handleNameChange(e.target.value)}
+                                className={inputCls} placeholder="John Doe" required />
+                        </Field>
+
+                        {/* Slug — admin only */}
+                        {(mode === "add" || showAdminFields) && (
+                            <Field label="Slug / Username" hint="Used in the public profile URL">
+                                <div className="relative">
+                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium select-none">@</span>
+                                    <input id="slug" type="text" value={slug}
+                                        onChange={e => setSlug(e.target.value)}
+                                        className={`${inputCls} pl-8`}
+                                        placeholder="john-doe" required />
+                                </div>
+                            </Field>
+                        )}
+
+                        {/* Email */}
+                        <Field label="Email Address" required={mode === "add"}>
+                            <div className="relative">
+                                <Icon icon="solar:letter-bold" width={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input id="email" type="email" value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    className={`${inputCls} pl-9`}
+                                    placeholder="john@example.com" required={mode === "add"} />
+                            </div>
+                        </Field>
+
+                        {/* Phone */}
+                        <Field label="Phone Number">
+                            <div className="relative">
+                                <Icon icon="solar:phone-bold" width={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input id="phone" type="tel" value={phone}
+                                    onChange={e => setPhone(e.target.value)}
+                                    className={`${inputCls} pl-9`}
+                                    placeholder="+1 555 000 0000" />
+                            </div>
+                        </Field>
+
+                        {/* Password */}
+                        <Field label={mode === "add" ? "Password" : "New Password"}
+                            hint={mode === "edit" ? "Leave blank to keep your current password" : undefined}
+                            required={mode === "add"}>
+                            <div className="relative">
+                                <Icon icon="solar:lock-keyhole-bold" width={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input id="password"
+                                    type={showPw ? "text" : "password"}
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                    className={`${inputCls} pl-9 pr-11`}
+                                    placeholder="••••••••"
+                                    required={mode === "add"}
+                                    autoComplete="new-password" />
+                                <button type="button" tabIndex={-1}
+                                    onClick={() => setShowPw(v => !v)}
+                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
+                                    <Icon icon={showPw ? "solar:eye-closed-bold" : "solar:eye-bold"} width={16} />
+                                </button>
+                            </div>
+                        </Field>
+
+                        {/* Plugin left fields */}
+                        {leftPluginFields.map(field => {
+                            const Component = field.component;
+                            if (!Component) return null;
+                            return (
+                                <Component key={`${field.key}-${field.position}`}
+                                    name={field.key} label={field.label}
+                                    value={info[field.key] || ""}
+                                    onChange={(v: string) => handleInfoChange(field.key, v)}
+                                    options={field.options} />
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════════════
+                SHIPPING ADDRESS
+            ══════════════════════════════════════════════════════════════ */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="h-1 bg-linear-to-r from-emerald-500 to-teal-500" />
+                <div className="px-5 py-4">
+                    <SectionHeader icon="solar:map-point-bold" iconBg="bg-emerald-50" iconColor="text-emerald-600"
+                        title="Shipping Address" subtitle="Default delivery address for orders" />
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        <div className="lg:col-span-2">
+                            <Field label="Street Address">
+                                <div className="relative">
+                                    <Icon icon="solar:home-bold" width={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input type="text" value={address}
+                                        onChange={e => setAddress(e.target.value)}
+                                        className={`${inputCls} pl-9`}
+                                        placeholder="123 Main Street" />
+                                </div>
+                            </Field>
+                        </div>
+
+                        <Field label="City">
+                            <input type="text" value={city}
+                                onChange={e => setCity(e.target.value)}
+                                className={inputCls} placeholder="New York" />
+                        </Field>
+
+                        <Field label="State / Province">
+                            <input type="text" value={state}
+                                onChange={e => setState(e.target.value)}
+                                className={inputCls} placeholder="NY" />
+                        </Field>
+
+                        <Field label="Zip / Postal Code">
+                            <input type="text" value={zipCode}
+                                onChange={e => setZipCode(e.target.value)}
+                                className={inputCls} placeholder="10001" />
+                        </Field>
+                    </div>
+                </div>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════════════
+                ADMIN CONTROLS — role + status (admin only)
+            ══════════════════════════════════════════════════════════════ */}
+            {(mode === "add" || showAdminFields) && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="h-1 bg-linear-to-r from-violet-500 to-purple-600" />
+                    <div className="px-5 py-4">
+                        <SectionHeader icon="solar:shield-bold" iconBg="bg-violet-50" iconColor="text-violet-600"
+                            title="Account Controls" subtitle="Role and account status — admin only" />
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Role picker */}
+                            <Field label="User Role">
+                                <div className="grid grid-cols-1 gap-2">
+                                    {ROLES.map(r => (
+                                        <label key={r.value}
+                                            className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
+                                                type === r.value
+                                                    ? r.color + " border-current shadow-sm"
+                                                    : "border-gray-100 hover:border-gray-200 bg-gray-50/50"
+                                            }`}>
+                                            <input type="radio" name="type" value={r.value}
+                                                checked={type === r.value}
+                                                onChange={() => setType(r.value)}
+                                                className="sr-only" />
+                                            <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${type === r.value ? "bg-current/15" : "bg-gray-100"}`}>
+                                                <Icon icon={r.icon} width={15} className={type === r.value ? "" : "text-gray-400"} />
+                                            </span>
+                                            <span className="text-sm font-semibold">{r.label}</span>
+                                            {type === r.value && (
+                                                <Icon icon="solar:check-circle-bold" width={16} className="ml-auto shrink-0" />
+                                            )}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+
+                            {/* Status picker */}
+                            <Field label="Account Status">
+                                <div className="grid grid-cols-1 gap-2">
+                                    {STATUS_OPTIONS.map(s => (
+                                        <label key={s.value}
+                                            className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
+                                                status === s.value
+                                                    ? s.color + " border-current shadow-sm"
+                                                    : "border-gray-100 hover:border-gray-200 bg-gray-50/50"
+                                            }`}>
+                                            <input type="radio" name="status" value={s.value}
+                                                checked={status === s.value}
+                                                onChange={() => setStatus(s.value)}
+                                                className="sr-only" />
+                                            <Icon icon={s.icon} width={18} className="shrink-0" />
+                                            <span className="text-sm font-semibold">{s.label}</span>
+                                            {status === s.value && (
+                                                <Icon icon="solar:check-circle-bold" width={16} className="ml-auto shrink-0" />
+                                            )}
+                                        </label>
+                                    ))}
+                                </div>
+                            </Field>
+                        </div>
+
+                        {/* Plugin right fields — but only if NOT seller (seller gets them in seller section) */}
+                        {!isSeller && renderPluginFields(rightPluginFields)}
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════
+                SAVE BUTTON
+            ══════════════════════════════════════════════════════════════ */}
+            <div className="flex items-center justify-between gap-4 pt-2">
+                {message && !message.startsWith("Error") && (
+                    <div className="flex items-center gap-2 text-sm font-semibold text-emerald-600">
+                        <Icon icon="solar:check-circle-bold" width={16} />
+                        {message}
+                    </div>
+                )}
+                {message && message.startsWith("Error") && (
+                    <div className="flex items-center gap-2 text-sm font-semibold text-red-600">
+                        <Icon icon="solar:close-circle-bold" width={16} />
+                        {message}
+                    </div>
+                )}
+                {!message && <span />}
+
+                <button type="submit" disabled={saving}
+                    className="flex items-center gap-2 px-8 py-3 bg-linear-to-r from-indigo-600 to-purple-600 text-white text-sm font-bold rounded-2xl shadow-md shadow-indigo-200 hover:shadow-lg hover:-translate-y-px transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0">
+                    {saving
+                        ? <><Icon icon="svg-spinners:ring-resize" width={16} /> Saving…</>
+                        : <><Icon icon="solar:check-circle-bold" width={16} /> {mode === "add" ? "Create User" : "Save Changes"}</>
+                    }
+                </button>
+            </div>
+
         </form>
     );
 }
