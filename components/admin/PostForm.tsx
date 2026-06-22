@@ -13,11 +13,18 @@ export interface PostFormProps {
     activePlugins: string[];
     /** When provided, the form loads this post for editing (edit mode) */
     postId?: string;
+    /**
+     * Optional seller/author user ID.
+     * When set, it is stamped into info.userId on every save so the post
+     * can be filtered by owner later (seller product list, etc.).
+     * In edit mode the value is preserved from the existing post data.
+     */
+    userId?: string;
     /** Called after a successful save with the saved post's _id */
     onSuccess?: (postId: string) => void;
 }
 
-export default function PostForm({ type, activePlugins, postId, onSuccess }: PostFormProps) {
+export default function PostForm({ type, activePlugins, postId, userId, onSuccess }: PostFormProps) {
     const router = useRouter();
     const isEdit = Boolean(postId);
 
@@ -138,8 +145,14 @@ export default function PostForm({ type, activePlugins, postId, onSuccess }: Pos
         setSaving(true);
         setMessage("");
         try {
+            // Merge the optional userId into info so it's persisted as PostInfo
+            // and can be used to filter posts by seller/author later.
+            const mergedInfo = userId
+                ? { ...info, userId }
+                : info;
+
             const payload = {
-                title, slug, status, type, info,
+                title, slug, status, type, info: mergedInfo,
                 ...(category ? { category } : {}),
                 ...(isEdit ? { _id: postId } : {}),
             };

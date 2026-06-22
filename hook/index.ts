@@ -56,6 +56,11 @@ export interface NavHookField {
     slug: string;      // URL path segment, e.g. "plugin" or "plugin/list"
     parent: string;    // key of parent item, "" for top-level
     position: number;
+    /**
+     * When true, this nav item is only shown to users with type === "seller".
+     * The account layout reads this flag to conditionally render the item.
+     */
+    sellerOnly?: boolean;
     pluginNx?: string; // stamped automatically by addHook
 }
 

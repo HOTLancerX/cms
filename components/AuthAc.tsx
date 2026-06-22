@@ -17,6 +17,7 @@ import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { useUser } from "@/context/Provider";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 
 const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
 const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
@@ -226,6 +227,7 @@ export default function AuthAc() {
                         <button
                             onClick={async () => {
                                 setPopupOpen(false);
+                                // Clear the Express cookie (best-effort)
                                 await fetch(`${EXPRESS_API}/auth/logout`, {
                                     method: "POST",
                                     credentials: "include",
@@ -233,8 +235,9 @@ export default function AuthAc() {
                                         "Content-Type": "application/json",
                                         "x-license-key": LICENSE_KEY,
                                     },
-                                }).catch(() => { });
-                                refresh();
+                                }).catch(() => {});
+                                // Sign out of NextAuth — this clears the JWT session cookie
+                                await signOut({ redirect: false });
                                 router.replace("/");
                             }}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition"

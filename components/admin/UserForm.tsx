@@ -51,8 +51,13 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
         setPluginFields(getHooks("User.form"));
     }, [activePlugins]);
 
-    const leftPluginFields = pluginFields.filter((f) => f.style === "left");
-    const rightPluginFields = pluginFields.filter((f) => f.style === "right");
+    // Fields with type "admin" are only shown when showAdminFields=true (i.e. admin edit/add page).
+    // Fields with an empty/undefined type are universal and shown everywhere (e.g. /account/settings).
+    const visibleFields = pluginFields.filter(
+        (f) => !f.type || f.type === "" || showAdminFields
+    );
+    const leftPluginFields  = visibleFields.filter((f) => f.style === "left");
+    const rightPluginFields = visibleFields.filter((f) => f.style === "right");
 
     // ── Core form state ─────────────────────────────────────────────────────
     const [name, setName] = useState(initialData?.name ?? "");

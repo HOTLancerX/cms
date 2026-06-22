@@ -2,6 +2,7 @@ import Link from 'next/link';
 import MenuClients from '@/components/MenuClients';
 import MobileDrawer from './MobileDrawer';
 import type { MenuItem } from '@/models/Menu';
+import AuthAc from '@/components/AuthAc';
 
 interface Header1Props {
     settings?: Record<string, any>;
@@ -47,6 +48,7 @@ export default function Header1({
                         <MenuClients menuItems={rightItems} settings={settings} builderContent={builderContent} className="flex items-center" />
                     </div>
                 )}
+                <AuthAc />
             </div>
         </header>
     );

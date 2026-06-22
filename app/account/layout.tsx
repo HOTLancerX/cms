@@ -5,8 +5,11 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { DEFAULT_USER_NAV, type UserNavItem } from "./usernav";
 import { getAllUserNavItems } from "@/hook";
+import { reregisterHooks } from "@/hook/PluginList";
+import { xFetch } from "@/lib/express";
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
     const router   = useRouter();
@@ -16,7 +19,9 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
     const { data: session, status } = useSession();
     const user = session?.user as any ?? null;
 
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarOpen,   setSidebarOpen]   = useState(false);
+    // Track whether plugins have been registered so nav items are populated
+    const [pluginsReady,  setPluginsReady]  = useState(false);
 
     // Redirect to login when unauthenticated
     useEffect(() => {
@@ -24,6 +29,23 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
             router.replace("/login");
         }
     }, [status, router]);
+
+    // ── Register plugins so user.nav hooks are populated ─────────────────────
+    // The layout doesn't use useActivePlugins (which is heavier — fetches /api/plugin
+    // and re-registers all hooks). We only need user.nav items, so we do a lightweight
+    // fetch here that mirrors what useActivePlugins does, then mark ready.
+    useEffect(() => {
+        xFetch("/plugin/installed", { cache: "no-store" })
+            .then((r) => r.json())
+            .then((data: { plugins: { nx: string; status: string }[] }) => {
+                const ids = (data.plugins ?? [])
+                    .filter((p) => p.status === "active")
+                    .map((p) => p.nx);
+                reregisterHooks(ids);
+            })
+            .catch(() => { reregisterHooks([]); })
+            .finally(() => setPluginsReady(true));
+    }, []);
 
     // ── Loading / redirecting ─────────────────────────────────────────────────
     if (status === "loading" || status === "unauthenticated") {
@@ -35,13 +57,23 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
     }
 
     // ── Nav items — defaults merged with plugin-registered items ──────────────
-    const pluginNav: UserNavItem[] = getAllUserNavItems().map(n => ({
-        key:      n.key,
-        label:    n.label,
-        icon:     n.icon,
-        href:     `/account/${n.slug}`,
-        position: n.position,
-    }));
+    // pluginsReady gates the read so we wait until reregisterHooks() has run
+    // and populated _userNavItems before building the nav list.
+    const isSeller = user?.type === "seller";
+
+    const pluginNav: UserNavItem[] = (pluginsReady ? getAllUserNavItems() : [])
+        .filter(n => {
+            // sellerOnly: true → only visible when user.type === "seller"
+            if (n.sellerOnly && !isSeller) return false;
+            return true;
+        })
+        .map(n => ({
+            key:      n.key,
+            label:    n.label,
+            icon:     n.icon,
+            href:     `/account/${n.slug}`,
+            position: n.position,
+        }));
 
     const seen = new Set<string>();
     const navItems: UserNavItem[] = [...DEFAULT_USER_NAV, ...pluginNav]
@@ -56,6 +88,26 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
         href === "/account"
             ? pathname === "/account"
             : pathname?.startsWith(href) ?? false;
+
+    const handleLogOut = async () => {
+        // Clear the Express cookie (best-effort)
+        try {
+            await fetch(
+                `${process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000"}/auth/logout`,
+                {
+                    method: "POST",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-license-key": process.env.NEXT_PUBLIC_LICENSE_KEY ?? "",
+                    },
+                }
+            );
+        } catch { /* ignore */ }
+        // Sign out of NextAuth — clears the JWT session cookie
+        await signOut({ redirect: false });
+        router.replace("/");
+    };
 
     // ── Sidebar ───────────────────────────────────────────────────────────────
     const Sidebar = (
@@ -109,6 +161,15 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                     );
                 })}
             </nav>
+
+            {/* Logout Button */}
+            <button
+                onClick={handleLogOut}
+                className="flex items-center gap-3 w-full px-5 py-3.5 text-sm font-medium text-red-500 bg-white rounded-2xl border border-gray-100 shadow-sm hover:bg-red-50 transition-colors"
+            >
+                <Icon icon="solar:logout-bold" width={18} className="text-red-400" />
+                Sign Out
+            </button>
         </aside>
     );
 

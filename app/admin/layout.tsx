@@ -9,6 +9,7 @@ import { useActivePlugins } from "@/hook/useActivePlugins";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
 import CacheResetButton from "@/components/admin/CacheResetButton";
+import { signOut } from "next-auth/react";
 
 // ─── Convert NavNode tree → SidebarItem shape expected by Sidebar ─────────────
 type SidebarItem = {
@@ -98,6 +99,7 @@ export default function AdminLayout({
   }, [isMobile, sidebarOpen]);
 
   const handleLogOut = async () => {
+    // Clear the Express cookie (best-effort)
     try {
       await fetch(
         `${process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000"}/auth/logout`,
@@ -111,8 +113,10 @@ export default function AdminLayout({
         }
       );
     } catch {
-      // ignore network errors — still redirect
+      // ignore network errors
     }
+    // Sign out of NextAuth — this clears the JWT session cookie
+    await signOut({ redirect: false });
     router.replace("/");
   };
 
