@@ -92,7 +92,18 @@ async function getPost(slug: string, type: string) {
             return acc;
         }, {});
 
-        return { ...post, info: infoMap };
+        // Serialize to plain object — no ObjectId / Date / Buffer instances
+        return {
+            _id:       String(post._id),
+            title:     String(post.title  ?? ""),
+            slug:      String(post.slug   ?? ""),
+            type:      String(post.type   ?? ""),
+            status:    String(post.status ?? ""),
+            category:  post.category ? String(post.category) : null,
+            createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : String(post.createdAt ?? ""),
+            updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : String(post.updatedAt ?? ""),
+            info:      infoMap,
+        };
     })();
 }
 
@@ -159,7 +170,18 @@ async function getCat(slug: string, type: string) {
             return acc;
         }, {});
 
-        return { ...cat, info: infoMap };
+        // Serialize to plain object — no ObjectId / Date / Buffer instances
+        return {
+            _id:       String(cat._id),
+            title:     String(cat.title    ?? ""),
+            slug:      String(cat.slug     ?? ""),
+            type:      String(cat.type     ?? ""),
+            status:    String(cat.status   ?? ""),
+            parentId:  cat.parentId ? String(cat.parentId) : null,
+            createdAt: cat.createdAt instanceof Date ? cat.createdAt.toISOString() : String(cat.createdAt ?? ""),
+            updatedAt: cat.updatedAt instanceof Date ? cat.updatedAt.toISOString() : String(cat.updatedAt ?? ""),
+            info:      infoMap,
+        };
     })();
 }
 
@@ -236,11 +258,25 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
         }
     }
 
+    // ─── Prefix pages (slug: "prefix") ───────────────────────────────────────
+    // Matches root.pages entries where the first URL segment equals the key.
+    // Extra segments are available to the component via usePathname/useParams.
+    // e.g. key="order-confirmation" matches /order-confirmation/ORD-123
+    {
+        const prefixPage = rootPages.find(
+            (p) =>
+                p.slug === "prefix" &&
+                p.key === slug[0] &&
+                activeNxSet.has(p.pluginNx!)
+        );
+        if (prefixPage?.component) {
+            const Component = prefixPage.component as any;
+            return <Component settings={settings} permalinkMap={permalinkMap} />;
+        }
+    }
+
     // ─── Post types ───────────────────────────────────────────────────────────
     for (const postType of postTypes) {
-        // Seller post type is handled separately below via User lookup
-        if (postType.key === "seller") continue;
-
         const prefix = permalinkMap[postType.key] ?? "";
         const contentSlug = matchPrefix(slug, prefix);
         if (contentSlug === null) continue;
@@ -269,17 +305,8 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
 
     // ─── Seller pages — resolved from User.slug, no Post document needed ─────
     // URL pattern: /<seller-prefix>/<user-slug>  (default: /seller/<slug>)
-    // Permalink prefix "seller" is seeded below on first request.
+    // Prefix "seller" is seeded into the permalink map via getPermalinkMap above.
     {
-        // Seed seller permalink default if missing
-        try {
-            await Permalink.updateOne(
-                { contentType: "seller" },
-                { $setOnInsert: { contentType: "seller", prefix: "seller" } },
-                { upsert: true }
-            );
-        } catch { /* ignore */ }
-
         const sellerPrefix = permalinkMap["seller"] ?? "seller";
         const sellerSlug   = matchPrefix(slug, sellerPrefix);
 
