@@ -121,7 +121,7 @@ async function getUserBySlug(userSlug: string, userType: string) {
             slug:   userSlug,
             type:   userType,
             status: "active",
-        }).lean() as any;
+        } as any).lean() as any;
 
         if (!user) return null;
 
