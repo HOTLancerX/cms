@@ -255,7 +255,7 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
                             title="Seller / Store Profile" subtitle="Information shown on your public store page" />
 
                         <div className="space-y-5">
-                            {/* Cover photo */}
+                            {/* Store cover photo */}
                             <Field label="Store Cover Photo" hint="Recommended: 1200 × 400 px — shown as a banner on your store page">
                                 <div className="space-y-2">
                                     {info.seller_cover && (
@@ -274,6 +274,29 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
                                         value={info.seller_cover ?? ""}
                                         onChange={v => handleInfoChange("seller_cover", typeof v === "string" ? v : v[0] ?? "")}
                                         placeholder="Pick cover photo from gallery"
+                                    />
+                                </div>
+                            </Field>
+
+                            {/* Store profile image (separate from user.image) */}
+                            <Field label="Store Profile Image" hint="Shown as the store avatar on your public profile page">
+                                <div className="space-y-2">
+                                    {info.seller_image && (
+                                        <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-amber-100">
+                                            <img src={info.seller_image} alt="Store image preview"
+                                                className="w-full h-full object-cover" />
+                                            <button type="button"
+                                                onClick={() => handleInfoChange("seller_image", "")}
+                                                className="absolute top-1 right-1 w-6 h-6 rounded-lg bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition">
+                                                <Icon icon="solar:close-bold" width={11} />
+                                            </button>
+                                        </div>
+                                    )}
+                                    <Gallery
+                                        multiple={false}
+                                        value={info.seller_image ?? ""}
+                                        onChange={v => handleInfoChange("seller_image", typeof v === "string" ? v : v[0] ?? "")}
+                                        placeholder="Pick store profile image from gallery"
                                     />
                                 </div>
                             </Field>

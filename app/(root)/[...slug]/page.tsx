@@ -49,7 +49,9 @@ async function getPermalinkMap(
         // Seed any missing defaults (idempotent)
         const toInsert = [
             // Seller profile pages — driven by User.slug, not a Post type
-            { contentType: "seller", prefix: "seller" },
+            { contentType: "seller",   prefix: "seller"   },
+            // Reporter profile pages — driven by User.slug
+            { contentType: "reporter", prefix: "reporter" },
             ...postTypes.map((pt) => ({
                 contentType: pt.key,
                 prefix: pt.key,
@@ -108,17 +110,16 @@ async function getPost(slug: string, type: string) {
 }
 
 /**
- * Seller page — looks up a User by slug (type === "seller") and returns
- * a synthetic "post-like" data object so the template receives the same
- * shape as a regular post. The server hook (seller/lib/serverHooks.ts)
- * then enriches pageData with the full seller + products.
+ * Generic user profile page lookup — works for any user type (seller, reporter, etc.)
+ * Returns the full user document + ALL UserInfo fields as a synthetic post-like object.
+ * The server hook for each type then further enriches pageData.
  */
-async function getSellerBySlug(userSlug: string) {
-    return withCache(`seller:${userSlug}`, async () => {
+async function getUserBySlug(userSlug: string, userType: string) {
+    return withCache(`user:${userType}:${userSlug}`, async () => {
         await connectDB();
         const user = await User.findOne({
             slug:   userSlug,
-            type:   "seller",
+            type:   userType,
             status: "active",
         }).lean() as any;
 
@@ -126,26 +127,36 @@ async function getSellerBySlug(userSlug: string) {
 
         const userInfoDocs = await UserInfo.find({ userId: user._id }).lean() as any[];
         const infoMap: Record<string, string> = {};
-        userInfoDocs.forEach((d: any) => { infoMap[d.name] = d.value; });
+        userInfoDocs.forEach((d: any) => { infoMap[d.name] = String(d.value ?? ""); });
 
-        // Return a fully-serialized plain object (no ObjectId / Date instances).
-        // info.userId is the key the serverHook reads to fetch seller data.
+        // Return ALL user fields + ALL UserInfo fields in info.
+        // info.userId is the key server hooks read to fetch enriched data.
         return {
             _id:       String(user._id),
-            title:     String(user.name   ?? ""),
-            slug:      String(user.slug   ?? ""),
-            type:      "seller",
+            title:     String(user.name      ?? ""),
+            slug:      String(user.slug      ?? ""),
+            type:      userType,
             status:    "published",
-            createdAt: user.createdAt instanceof Date
-                ? user.createdAt.toISOString()
-                : String(user.createdAt ?? ""),
-            updatedAt: user.updatedAt instanceof Date
-                ? user.updatedAt.toISOString()
-                : String(user.updatedAt ?? ""),
+            createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : String(user.createdAt ?? ""),
+            updatedAt: user.updatedAt instanceof Date ? user.updatedAt.toISOString() : String(user.updatedAt ?? ""),
+            // Expose full user record fields directly
+            user: {
+                _id:      String(user._id),
+                name:     String(user.name     ?? ""),
+                slug:     String(user.slug     ?? ""),
+                email:    String(user.email    ?? ""),
+                phone:    String(user.phone    ?? ""),
+                type:     String(user.type     ?? ""),
+                image:    String(user.image    ?? ""),
+                status:   String(user.status   ?? ""),
+                address:  String(user.address  ?? ""),
+                state:    String(user.state    ?? ""),
+                city:     String(user.city     ?? ""),
+                zipCode:  String(user.zipCode  ?? ""),
+                createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : String(user.createdAt ?? ""),
+            },
             info: {
-                ...Object.fromEntries(
-                    Object.entries(infoMap).map(([k, v]) => [k, String(v)])
-                ),
+                ...infoMap,
                 userId: String(user._id),
             },
         };
@@ -304,14 +315,12 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
     }
 
     // ─── Seller pages — resolved from User.slug, no Post document needed ─────
-    // URL pattern: /<seller-prefix>/<user-slug>  (default: /seller/<slug>)
-    // Prefix "seller" is seeded into the permalink map via getPermalinkMap above.
     {
         const sellerPrefix = permalinkMap["seller"] ?? "seller";
         const sellerSlug   = matchPrefix(slug, sellerPrefix);
 
         if (sellerSlug !== null) {
-            const sellerData = await getSellerBySlug(sellerSlug);
+            const sellerData = await getUserBySlug(sellerSlug, "seller");
 
             if (sellerData) {
                 const pageData = await runServerDataHook(
@@ -325,6 +334,31 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
                 if (template?.component) {
                     const SellerComponent = template.component as any;
                     return <SellerComponent data={sellerData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
+                }
+            }
+        }
+    }
+
+    // ─── Reporter pages — resolved from User.slug, no Post document needed ───
+    {
+        const reporterPrefix = permalinkMap["reporter"] ?? "reporter";
+        const reporterSlug   = matchPrefix(slug, reporterPrefix);
+
+        if (reporterSlug !== null) {
+            const reporterData = await getUserBySlug(reporterSlug, "reporter");
+
+            if (reporterData) {
+                const pageData = await runServerDataHook(
+                    "reporter",
+                    reporterData._id,
+                    reporterData.slug,
+                    reporterData
+                );
+
+                const template = await resolveTemplate("reporter", activeNxSet);
+                if (template?.component) {
+                    const ReporterComponent = template.component as any;
+                    return <ReporterComponent data={reporterData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
                 }
             }
         }
