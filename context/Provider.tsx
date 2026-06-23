@@ -60,10 +60,38 @@ function UserProvider({ children }: { children: ReactNode }) {
 
     const loading = status === "loading";
 
-    // refresh() re-fetches Express /auth/me and syncs the NextAuth session
+    // refresh() re-fetches Express /auth/me and syncs the NextAuth JWT with
+    // the latest user data — picks up name, image, address, etc. after saves.
     const refresh = useCallback(() => {
-        // Trigger NextAuth session re-fetch
-        update();
+        fetch(`${EXPRESS_API}/auth/me`, {
+            credentials: "include",
+            headers: { "x-license-key": LICENSE_KEY },
+            cache: "no-store",
+        })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+                const u = data?.user ?? data;
+                if (u?._id) {
+                    // Pass fresh user data to update() — JWT callback merges it
+                    update({
+                        _id:      u._id,
+                        name:     u.name,
+                        email:    u.email ?? "",
+                        image:    u.image ?? "",
+                        type:     u.type,
+                        slug:     u.slug ?? "",
+                        phone:    u.phone ?? "",
+                        status:   u.status,
+                        address:  u.address ?? "",
+                        state:    u.state ?? "",
+                        city:     u.city ?? "",
+                        zipCode:  u.zipCode ?? "",
+                    });
+                } else {
+                    update();
+                }
+            })
+            .catch(() => { update(); });
         setTick((t) => t + 1);
     }, [update]);
 

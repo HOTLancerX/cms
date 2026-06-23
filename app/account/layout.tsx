@@ -63,7 +63,9 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
     const isSeller   = user?.type === "seller";
     const isReporter = user?.type === "reporter";
     const roleConf   = ROLE_CONFIG[user?.type ?? "user"] ?? ROLE_CONFIG.user;
-    const initials = user?.name?.charAt(0).toUpperCase() ?? "?";
+    const initials   = user?.name?.charAt(0).toUpperCase() ?? "?";
+    // image can live on user.image (our custom field) or user.picture (NextAuth default)
+    const profileImage = (user as any)?.image || (user as any)?.picture || "";
 
     // Build nav list from defaults + plugin-registered items
     const pluginNav: UserNavItem[] = (pluginsReady ? getAllUserNavItems() : [])
@@ -140,8 +142,8 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                     {/* Avatar row */}
                     <div className="flex items-end justify-between -mt-6 mb-2.5">
                         <div className="relative shrink-0">
-                            {user?.image ? (
-                                <img src={user.image} alt={user.name}
+                            {profileImage ? (
+                                <img src={profileImage} alt={user?.name ?? ""}
                                     className="w-12 h-12 rounded-xl object-cover ring-4 ring-white shadow-md" />
                             ) : (
                                 <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${roleConf.linear} flex items-center justify-center text-white font-bold text-lg ring-4 ring-white shadow-md`}>
@@ -293,7 +295,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                     className="flex items-center gap-2 p-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 transition"
                     aria-label="Open menu">
                     {user?.image ? (
-                        <img src={user.image} alt={user.name} className="w-7 h-7 rounded-lg object-cover" />
+                        <img src={profileImage} alt={user?.name ?? ""} className="w-7 h-7 rounded-lg object-cover" />
                     ) : (
                         <div className={`w-7 h-7 rounded-lg bg-linear-to-br ${roleConf.linear} flex items-center justify-center text-white font-bold text-xs`}>
                             {initials}

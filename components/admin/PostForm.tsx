@@ -167,8 +167,14 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                 ? { ...info, userId }
                 : info;
 
+            // When defaultStatus is provided (reporter / seller forms), always
+            // save with that status — even in edit mode. This ensures that when
+            // a reporter edits an admin-published post it reverts to their
+            // configured default (draft or published) rather than staying live.
+            const saveStatus = defaultStatus ?? status;
+
             const payload = {
-                title, slug, status, type, info: mergedInfo,
+                title, slug, status: saveStatus, type, info: mergedInfo,
                 ...(userId ? { userId } : {}),
                 ...(category ? { category } : {}),
                 ...(isEdit ? { _id: postId } : {}),
@@ -185,6 +191,9 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                 if (!isEdit) {
                     setTitle(""); setSlug(""); setStatus(defaultStatus ?? "published");
                     setCategory(""); setCategoryPath([]); setInfo({});
+                } else {
+                    // Reflect the status that was actually saved
+                    setStatus(saveStatus);
                 }
                 onSuccess?.(data.post?._id ?? postId ?? "");
             }

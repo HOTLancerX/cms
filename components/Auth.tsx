@@ -82,7 +82,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
             body: JSON.stringify({ login: loginVal.trim(), password: pass }),
         });
 
-        const data = await res.json() as { error?: string; message?: string; user?: any };
+        const data = await res.json() as { error?: string; message?: string; user?: any; token?: string };
 
         if (!res.ok) {
             setError(data.message ?? data.error ?? "No account found or password incorrect.");
@@ -94,11 +94,11 @@ export default function AuthForm({ mode }: AuthFormProps) {
             return false;
         }
 
-        // 2. Pass the already-validated user to NextAuth — no second Express call.
-        //    NextAuth writes a signed JWT cookie that works on Vercel.
+        // 2. Pass the already-validated user + Express token to NextAuth.
+        //    expressToken lets server-side code call Express with Bearer auth.
         const result = await signIn("credentials", {
             redirect:  false,
-            userData:  JSON.stringify(data.user),
+            userData:  JSON.stringify({ ...data.user, expressToken: data.token ?? "" }),
         });
 
         if (result?.error) {

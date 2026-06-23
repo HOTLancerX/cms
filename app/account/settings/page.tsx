@@ -62,9 +62,9 @@ export default function AccountSettingsPage() {
             </div>
 
             {/* ── Form card ── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+            <div>
                 {/* Card header */}
-                <div className="px-6 py-4 border-b border-gray-50 flex items-center gap-3">
+                <div className="py-4 border-b border-gray-50 flex items-center gap-3">
                     <span className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
                         <Icon icon="solar:user-bold" width={16} className="text-indigo-500" />
                     </span>
@@ -74,7 +74,7 @@ export default function AccountSettingsPage() {
                     </div>
                 </div>
 
-                <div className="p-6">
+                <>
                     <UserForm
                         mode="edit"
                         initialData={{
@@ -94,7 +94,7 @@ export default function AccountSettingsPage() {
                         activePlugins={activePlugins}
                         onSuccess={() => refresh()}
                     />
-                </div>
+                </>
             </div>
 
         </div>

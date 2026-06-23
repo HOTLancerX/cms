@@ -49,7 +49,7 @@ export const authOptions: AuthOptions = {
                 if (!credentials?.userData) return null;
 
                 try {
-                    const u = JSON.parse(credentials.userData) as {
+                    const parsed = JSON.parse(credentials.userData) as {
                         _id:      string;
                         name:     string;
                         email?:   string;
@@ -62,24 +62,27 @@ export const authOptions: AuthOptions = {
                         state?:   string;
                         city?:    string;
                         zipCode?: string;
+                        // Express JWT token — stored alongside user data on login
+                        expressToken?: string;
                     };
 
-                    if (!u?._id) return null;
+                    if (!parsed?._id) return null;
 
                     return {
-                        id:       u._id,
-                        name:     u.name,
-                        email:    u.email ?? u.phone ?? "",
-                        image:    u.image,
-                        _id:      u._id,
-                        type:     u.type,
-                        slug:     u.slug,
-                        phone:    u.phone,
-                        status:   u.status,
-                        address:  u.address,
-                        state:    u.state,
-                        city:     u.city,
-                        zipCode:  u.zipCode,
+                        id:           parsed._id,
+                        name:         parsed.name,
+                        email:        parsed.email ?? parsed.phone ?? "",
+                        image:        parsed.image,
+                        _id:          parsed._id,
+                        type:         parsed.type,
+                        slug:         parsed.slug,
+                        phone:        parsed.phone,
+                        status:       parsed.status,
+                        address:      parsed.address,
+                        state:        parsed.state,
+                        city:         parsed.city,
+                        zipCode:      parsed.zipCode,
+                        expressToken: parsed.expressToken,
                     } as User & Record<string, unknown>;
                 } catch {
                     return null;
@@ -89,32 +92,66 @@ export const authOptions: AuthOptions = {
     ],
 
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger, session: sessionData }) {
+            // Initial sign-in — copy all fields from Express user object
             if (user) {
-                token._id     = (user as any)._id     ?? user.id;
-                token.type    = (user as any).type;
-                token.slug    = (user as any).slug;
-                token.phone   = (user as any).phone;
-                token.status  = (user as any).status;
-                token.address = (user as any).address;
-                token.state   = (user as any).state;
-                token.city    = (user as any).city;
-                token.zipCode = (user as any).zipCode;
+                token.image        = (user as any).image        ?? "";
+                token.picture      = (user as any).image        ?? "";
+                token._id          = (user as any)._id          ?? user.id;
+                token.type         = (user as any).type;
+                token.slug         = (user as any).slug;
+                token.phone        = (user as any).phone;
+                token.status       = (user as any).status;
+                token.address      = (user as any).address;
+                token.state        = (user as any).state;
+                token.city         = (user as any).city;
+                token.zipCode      = (user as any).zipCode;
+                // Store Express JWT for server-side Bearer auth
+                if ((user as any).expressToken) {
+                    token.expressToken = (user as any).expressToken;
+                }
+            }
+            // Session update triggered by refresh() — merge fresh user data
+            if (trigger === "update" && sessionData) {
+                const u = sessionData as Record<string, unknown>;
+                if (u._id)      token._id      = u._id;
+                if (u.name)     token.name     = u.name     as string;
+                if (u.email)    token.email    = u.email    as string;
+                if (u.image !== undefined) {
+                    token.image   = u.image as string;
+                    token.picture = u.image as string;
+                }
+                if (u.type)     token.type     = u.type     as string;
+                if (u.slug)     token.slug     = u.slug     as string;
+                if (u.phone     !== undefined)  token.phone     = u.phone     as string;
+                if (u.status)   token.status   = u.status   as string;
+                if (u.address   !== undefined)  token.address   = u.address   as string;
+                if (u.state     !== undefined)  token.state     = u.state     as string;
+                if (u.city      !== undefined)  token.city      = u.city      as string;
+                if (u.zipCode   !== undefined)  token.zipCode   = u.zipCode   as string;
             }
             return token;
         },
 
         async session({ session, token }) {
             if (session.user) {
+                // image: NextAuth stores it as token.picture internally — read both
+                session.user.image    = (token.image as string) || (token.picture as string) || "";
                 (session.user as any)._id     = token._id     as string;
                 (session.user as any).type    = token.type    as string;
                 (session.user as any).slug    = token.slug    as string;
-                (session.user as any).phone   = token.phone   as string;
+                (session.user as any).phone   = token.phone   as string ?? "";
                 (session.user as any).status  = token.status  as string;
-                (session.user as any).address = token.address as string;
-                (session.user as any).state   = token.state   as string;
-                (session.user as any).city    = token.city    as string;
-                (session.user as any).zipCode = token.zipCode as string;
+                (session.user as any).address = token.address as string ?? "";
+                (session.user as any).state   = token.state   as string ?? "";
+                (session.user as any).city    = token.city    as string ?? "";
+                (session.user as any).zipCode = token.zipCode as string ?? "";
+                if (token.name)         session.user.name  = token.name  as string;
+                if (token.email)        session.user.email = token.email as string;
+                // Expose Express JWT for server-side Bearer calls
+                if (token.expressToken) {
+                    (session.user as any).expressToken = token.expressToken as string;
+                }
             }
             return session;
         },
