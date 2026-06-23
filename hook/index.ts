@@ -61,6 +61,11 @@ export interface NavHookField {
      * The account layout reads this flag to conditionally render the item.
      */
     sellerOnly?: boolean;
+    /**
+     * When true, this nav item is only shown to users with type === "reporter".
+     * The account layout reads this flag to conditionally render the item.
+     */
+    reporterOnly?: boolean;
     pluginNx?: string; // stamped automatically by addHook
 }
 

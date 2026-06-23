@@ -59,14 +59,16 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
         );
     }
 
-    const isAdmin  = user?.type === "admin";
-    const isSeller = user?.type === "seller";
-    const roleConf = ROLE_CONFIG[user?.type ?? "user"] ?? ROLE_CONFIG.user;
+    const isAdmin    = user?.type === "admin";
+    const isSeller   = user?.type === "seller";
+    const isReporter = user?.type === "reporter";
+    const roleConf   = ROLE_CONFIG[user?.type ?? "user"] ?? ROLE_CONFIG.user;
     const initials = user?.name?.charAt(0).toUpperCase() ?? "?";
 
     // Build nav list from defaults + plugin-registered items
     const pluginNav: UserNavItem[] = (pluginsReady ? getAllUserNavItems() : [])
-        .filter(n => !(n.sellerOnly && !isSeller))
+        .filter(n => !(n.sellerOnly   && !isSeller))
+        .filter(n => !(n.reporterOnly && !isReporter))
         .map(n => ({
             key:      n.key,
             label:    n.label,
@@ -220,6 +222,28 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                             { label: "Orders",   href: "/account/seller-orders",    icon: "solar:bag-5-bold"         },
                             { label: "Wallet",   href: "/account/seller-wallet",    icon: "solar:wallet-bold"        },
                             { label: "Add new",  href: "/account/post/product/new", icon: "solar:add-circle-bold"    },
+                        ].map(l => (
+                            <Link key={l.href} href={l.href} onClick={() => setSidebarOpen(false)}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[11px] font-semibold transition">
+                                <Icon icon={l.icon} width={12} />
+                                {l.label}
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* ── Reporter quick card ── */}
+            {isReporter && (
+                <div className="rounded-2xl p-4 bg-linear-to-br from-sky-500 to-blue-600 text-white shadow-md shadow-sky-200/40">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Icon icon="solar:document-bold" width={15} />
+                        <span className="text-sm font-bold">Reporter</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                            { label: "My Posts", href: "/account/post/blog",     icon: "solar:document-bold"    },
+                            { label: "Write",    href: "/account/post/blog/new", icon: "solar:add-circle-bold"  },
                         ].map(l => (
                             <Link key={l.href} href={l.href} onClick={() => setSidebarOpen(false)}
                                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[11px] font-semibold transition">

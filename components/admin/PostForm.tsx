@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
 import { xFetch } from "@/lib/express";
+import Gallery from "@/components/Gallery";
+import Content from "@/components/Content";
 
 export interface PostFormProps {
     /** Post type key, e.g. "blog", "page", "product" */
@@ -153,6 +155,7 @@ export default function PostForm({ type, activePlugins, postId, userId, onSucces
 
             const payload = {
                 title, slug, status, type, info: mergedInfo,
+                ...(userId ? { userId } : {}),
                 ...(category ? { category } : {}),
                 ...(isEdit ? { _id: postId } : {}),
             };
@@ -286,6 +289,30 @@ export default function PostForm({ type, activePlugins, postId, userId, onSucces
                         {slugStatus === "taken"     && <p className="text-xs text-red-500">✗ This slug is already taken</p>}
                     </div>
 
+                    
+
+                    {/* ── Default short description field ── */}
+                    <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
+                        <label className="text-xs font-semibold">Short Description</label>
+                        <textarea
+                            value={info["shortDescription"] ?? ""}
+                            onChange={(e) => handleInfoChange("shortDescription", e.target.value)}
+                            rows={3}
+                            className="w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500 resize-none"
+                            placeholder="Brief summary…"
+                        />
+                    </div>
+
+                    {/* ── Default description (rich-text) field ── */}
+                    <div className="bg-white p-2 rounded">
+                        <Content
+                            label="Description"
+                            content={info["description"] ?? ""}
+                            onChange={(v) => handleInfoChange("description", v)}
+                            title={title}
+                        />
+                    </div>
+
                     {renderFields(leftFields)}
                 </div>
 
@@ -301,6 +328,28 @@ export default function PostForm({ type, activePlugins, postId, userId, onSucces
                             <option value="draft">Draft</option>
                             <option value="published">Published</option>
                         </select>
+                    </div>
+                    
+                    {/* ── Default image field ── */}
+                    <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
+                        <label className="text-xs font-semibold">Image</label>
+                        <Gallery
+                            multiple={false}
+                            value={info["image"] ?? ""}
+                            onChange={(v) => handleInfoChange("image", typeof v === "string" ? v : v[0] ?? "")}
+                            placeholder="Select featured image"
+                        />
+                    </div>
+
+                    {/* ── Default gallery field ── */}
+                    <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
+                        <label className="text-xs font-semibold">Gallery</label>
+                        <Gallery
+                            multiple={true}
+                            value={(() => { try { return JSON.parse(info["gallery"] ?? "[]"); } catch { return []; } })()}
+                            onChange={(v) => handleInfoChange("gallery", JSON.stringify(Array.isArray(v) ? v : [v]))}
+                            placeholder="Select gallery images"
+                        />
                     </div>
 
                     {renderFields(rightFields)}

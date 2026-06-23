@@ -190,13 +190,15 @@ export default function AuthAc() {
                             <div className="min-w-0">
                                 <p className="text-sm font-semibold text-gray-900 truncate">
                                     {user.name}
+                                    <span className={`ml-1 inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${badge.cls}`}>
+                                        {badge.label}
+                                    </span>
                                 </p>
                                 <p className="text-xs text-gray-500 truncate">{user.email}</p>
+
                             </div>
                         </div>
-                        <span className={`mt-2 inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${badge.cls}`}>
-                            {badge.label}
-                        </span>
+                        
                     </div>
 
                     {/* Menu items */}
