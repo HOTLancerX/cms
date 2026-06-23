@@ -17,16 +17,22 @@ export interface PostFormProps {
     postId?: string;
     /**
      * Optional seller/author user ID.
-     * When set, it is stamped into info.userId on every save so the post
-     * can be filtered by owner later (seller product list, etc.).
-     * In edit mode the value is preserved from the existing post data.
+     * When set, it is stamped into post.userId and info.userId on every save
+     * so the post can be filtered by owner later.
      */
     userId?: string;
+    /**
+     * Optional default status for new posts.
+     * When set, overrides the built-in default ("published") for add mode only.
+     * Edit mode always loads status from the saved post — this prop is ignored.
+     * Typical values: "draft" | "published"
+     */
+    defaultStatus?: string;
     /** Called after a successful save with the saved post's _id */
     onSuccess?: (postId: string) => void;
 }
 
-export default function PostForm({ type, activePlugins, postId, userId, onSuccess }: PostFormProps) {
+export default function PostForm({ type, activePlugins, postId, userId, defaultStatus, onSuccess }: PostFormProps) {
     const router = useRouter();
     const isEdit = Boolean(postId);
 
@@ -43,10 +49,18 @@ export default function PostForm({ type, activePlugins, postId, userId, onSucces
     // ── Core form state ─────────────────────────────────────────────────────
     const [title, setTitle]               = useState("");
     const [slug, setSlug]                 = useState("");
-    const [status, setStatus]             = useState("published");
+    const [status, setStatus]             = useState(defaultStatus ?? "published");
     const [category, setCategory]         = useState("");
     const [categoryPath, setCategoryPath] = useState<string[]>([]);
     const [info, setInfo]                 = useState<Record<string, string>>({});
+
+    // Sync status when defaultStatus arrives asynchronously (add mode only).
+    // Edit mode overwrites status from the loaded post — do not interfere.
+    useEffect(() => {
+        if (!isEdit && defaultStatus !== undefined) {
+            setStatus(defaultStatus);
+        }
+    }, [defaultStatus, isEdit]);
 
     const [loading, setLoading]   = useState(isEdit);
     const [saving, setSaving]     = useState(false);
@@ -169,7 +183,7 @@ export default function PostForm({ type, activePlugins, postId, userId, onSucces
             } else {
                 setMessage("Saved successfully!");
                 if (!isEdit) {
-                    setTitle(""); setSlug(""); setStatus("published");
+                    setTitle(""); setSlug(""); setStatus(defaultStatus ?? "published");
                     setCategory(""); setCategoryPath([]); setInfo({});
                 }
                 onSuccess?.(data.post?._id ?? postId ?? "");
@@ -318,17 +332,23 @@ export default function PostForm({ type, activePlugins, postId, userId, onSucces
 
                 {/* ── Right Column ── */}
                 <div className="flex flex-col gap-5">
-                    <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
-                        <label htmlFor="status" className="text-xs font-semibold">Status</label>
-                        <select
-                            id="status" value={status}
-                            onChange={(e) => setStatus(e.target.value)}
-                            className="appearance-none w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500"
-                        >
-                            <option value="draft">Draft</option>
-                            <option value="published">Published</option>
-                        </select>
-                    </div>
+                    {/* ── Draft/Published ─
+                        Hidden in add mode when defaultStatus is provided (caller
+                        controls the status via admin preference). Always shown in
+                        edit mode so the user can see/change the current status. */}
+                    {(defaultStatus === undefined) && (
+                        <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
+                            <label htmlFor="status" className="text-xs font-semibold">Status</label>
+                            <select
+                                id="status" value={status}
+                                onChange={(e) => setStatus(e.target.value)}
+                                className="appearance-none w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500"
+                            >
+                                <option value="draft">Draft</option>
+                                <option value="published">Published</option>
+                            </select>
+                        </div>
+                    )}
                     
                     {/* ── Default image field ── */}
                     <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
