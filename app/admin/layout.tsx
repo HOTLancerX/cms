@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/context/Provider";
 import Sidebar from "@/components/admin/Sidebar";
 import { buildNavTree, type NavNode } from "@/components/admin/nav";
-import { useActivePlugins } from "@/hook/useActivePlugins";
+import { ActivePluginsProvider, useActivePluginsCtx } from "@/context/ActivePluginsContext";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
 import CacheResetButton from "@/components/admin/CacheResetButton";
@@ -48,6 +48,14 @@ export default function AdminLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  return (
+    <ActivePluginsProvider>
+      <AdminLayoutInner>{children}</AdminLayoutInner>
+    </ActivePluginsProvider>
+  );
+}
+
+function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -61,8 +69,8 @@ export default function AdminLayout({
     }
   }, [loading, user, router]);
 
-  // ── Active plugins — calls reregisterHooks internally, polls every 30 s ────
-  const activePlugins = useActivePlugins();
+  // ── Active plugins — provided by ActivePluginsProvider one level up ─────────
+  const activePlugins = useActivePluginsCtx();
 
   // Build nav tree after reregisterHooks has run (activePlugins !== null)
   const sidebarItems =

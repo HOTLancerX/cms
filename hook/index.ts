@@ -119,15 +119,21 @@ export interface CatTypeField {
 
 let _activePlugins: Set<string> | null = null;
 
+// ─── The core nx is always active — never expires, never requires DB entry ────
+const CORE_NX = "com.system.core";
+
 /**
  * Arm the active-plugin gate.
  * Call this ONCE, before importing any plugin modules, with the `nx` values
  * of every plugin whose status is "active" in the database.
  *
+ * CORE_NX ("com.system.core") is always injected regardless of the provided
+ * list — it has no expiry and must never be blocked by the gate.
+ *
  * @param nxIds - plugin nx identifiers that are allowed to register hooks
  */
 export function setActivePlugins(nxIds: string[]): void {
-    _activePlugins = new Set(nxIds);
+    _activePlugins = new Set([CORE_NX, ...nxIds]);
 }
 
 /**
@@ -161,10 +167,13 @@ const _adminPages: FormHookField[] = [];
 
 /**
  * Returns every root.pages entry ever registered across all plugins.
- * Not affected by the gate or clearHooks — safe to call from server components.
+ * Filters out entries whose plugin is no longer active (expired / inactive).
+ * Not affected by clearHooks — safe to call from server components.
  */
 export function getAllRootPages(): FormHookField[] {
-    return [..._rootPages].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+    return [..._rootPages]
+        .filter((f) => !f.pluginNx || isPluginActive(f.pluginNx))
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 }
 
 /**
@@ -263,6 +272,9 @@ export function addHook(
  *   - If type is omitted, return ALL fields.
  * Results are sorted by `position` ascending.
  *
+ * Only fields whose pluginNx is currently active pass through.
+ * If the gate is not armed (null) all fields are returned (open during boot/tests).
+ *
  * @param hookName - e.g. "post.form", "cat.form"
  * @param type     - optional content-type filter (e.g. "post", "cat")
  */
@@ -273,7 +285,10 @@ export function getHooks(hookName: string, type?: string): FormHookField[] {
         ? all.filter((f) => !f.type || f.type === type)
         : all;
 
-    return [...filtered].sort((a, b) => a.position - b.position);
+    // Filter out hooks whose plugin is no longer active
+    const gated = filtered.filter((f) => !f.pluginNx || isPluginActive(f.pluginNx));
+
+    return [...gated].sort((a, b) => a.position - b.position);
 }
 
 /**
@@ -317,32 +332,44 @@ const _userNavItems: NavHookField[] = [];
 
 /**
  * Returns every user.page entry ever registered across all plugins.
+ * Filters out entries whose plugin is no longer active (expired / inactive).
  */
 export function getAllUserPages(): FormHookField[] {
-    return [..._userPages].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+    return [..._userPages]
+        .filter((f) => !f.pluginNx || isPluginActive(f.pluginNx))
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 }
 
 /**
  * Returns all registered user.nav items across all plugins.
+ * Filters out items whose plugin is no longer active (expired / inactive).
  */
 export function getAllUserNavItems(): NavHookField[] {
-    return [..._userNavItems].sort((a, b) => a.position - b.position);
+    return [..._userNavItems]
+        .filter((f) => !f.pluginNx || isPluginActive(f.pluginNx))
+        .sort((a, b) => a.position - b.position);
 }
 
 /**
  * Returns all registered admin.nav items across all plugins.
+ * Filters out items whose plugin is no longer active (expired / inactive).
  * Never cleared — safe to call from anywhere.
  */
 export function getAllNavItems(): NavHookField[] {
-    return [..._navItems].sort((a, b) => a.position - b.position);
+    return [..._navItems]
+        .filter((f) => !f.pluginNx || isPluginActive(f.pluginNx))
+        .sort((a, b) => a.position - b.position);
 }
 
 /**
  * Returns every admin.pages entry ever registered across all plugins.
- * Not affected by the gate or clearHooks — safe to call from server components.
+ * Filters out entries whose plugin is no longer active (expired / inactive).
+ * Not affected by clearHooks — safe to call from server components.
  */
 export function getAllAdminPages(): FormHookField[] {
-    return [..._adminPages].sort((a, b) => a.position - b.position);
+    return [..._adminPages]
+        .filter((f) => !f.pluginNx || isPluginActive(f.pluginNx))
+        .sort((a, b) => a.position - b.position);
 }
 // ─── Post types registry (permanent, never cleared) ──────────────────────────
 const _postTypes: PostTypeField[] = [];
@@ -369,16 +396,21 @@ export function addPostType(
 
 /**
  * Returns all registered post types.
+ * Filters out types whose plugin is no longer active (expired / inactive).
  */
 export function getAllPostTypes(): PostTypeField[] {
-    return [..._postTypes];
+    return [..._postTypes].filter((p) => !p.pluginNx || isPluginActive(p.pluginNx));
 }
 
 /**
  * Returns a single post type by key, or undefined.
+ * Returns undefined if the owning plugin is no longer active.
  */
 export function getPostType(key: string): PostTypeField | undefined {
-    return _postTypes.find((p) => p.key === key);
+    const pt = _postTypes.find((p) => p.key === key);
+    if (!pt) return undefined;
+    if (pt.pluginNx && !isPluginActive(pt.pluginNx)) return undefined;
+    return pt;
 }
 
 /**
@@ -402,9 +434,10 @@ export function addCatType(
 
 /**
  * Returns all registered category types.
+ * Filters out types whose plugin is no longer active (expired / inactive).
  */
 export function getAllCatTypes(): CatTypeField[] {
-    return [..._catTypes];
+    return [..._catTypes].filter((c) => !c.pluginNx || isPluginActive(c.pluginNx));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -434,29 +467,36 @@ export function getAllCatTypes(): CatTypeField[] {
 //   - No React components — server-side only
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─── Server-side Data Hook Registry ──────────────────────────────────────────
 type DataHookFn = (id: string, slug: string, data?: any) => Promise<any>;
 
-const _dataHooks: Map<string, DataHookFn> = new Map();
+interface DataHookEntry {
+    fn: DataHookFn;
+    pluginNx: string;
+}
+
+const _dataHooks: Map<string, DataHookEntry> = new Map();
 
 /**
  * Register a server-side data provider for a content type.
+ * Registration is always stored; the gate is checked at call time via runDataHook.
  *
  * @param contentType - e.g. "product-category", "product"
  * @param fn          - async function (id, slug, data?) => pageData
- * @param pluginNx    - plugin identifier (used for gate check)
+ * @param pluginNx    - plugin identifier (checked at retrieval time)
  */
 export function addDataHook(
     contentType: string,
     fn: DataHookFn,
     pluginNx: string
 ): void {
-    if (!isPluginActive(pluginNx)) return;
-    _dataHooks.set(contentType, fn);
+    _dataHooks.set(contentType, { fn, pluginNx });
 }
 
 /**
  * Run the registered data hook for a content type.
- * Returns undefined if no hook is registered for that type.
+ * Returns undefined if no hook is registered, or if the owning plugin
+ * is expired / inactive / not started (gate check at call time).
  *
  * @param contentType - e.g. "product-category"
  * @param id          - MongoDB _id string of the document
@@ -469,14 +509,19 @@ export async function runDataHook(
     slug: string,
     data?: any
 ): Promise<any | undefined> {
-    const fn = _dataHooks.get(contentType);
-    if (!fn) return undefined;
-    return fn(id, slug, data);
+    const entry = _dataHooks.get(contentType);
+    if (!entry) return undefined;
+    // Gate check: if the owning plugin is no longer active, return nothing
+    if (!isPluginActive(entry.pluginNx)) return undefined;
+    return entry.fn(id, slug, data);
 }
 
 /**
- * Returns true if a data hook is registered for the given content type.
+ * Returns true if a data hook is registered for the given content type
+ * AND its owning plugin is currently active.
  */
 export function hasDataHook(contentType: string): boolean {
-    return _dataHooks.has(contentType);
+    const entry = _dataHooks.get(contentType);
+    if (!entry) return false;
+    return isPluginActive(entry.pluginNx);
 }

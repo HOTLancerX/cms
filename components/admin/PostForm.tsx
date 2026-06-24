@@ -361,11 +361,25 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                     
                     {/* ── Default image field ── */}
                     <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
-                        <label className="text-xs font-semibold">Image</label>
+                        <label className="text-xs font-semibold">Featured Image</label>
                         <Gallery
                             multiple={false}
-                            value={info["image"] ?? ""}
-                            onChange={(v) => handleInfoChange("image", typeof v === "string" ? v : v[0] ?? "")}
+                            value={(() => {
+                                // images is a JSON array — first element is the featured image
+                                try {
+                                    const arr = JSON.parse(info["images"] ?? "[]");
+                                    return Array.isArray(arr) ? (arr[0] ?? "") : "";
+                                } catch { return ""; }
+                            })()}
+                            onChange={(v) => {
+                                const single = typeof v === "string" ? v : (v[0] ?? "");
+                                // Merge: put selected image at index 0, keep the rest of the gallery
+                                const existing: string[] = (() => {
+                                    try { const a = JSON.parse(info["images"] ?? "[]"); return Array.isArray(a) ? a : []; } catch { return []; }
+                                })();
+                                const rest = existing.slice(1);
+                                handleInfoChange("images", JSON.stringify(single ? [single, ...rest] : rest));
+                            }}
                             placeholder="Select featured image"
                         />
                     </div>
@@ -375,8 +389,21 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                         <label className="text-xs font-semibold">Gallery</label>
                         <Gallery
                             multiple={true}
-                            value={(() => { try { return JSON.parse(info["gallery"] ?? "[]"); } catch { return []; } })()}
-                            onChange={(v) => handleInfoChange("gallery", JSON.stringify(Array.isArray(v) ? v : [v]))}
+                            value={(() => {
+                                try {
+                                    const arr = JSON.parse(info["images"] ?? "[]");
+                                    return Array.isArray(arr) ? arr.slice(1) : [];
+                                } catch { return []; }
+                            })()}
+                            onChange={(v) => {
+                                const extra: string[] = Array.isArray(v) ? v : (v ? [v] : []);
+                                // Keep featured image at index 0
+                                const existing: string[] = (() => {
+                                    try { const a = JSON.parse(info["images"] ?? "[]"); return Array.isArray(a) ? a : []; } catch { return []; }
+                                })();
+                                const featured = existing[0] ?? "";
+                                handleInfoChange("images", JSON.stringify(featured ? [featured, ...extra] : extra));
+                            }}
                             placeholder="Select gallery images"
                         />
                     </div>

@@ -537,11 +537,27 @@ export function register(): void {
             component: Text,
         },
         {
+            key: "site_title",
+            label: "Site Title (browser tab / SEO)",
+            type: "settings",
+            style: "left",
+            position: 15,
+            component: Text,
+        },
+        {
             key: "siteDescription",
             label: "Site Description",
             type: "settings",
             style: "left",
             position: 20,
+            component: Textarea,
+        },
+        {
+            key: "site_description",
+            label: "Meta Description (SEO)",
+            type: "settings",
+            style: "left",
+            position: 25,
             component: Textarea,
         },
         {
@@ -615,6 +631,71 @@ export function register(): void {
             style: "right",
             position: 60,
             component: Tags,
+        },
+        {
+            key: "keywords",
+            label: "Site Keywords (meta)",
+            type: "settings",
+            style: "right",
+            position: 65,
+            component: Tags,
+        },
+    ], CORE_NX);
+
+    // ─── Appearance settings ──────────────────────────────────────────────────
+    // type: "appearance" → appears on the Appearance tab of the Settings page.
+    // These values are injected into the root layout as CSS variables + font.
+    addHook("setting.form", [
+        // ── Brand colours ──
+        {
+            key: "color_main",
+            label: "Main / Brand Colour",
+            type: "appearance",
+            style: "left",
+            position: 10,
+            component: ColorPicker,
+        },
+        {
+            key: "color_secondary",
+            label: "Secondary Colour",
+            type: "appearance",
+            style: "left",
+            position: 20,
+            component: ColorPicker,
+        },
+        {
+            key: "color_primary",
+            label: "Primary Accent Colour",
+            type: "appearance",
+            style: "left",
+            position: 30,
+            component: ColorPicker,
+        },
+        {
+            key: "color_ff",
+            label: "Background / Surface Colour",
+            type: "appearance",
+            style: "left",
+            position: 40,
+            component: ColorPicker,
+        },
+        // ── Layout ──
+        {
+            key: "width",
+            label: "Container Max-Width (px)",
+            type: "appearance",
+            style: "right",
+            position: 10,
+            component: Number,
+        },
+        // ── Typography ──
+        {
+            key: "google_font",
+            label: "Google Font (e.g. Inter, Roboto)",
+            type: "appearance",
+            style: "right",
+            position: 20,
+            component: Text,
         },
     ], CORE_NX);
 

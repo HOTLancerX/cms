@@ -29,6 +29,8 @@ export default async function PluginPage() {
     const dbMap = new Map(dbDocs.map((d: any) => [d.nx, d]));
 
     // Merge: file metadata wins for display fields; status comes from DB.
+    // isExpired / isNotStarted are date-based flags for UI warnings only —
+    // they do NOT affect the active/inactive gate.
     // Plugins not yet in the DB get status "new" and a null _id.
     const plugins = fileMetas.map((meta) => {
         const dbRecord = dbMap.get(meta.nx) as any;
@@ -43,8 +45,10 @@ export default async function PluginPage() {
             color: meta.color,
             startDate: dbRecord?.startDate ?? null,
             endDate: dbRecord?.endDate ?? null,
+            isExpired: dbRecord?.isExpired ?? false,
+            isNotStarted: dbRecord?.isNotStarted ?? false,
             status: (dbRecord?.status ?? "new") as
-                "active" | "inactive" | "new" | "install" | "update" | "delete" | "expired" | "not_started",
+                "active" | "inactive" | "new" | "install" | "update" | "delete",
         };
     });
 

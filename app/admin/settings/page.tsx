@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import FormSettings from "@/components/admin/FormSettings";
 import { useActivePlugins } from "@/hook/useActivePlugins";
@@ -25,6 +25,13 @@ const CORE_TABS: Tab[] = [
         icon:        "solar:settings-bold",
         settingType: "settings",
         description: "Site identity, logo, contact info and default SEO.",
+    },
+    {
+        key:         "appearance",
+        label:       "Appearance",
+        icon:        "solar:palette-bold",
+        settingType: "appearance",
+        description: "Brand colours, container width and Google Font for the public site.",
     },
     {
         key:         "header",
@@ -52,8 +59,8 @@ const CORE_TABS: Tab[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminSettingsPage() {
-    const activePlugins         = useActivePlugins();
-    const { settings, loading } = useSettings();
+    const activePlugins             = useActivePlugins();
+    const { settings, loading, refresh } = useSettings();
     const [activeTab, setActiveTab] = useState("general");
 
     if (activePlugins === null || loading) {
@@ -109,6 +116,15 @@ export default function AdminSettingsPage() {
                     type="settings"
                     activePlugins={activePlugins}
                     initialValues={settings}
+                    onSuccess={refresh}
+                />
+            )}
+
+            {activeTab === "appearance" && (
+                <AppearanceTab
+                    activePlugins={activePlugins}
+                    initialValues={settings}
+                    onSaved={refresh}
                 />
             )}
 
@@ -116,6 +132,7 @@ export default function AdminSettingsPage() {
                 <HeaderTab
                     activePlugins={activePlugins}
                     initialValues={settings}
+                    onSaved={refresh}
                 />
             )}
 
@@ -124,12 +141,161 @@ export default function AdminSettingsPage() {
                     type="nav"
                     activePlugins={activePlugins}
                     initialValues={settings}
+                    onSuccess={refresh}
                 />
             )}
 
             {activeTab === "product" && (
                 <ProductSettingsPage />
             )}
+        </div>
+    );
+}
+
+// ─── Appearance tab ───────────────────────────────────────────────────────────
+
+/**
+ * AppearanceTab
+ *
+ * - Live preview swatches update as the user edits colour / width / font fields
+ *   (no save needed to see the preview change).
+ * - On save, the parent's useSettings().refresh() is called so the page-level
+ *   settings map stays in sync. AppearanceVars (mounted in the root layout)
+ *   is separately notified via the localStorage signal fired by FormSettings.
+ */
+function AppearanceTab({
+    activePlugins,
+    initialValues,
+    onSaved,
+}: {
+    activePlugins: string[];
+    initialValues: Record<string, any>;
+    onSaved: () => void;
+}) {
+    // Mirror the field values locally so the preview updates as the user types
+    const [live, setLive] = useState<Record<string, any>>(initialValues);
+
+    // Keep in sync if the parent refreshes settings (e.g. after save)
+    useEffect(() => { setLive(initialValues); }, [initialValues]);
+
+    const colorMain      = (live.color_main      as string) || "#00aaa6";
+    const colorSecondary = (live.color_secondary as string) || "#ffc800";
+    const colorPrimary   = (live.color_primary   as string) || "#10846f";
+    const colorFf        = (live.color_ff        as string) || "#fff9f3";
+    const width          = (live.width           as string) || "1600";
+    const googleFont     = (live.google_font     as string) || "";
+
+    const swatches = [
+        { label: "Main",       key: "color_main",      color: colorMain },
+        { label: "Secondary",  key: "color_secondary", color: colorSecondary },
+        { label: "Primary",    key: "color_primary",   color: colorPrimary },
+        { label: "Background", key: "color_ff",        color: colorFf },
+    ];
+
+    return (
+        <div className="space-y-8">
+            {/* ── Live preview ── */}
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-5 space-y-4">
+                <h2 className="text-sm font-semibold text-gray-700">Live Preview</h2>
+
+                {/* Colour swatches */}
+                <div className="flex flex-wrap gap-3">
+                    {swatches.map(({ label, color }) => (
+                        <div key={label}
+                            className="flex items-center gap-2.5 bg-white rounded-lg border border-gray-200 px-3 py-2 shadow-sm">
+                            <span
+                                className="w-7 h-7 rounded-full border border-gray-200 shrink-0 transition-colors duration-150"
+                                style={{ backgroundColor: color }}
+                            />
+                            <div>
+                                <p className="text-xs font-semibold text-gray-700">{label}</p>
+                                <p className="text-xs text-gray-400 font-mono">{color}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Mini site mockup using current colours */}
+                <div className="rounded-lg overflow-hidden border border-gray-200 shadow-sm text-xs">
+                    {/* Mock header */}
+                    <div className="flex items-center gap-3 px-4 py-2.5"
+                        style={{ backgroundColor: colorMain }}>
+                        <span className="font-bold text-white text-sm">Logo</span>
+                        <div className="flex gap-3 ml-4">
+                            {["Home", "Shop", "Blog"].map(l => (
+                                <span key={l} className="text-white/80">{l}</span>
+                            ))}
+                        </div>
+                    </div>
+                    {/* Mock hero */}
+                    <div className="px-6 py-5 flex items-center gap-4"
+                        style={{ backgroundColor: colorFf }}>
+                        <div className="flex-1 space-y-2">
+                            <div className="h-3 rounded w-2/3"
+                                style={{ backgroundColor: colorPrimary, opacity: 0.5 }} />
+                            <div className="h-2 rounded w-full bg-gray-200" />
+                            <div className="h-2 rounded w-4/5 bg-gray-200" />
+                            <div className="mt-3 inline-block px-4 py-1.5 rounded text-white text-xs font-semibold"
+                                style={{ backgroundColor: colorSecondary }}>
+                                Shop Now
+                            </div>
+                        </div>
+                        <div className="w-20 h-16 rounded-lg shrink-0"
+                            style={{ backgroundColor: colorPrimary, opacity: 0.2 }} />
+                    </div>
+                </div>
+
+                {/* Container & font info */}
+                <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                    <span>
+                        <span className="font-semibold text-gray-700">Container:</span>{" "}
+                        <span className="font-mono">{width}px</span>
+                    </span>
+                    {googleFont && (
+                        <span>
+                            <span className="font-semibold text-gray-700">Font:</span>{" "}
+                            <span className="font-mono"
+                                style={{ fontFamily: `'${googleFont}', sans-serif` }}>
+                                {googleFont}
+                            </span>
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            {/* ── CSS variables reference ── */}
+            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4
+                            text-xs text-gray-500 font-mono space-y-0.5">
+                <p className="text-gray-400 font-sans font-semibold text-xs mb-2">
+                    Applied as CSS custom properties on every public page:
+                </p>
+                {[
+                    ["--color-main",      colorMain],
+                    ["--color-secondary", colorSecondary],
+                    ["--color-primary",   colorPrimary],
+                    ["--color-ff",        colorFf],
+                ].map(([prop, val]) => (
+                    <p key={prop}>
+                        {prop}:{" "}
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="w-3 h-3 rounded-full border border-gray-300 inline-block"
+                                style={{ backgroundColor: val }} />
+                            <span className="text-indigo-600">{val}</span>
+                        </span>
+                    </p>
+                ))}
+                <p>.container {"{"} max-width:{" "}
+                    <span className="text-indigo-600">{width}px</span> {"}"}
+                </p>
+            </div>
+
+            {/* ── Form fields — onChange updates live preview instantly ── */}
+            <FormSettings
+                type="appearance"
+                activePlugins={activePlugins}
+                initialValues={live}
+                onSuccess={onSaved}
+            />
         </div>
     );
 }
@@ -143,9 +309,11 @@ export default function AdminSettingsPage() {
 function HeaderTab({
     activePlugins,
     initialValues,
+    onSaved,
 }: {
     activePlugins: string[];
     initialValues: Record<string, any>;
+    onSaved?: () => void;
 }) {
     // Slot labels displayed in the preview diagram
     const slots = [
@@ -219,6 +387,7 @@ function HeaderTab({
                 type="header"
                 activePlugins={activePlugins}
                 initialValues={initialValues}
+                onSuccess={onSaved}
             />
         </div>
     );

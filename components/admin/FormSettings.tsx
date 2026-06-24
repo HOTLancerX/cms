@@ -7,19 +7,13 @@ import { getHooks } from "@/hook";
 import { xFetch } from "@/lib/express";
 
 export interface FormSettingsProps {
-    /**
-     * The type filter passed to getHooks("setting.form", type).
-     * "settings" → core admin settings page fields.
-     * A plugin nx slug → that plugin's own settings page fields.
-     * "" / undefined → ALL setting.form fields (universal).
-     */
     type?: string;
-    /** Active plugin nx IDs — passed from the parent page after useActivePlugins */
     activePlugins: string[];
-    /** Pre-loaded settings map { [title]: content } — from useSettings or SSR */
     initialValues?: Record<string, any>;
     /** Called after a successful save */
     onSuccess?: () => void;
+    /** Called on every field change — useful for live previews */
+    onChange?: (key: string, value: string) => void;
 }
 
 export default function FormSettings({
@@ -27,6 +21,7 @@ export default function FormSettings({
     activePlugins,
     initialValues = {},
     onSuccess,
+    onChange,
 }: FormSettingsProps) {
     // ── Plugin-injected fields ──────────────────────────────────────────────
     const [fields, setFields] = useState<FormHooks>([]);
@@ -68,6 +63,11 @@ export default function FormSettings({
                 setMessage(`Error: ${data.error ?? "Failed to save"}`);
             } else {
                 setMessage("Settings saved!");
+                // Signal AppearanceVars — same tab via custom event, other tabs via storage
+                try {
+                    localStorage.setItem("cms_settings_updated", Date.now().toString());
+                    window.dispatchEvent(new Event("cms_settings_updated"));
+                } catch { /* localStorage may be unavailable */ }
                 onSuccess?.();
                 setTimeout(() => setMessage(""), 3000);
             }

@@ -19,7 +19,8 @@ import { notFound } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 interface RootPageProps {
-    params: Promise<{ slug: string[] }>;
+    params:       Promise<{ slug: string[] }>;
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 const CORE_NX = "com.system.core";
@@ -234,8 +235,9 @@ function matchPrefix(slugParts: string[], prefix: string): string | null {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default async function DynamicRootPage({ params }: RootPageProps) {
+export default async function DynamicRootPage({ params, searchParams: searchParamsPromise }: RootPageProps) {
     const { slug } = await params;
+    const searchParams = await searchParamsPromise;
 
     await connectDB();
 
@@ -391,11 +393,11 @@ export default async function DynamicRootPage({ params }: RootPageProps) {
             const fallback = await resolveTemplate("cat", activeNxSet);
             if (!fallback?.component) continue;
             const C = fallback.component as any;
-            return <C data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
+            return <C data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} searchParams={searchParams} />;
         }
 
         const CatComponent = template.component as any;
-        return <CatComponent data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
+        return <CatComponent data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} searchParams={searchParams} />;
     }
 
     notFound();

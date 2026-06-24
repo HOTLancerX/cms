@@ -9,6 +9,13 @@
 @source "../hook/**/*.{ts,tsx}";
 @source "../context/**/*.{ts,tsx}";
 
+@theme {
+  --color-main: var(--color-main);
+  --color-secondary: var(--color-secondary);
+  --color-primary: var(--color-primary);
+  --color-ff: var(--color-ff);
+}
+
 .container {
   margin-left: auto;
   margin-right: auto;

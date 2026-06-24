@@ -7,9 +7,6 @@ import LicenseBanner from "@/components/admin/LicenseBanner";
 
 export const dynamic = "force-dynamic";
 
-const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
-const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function timeAgo(date: Date): string {
@@ -52,24 +49,16 @@ export default async function AdminDashboardPage() {
         Post.find().sort({ createdAt: -1 }).limit(5).lean(),
     ]);
 
-    // User + plugin data from Express (tenant-scoped)
-    const [userRes, pluginRes, domainRes] = await Promise.all([
-        fetch(`${EXPRESS_API}/user`, { headers: { "x-license-key": LICENSE_KEY }, cache: "no-store" }),
-        fetch(`${EXPRESS_API}/plugin/installed`, { headers: { "x-license-key": LICENSE_KEY }, cache: "no-store" }),
-        fetch(`${EXPRESS_API}/auth/domain`, { headers: { "x-license-key": LICENSE_KEY }, cache: "no-store" }),
-    ]);
-
-    const { users: allUsers = [] } = userRes.ok
-        ? (await userRes.json() as { users: any[] })
-        : { users: [] };
-
-    const { plugins: allPlugins = [] } = pluginRes.ok
-        ? (await pluginRes.json() as { plugins: any[] })
-        : { plugins: [] };
-
-    const domain = domainRes.ok
-        ? ((await domainRes.json() as { domain: any }).domain)
-        : null;
+    // User + plugin + domain data from Express — single aggregated call
+    const initRes = await fetch(
+        `${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/api/admin-init`,
+        { cache: "no-store" }
+    );
+    const {
+        users: allUsers = [],
+        plugins: allPlugins = [],
+        domain = null,
+    } = initRes.ok ? await initRes.json() : {};
 
     const totalUsers: number = allUsers.length;
     const activeUsers: number = allUsers.filter((u: any) => u.status === "active").length;
