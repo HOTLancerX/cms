@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* ─── Explicit source scanning for plugin directory ─── */
+/* plugin/ was previously listed in .gitignore as "plugin/*" (deep glob)  */
+/* which caused Tailwind v4 to skip it. Fixed by using "plugin/" instead. */
+/* These @source directives ensure all plugin classes are scanned.        */
+@source "../plugin/**/*.{ts,tsx}";
+@source "../components/**/*.{ts,tsx}";
+@source "../hook/**/*.{ts,tsx}";
+@source "../context/**/*.{ts,tsx}";
+
 .container {
   margin-left: auto;
   margin-right: auto;
