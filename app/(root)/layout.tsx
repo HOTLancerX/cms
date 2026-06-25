@@ -124,6 +124,18 @@ export default async function RootLayout({
         );
     }
 
+    // ── root.root widgets (floating / global — rendered after footer) ──────────
+    // Plugins register components with addHook("root.root", [...], nx).
+    // Only entries with slug "root" and an active plugin are included.
+    const rootWidgets = getRootPages().filter(
+        (p) =>
+            p.slug === "root" &&
+            p.type !== "header" &&
+            p.type !== "footer" &&
+            (p.pluginNx === CORE_NX || activeNxSet.has(p.pluginNx!)) &&
+            p.component
+    );
+
     return (
         <>
             {HeaderComponent && (
@@ -138,6 +150,15 @@ export default async function RootLayout({
             )}
             {children}
             {FooterComponent && <FooterComponent settings={settings} />}
+            {rootWidgets.map((widget) => {
+                const WidgetComponent = widget.component as React.ComponentType<any>;
+                return (
+                    <WidgetComponent
+                        key={`${widget.pluginNx}-${widget.key}`}
+                        settings={settings}
+                    />
+                );
+            })}
         </>
     );
 }
