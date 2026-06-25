@@ -7,6 +7,41 @@ import { xFetch } from "@/lib/express";
 
 type PluginStatus = "active" | "inactive" | "new" | "install" | "update" | "delete";
 
+function DeployButton() {
+    const [deploying, setDeploying] = useState(false);
+    const [done, setDone] = useState(false);
+
+    const handleDeploy = async () => {
+        setDeploying(true);
+        setDone(false);
+        try {
+            await fetch(process.env.NEXT_PUBLIC_VERCEL!, { method: "POST" });
+            setDone(true);
+            setTimeout(() => setDone(false), 3000);
+        } catch {
+        } finally {
+            setDeploying(false);
+        }
+    };
+
+    return (
+        <button
+            onClick={handleDeploy}
+            disabled={deploying}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-400 transition disabled:opacity-50 shadow"
+        >
+            {deploying ? (
+                <Icon icon="svg-spinners:ring-resize" width={16} />
+            ) : done ? (
+                <Icon icon="solar:check-circle-bold" width={16} />
+            ) : (
+                <Icon icon="solar:cloud-upload-bold" width={16} />
+            )}
+            {deploying ? "Deploying…" : done ? "Deployed!" : "Deploy"}
+        </button>
+    );
+}
+
 interface PluginRecord {
     _id: string | null;
     nx: string;
@@ -137,14 +172,17 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
                             </span>
                         )}
                     </div>
-                    <Link
-                        href="/admin/plugin/list"
-                        className="inline-flex items-center gap-2 text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition text-sm shadow"
-                        style={{ background: resolveGradient("from-violet-600 to-indigo-600") }}
-                    >
-                        <Icon icon="solar:shop-bold" width={18} />
-                        Plugin Store
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <DeployButton />
+                        <Link
+                            href="/admin/plugin/list"
+                            className="inline-flex items-center gap-2 text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition text-sm shadow"
+                            style={{ background: resolveGradient("from-violet-600 to-indigo-600") }}
+                        >
+                            <Icon icon="solar:shop-bold" width={18} />
+                            Store
+                        </Link>
+                    </div>
                 </div>
             </div>
 
