@@ -1,41 +1,62 @@
 import { notFound } from "next/navigation";
 import { getAdminPages } from "@/hook/adminPages";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
 interface AdminPageProps {
-    params: Promise<{ slug: string[] }>;
+  params: Promise<{ slug: string[] }>;
 }
 
-export default async function AdminDynamicPage({ params }: AdminPageProps) {
-    const { slug } = await params;
+export async function generateMetadata({
+  params,
+}: AdminPageProps): Promise<Metadata> {
+  const { slug } = await params;
 
-    // Join segments back into a path string, e.g. ["product", "settings"] → "product/settings"
-    const slugPath = Array.isArray(slug) ? slug.join("/") : slug;
+  const slugPath = Array.isArray(slug) ? slug.join("/") : slug;
 
-    // Retrieve all registered pages (bypasses gate, never cleared)
-    const pages = getAdminPages();
+  const pages = getAdminPages();
 
-    // Find matching page by key — prefer the most specific (longest) match.
-    // Rules:
-    //   Exact match  : key === slugPath
-    //   Prefix match : slugPath starts with key (key should end with "/")
-    const pageDef = pages
-        .filter((p) => p.key === slugPath || slugPath.startsWith(p.key))
-        .sort((a, b) => b.key.length - a.key.length)[0];
+  const pageDef = pages
+    .filter((p) => p.key === slugPath || slugPath.startsWith(p.key))
+    .sort((a, b) => b.key.length - a.key.length)[0];
 
-    if (!pageDef || !pageDef.path) {
-        notFound();
-    }
+  if (!pageDef) {
+    return {
+      title: "Not Found",
+      description: "Page not found",
+    };
+  }
 
-    const DynamicComponent = pageDef.path;
+  return {
+    title: pageDef.label,
+    description: "Advanced page builder built with Next.js and TypeScript",
+  };
+}
 
-    return (
-        <main className="cms-page">
-            <h1 className="mb-4 block font-bold">{pageDef.label}</h1>
-            <>
-                <DynamicComponent params={{ slug }} />
-            </>
-        </main>
-    );
+export default async function AdminDynamicPage({
+  params,
+}: AdminPageProps) {
+  const { slug } = await params;
+
+  const slugPath = Array.isArray(slug) ? slug.join("/") : slug;
+
+  const pages = getAdminPages();
+
+  const pageDef = pages
+    .filter((p) => p.key === slugPath || slugPath.startsWith(p.key))
+    .sort((a, b) => b.key.length - a.key.length)[0];
+
+  if (!pageDef || !pageDef.path) {
+    notFound();
+  }
+
+  const DynamicComponent = pageDef.path;
+
+  return (
+    <main className="cms-page">
+      <h1 className="mb-4 block font-bold">{pageDef.label}</h1>
+      <DynamicComponent params={{ slug }} />
+    </main>
+  );
 }
