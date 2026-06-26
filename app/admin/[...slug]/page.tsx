@@ -34,7 +34,7 @@ export default async function AdminDynamicPage({ params }: AdminPageProps) {
         <main className="cms-page">
             <h1 className="mb-4 block font-bold">{pageDef.label}</h1>
             <>
-                <DynamicComponent />
+                <DynamicComponent params={{ slug }} />
             </>
         </main>
     );
