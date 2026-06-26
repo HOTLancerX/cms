@@ -5,13 +5,16 @@ import { Settings } from "@/lib/settings";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await Settings();
-  const title = settings.site_title || "NxCMS";
+  const siteTitle = settings.site_title || "NxCMS";
   const favicon = settings.favicon || "";
   const description = settings.site_description || "";
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "";
 
   return {
-    title,
+    title: {
+      default: siteTitle,
+      template: `%s | ${siteTitle}`,
+    },
     description,
     keywords: settings.keywords?.length ? settings.keywords : undefined,
     metadataBase: baseUrl ? new URL(baseUrl) : undefined,
@@ -22,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",
-      title,
+      title: siteTitle,
     },
     icons: favicon ? {
       icon: [{ url: favicon }],
@@ -47,7 +50,7 @@ export default async function RootLayout({
   const fontImportUrl = googleFont ? `https://fonts.googleapis.com/css2?family=${encodeURIComponent(googleFont)}:wght@300;400;500;600;700&display=swap` : null;
 
   return (
-    <html>
+    <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
         <meta name="mobile-web-app-capable" content="yes" />

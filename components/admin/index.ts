@@ -267,30 +267,6 @@ export function register(): void {
             component: CategorySelect,
             hierarchicalCatType: "blog-category",
         },
-        {
-            key: "seo_meta_title",
-            label: "SEO Title",
-            type: "",
-            style: "left",
-            position: 9991,
-            component: Text,
-        },
-        {
-            key: "seo_meta_description",
-            label: "SEO Description",
-            type: "",
-            style: "left",
-            position: 9992,
-            component: Textarea,
-        },
-        {
-            key: "seo_meta_keyword",
-            label: "SEO Keyword",
-            type: "",
-            style: "left",
-            position: 9993,
-            component: Tags,
-        },
     ], CORE_NX);
 
     // ─── Cat form fields (universal — apply to all category types) ─────────
@@ -607,38 +583,6 @@ export function register(): void {
             style: "right",
             position: 30,
             component: Text,
-        },
-        {
-            key: "seo_meta_title",
-            label: "Default SEO Title",
-            type: "settings",
-            style: "right",
-            position: 40,
-            component: Text,
-        },
-        {
-            key: "seo_meta_description",
-            label: "Default SEO Description",
-            type: "settings",
-            style: "right",
-            position: 50,
-            component: Textarea,
-        },
-        {
-            key: "seo_meta_keywords",
-            label: "Default SEO Keywords",
-            type: "settings",
-            style: "right",
-            position: 60,
-            component: Tags,
-        },
-        {
-            key: "keywords",
-            label: "Site Keywords (meta)",
-            type: "settings",
-            style: "right",
-            position: 65,
-            component: Tags,
         },
     ], CORE_NX);
 

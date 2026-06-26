@@ -15,6 +15,7 @@ import { withCache } from "@/lib/cache";
 import { Settings } from "@/lib/settings";
 import { runServerDataHook } from "@/hook/serverDataHooks";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
@@ -103,6 +104,7 @@ async function getPost(slug: string, type: string) {
             type:      String(post.type   ?? ""),
             status:    String(post.status ?? ""),
             category:  post.category ? String(post.category) : null,
+            userId:    String(post.userId ?? ""),
             createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : String(post.createdAt ?? ""),
             updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : String(post.updatedAt ?? ""),
             info:      infoMap,
@@ -231,6 +233,151 @@ function matchPrefix(slugParts: string[], prefix: string): string | null {
         if (slugParts[i] !== segs[i]) return null;
     }
     return slugParts[segs.length];
+}
+
+// ─── generateMetadata — SEO ───────────────────────────────────────────────────
+
+export async function generateMetadata({ params }: RootPageProps): Promise<Metadata> {
+    const { slug } = await params;
+
+    await connectDB();
+
+    const postTypes = getPostTypes();
+    const catTypes = getCatTypes();
+    const [activeNxList, permalinkMap] = await Promise.all([
+        getActivePluginNamesCached(),
+        getPermalinkMap(postTypes, catTypes),
+    ]);
+
+    const settings = await Settings();
+    const siteName   = String(settings.siteName ?? settings.site_title ?? "");
+    const defTitle   = String(settings.site_title ?? settings.siteName ?? "");
+    const defDesc    = String(settings.seo_description ?? settings.siteDescription ?? "");
+    const defImg     = String(settings.seo_meta_image ?? "");
+    const baseUrl    = String(process.env.NEXT_PUBLIC_APP_URL ?? "");
+    const pageUrl    = baseUrl ? `${baseUrl.replace(/\/+$/, "")}/${slug.join("/")}` : "";
+
+    const buildMeta = (info: Record<string, string>, contentTitle: string = "", publisher: string = ""): Metadata => {
+        // Read from seo_data JSON (new plugin format) with fallback to individual keys
+        let seoTitle = "";
+        let seoDesc  = "";
+        let seoKw    = "";
+        let seoImg   = "";
+        if (info.seo_data) {
+            try {
+                const parsed = JSON.parse(info.seo_data);
+                seoTitle = parsed.seo_title || "";
+                seoDesc  = parsed.seo_description || "";
+                seoKw    = parsed.seo_keywords || "";
+                seoImg   = parsed.seo_image || "";
+            } catch { /* not JSON — ignore */ }
+        }
+        seoTitle = seoTitle || info.seo_title || "";
+        seoDesc  = seoDesc  || info.seo_description || "";
+        seoKw    = seoKw    || info.seo_keywords || "";
+
+        const title       = seoTitle || contentTitle || defTitle;
+        const description = seoDesc || defDesc;
+        const keywords    = seoKw || "";
+        const image       = seoImg || info.seo_image || defImg;
+
+        const hasSeoTitle = Boolean(seoTitle);
+
+        return {
+            title: hasSeoTitle ? { absolute: title } : title,
+            description,
+            keywords: keywords ? keywords.split(",").map((k) => k.trim()).filter(Boolean) : undefined,
+            authors: publisher ? [{ name: publisher }] : (siteName ? [{ name: siteName }] : undefined),
+            robots: {
+                index: true,
+                follow: true,
+                googleBot: {
+                    index: true,
+                    follow: true,
+                    "max-video-preview": -1,
+                    "max-image-preview": "large" as "large",
+                    "max-snippet": -1,
+                },
+            },
+            alternates: {
+                canonical: pageUrl || undefined,
+            },
+            openGraph: {
+                title,
+                description,
+                siteName: siteName || undefined,
+                ...(image ? { images: [{ url: image }] } : {}),
+            },
+            twitter: {
+                card: "summary_large_image" as const,
+                title,
+                description,
+                ...(image ? { images: [image] } : {}),
+            },
+        };
+    };
+
+    // ── Try static single pages ──
+    if (slug.length === 1) {
+        const rootPages = getRootPages();
+        const staticPage = rootPages.find(
+            (p) => p.slug === "single" && p.key === slug[0]
+        );
+        if (staticPage) return buildMeta({}, "");
+    }
+
+    // ── Try post types ──
+    for (const postType of postTypes) {
+        const prefix = permalinkMap[postType.key] ?? "";
+        const contentSlug = matchPrefix(slug, prefix);
+        if (contentSlug === null) continue;
+        const postData = await getPost(contentSlug, postType.key);
+        if (!postData) continue;
+        let publisher = "";
+        if (postData.userId) {
+            const author = await withCache(`user:id:${postData.userId}`, async () => {
+                await connectDB();
+                return User.findOne({ _id: postData.userId }).lean() as Promise<any>;
+            })();
+            publisher = author?.name ?? "";
+        }
+        return buildMeta(postData.info, postData.title, publisher);
+    }
+
+    // ── Try seller profile ──
+    {
+        const sellerPrefix = permalinkMap["seller"] ?? "seller";
+        const sSlug = matchPrefix(slug, sellerPrefix);
+        if (sSlug !== null) {
+            const sd = await getUserBySlug(sSlug, "seller");
+            if (sd) return buildMeta(sd.info, sd.title, sd.title);
+        }
+    }
+
+    // ── Try reporter profile ──
+    {
+        const reporterPrefix = permalinkMap["reporter"] ?? "reporter";
+        const rSlug = matchPrefix(slug, reporterPrefix);
+        if (rSlug !== null) {
+            const rd = await getUserBySlug(rSlug, "reporter");
+            if (rd) return buildMeta(rd.info, rd.title, rd.title);
+        }
+    }
+
+    // ── Try category types ──
+    for (const catType of catTypes) {
+        const prefix = permalinkMap[catType.key] ?? "";
+        const contentSlug = matchPrefix(slug, prefix);
+        if (contentSlug === null) continue;
+        const catData = await getCat(contentSlug, catType.key);
+        if (!catData) continue;
+        return buildMeta(catData.info, catData.title);
+    }
+
+    return {
+        title: defTitle || siteName || "Site",
+        description: defDesc,
+    };
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────

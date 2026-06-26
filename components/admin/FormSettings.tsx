@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
 import { xFetch } from "@/lib/express";
+import Gallery from "@/components/Gallery";
 
 export interface FormSettingsProps {
     type?: string;
@@ -80,7 +81,22 @@ export default function FormSettings({
 
     // ── Render a single field ───────────────────────────────────────────────
     const renderField = (field: FormHooks[number]) => {
-        const { key, label, component: Component, options } = field;
+        const { key, label, fieldType, component: Component, options } = field;
+
+        // ── single Gallery picker ──
+        if (fieldType === "gallery") {
+            return (
+                <div key={key} className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold">{label}</label>
+                    <Gallery
+                        value={String(values[key] ?? "")}
+                        onChange={(v) => handleChange(key, Array.isArray(v) ? v[0] ?? "" : v)}
+                        placeholder={`Select ${label}`}
+                    />
+                </div>
+            );
+        }
+
         if (!Component) return null;
         return (
             <Component
