@@ -9,6 +9,7 @@ import { signOut } from "next-auth/react";
 import { DEFAULT_USER_NAV, type UserNavItem } from "./usernav";
 import { getAllUserNavItems } from "@/hook";
 import { reregisterHooks } from "@/hook/PluginList";
+import { ActivePluginsProvider } from "@/context/ActivePluginsContext";
 import { xFetch } from "@/lib/express";
 
 const ROLE_CONFIG: Record<string, { label: string; linear: string; icon: string }> = {
@@ -271,6 +272,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
     );
 
     return (
+        <ActivePluginsProvider>
         <div className="min-h-screen bg-gray-50">
 
             {/* ═══════════════════════════════════════════════════════════
@@ -338,5 +340,6 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                 </div>
             </div>
         </div>
+        </ActivePluginsProvider>
     );
 }

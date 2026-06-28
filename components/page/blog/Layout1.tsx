@@ -54,7 +54,7 @@ export default function BlogLayout1({ data, permalinkMap = {}, pageData }: BlogP
     return (
         <main className="min-h-screen bg-white">
             {/* ── Hero ── */}
-            <header className="bg-gradient-to-br from-violet-600 to-indigo-700 px-6 py-20 text-center">
+            <header className="bg-linear-to-br from-violet-600 to-indigo-700 px-6 py-20 text-center">
                 <div className="max-w-3xl mx-auto">
                     {/* Breadcrumb: Home › Parent › Child › SubChild › Post Title */}
                     <nav className="flex items-center gap-1.5 text-sm text-violet-200 mb-4 flex-wrap"

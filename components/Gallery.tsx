@@ -485,7 +485,7 @@ export default function Gallery({ multiple = false, value, onChange, placeholder
                                 alt={`Selected image ${index + 1}`}
                                 width={150}
                                 height={100}
-                                className={`w-full ${selectedImages.length === 1 ? 'h-20' : 'h-10'} object-cover h-min w-min mx-auto`}
+                                className={`w-full ${selectedImages.length === 1 ? 'h-40' : 'h-10'} object-cover rounded`}
                             />
                             <button
                                 onClick={() => removeImage(url)}

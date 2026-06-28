@@ -7,6 +7,7 @@ import { Settings } from "@/lib/settings";
 import { getMenuByLocation } from "@/lib/menu";
 import { withCache } from "@/lib/cache";
 import type { MenuItem } from "@/models/Menu";
+import { ActivePluginsProvider } from "@/context/ActivePluginsContext";
 
 // Remove force-dynamic so Next.js Data Cache can take effect in production.
 // In development (NEXT_PUBLIC_CACHE !== "production") withCache is a no-op
@@ -148,7 +149,9 @@ export default async function RootLayout({
                     builderContent={builderContent}
                 />
             )}
-            {children}
+            <ActivePluginsProvider>
+                {children}
+            </ActivePluginsProvider>
             {FooterComponent && <FooterComponent settings={settings} />}
             {rootWidgets.map((widget) => {
                 const WidgetComponent = widget.component as React.ComponentType<any>;
