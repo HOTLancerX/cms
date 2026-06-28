@@ -184,7 +184,7 @@ export function register(): void {
         {
             key: "menu",
             label: "Menu",
-            icon: "solar:menu-dots-bold",
+            icon: "jam:menu",
             slug: "menu",
             parent: "",
             position: 115,
@@ -192,7 +192,7 @@ export function register(): void {
         {
             key: "menu-add",
             label: "Add Menu",
-            icon: "solar:add-circle-bold",
+            icon: "jam:menu",
             slug: "menu/add",
             parent: "menu",
             position: 1,
