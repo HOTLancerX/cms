@@ -74,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({ items, onClose }) => {
                         const isParentLinkActive = item.link && isActive(item.link);
 
                         return (
-                            <li key={index} className="relative">
+                            <li key={`${item.name}-${index}`} className="relative">
                                 {item.link && !item.subItems ? (
                                     // Parent item with link and no subitems - acts as direct link
                                     <Link href={item.link} onClick={handleSubItemClick}>
@@ -153,7 +153,7 @@ const Sidebar: React.FC<SidebarProps> = ({ items, onClose }) => {
                                     <div className="mt-2 ml-2 animate-in slide-in-from-top-2 duration-200">
                                         {item.subItems.map((subItem, subIndex) => (
                                             <Link
-                                                key={subIndex}
+                                                key={`${subItem.name}-${subIndex}`}
                                                 href={subItem.link}
                                                 onClick={handleSubItemClick}
                                             >
