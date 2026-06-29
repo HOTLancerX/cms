@@ -19,6 +19,13 @@ import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
 import Gallery from "@/components/Gallery";
 
+interface Location {
+    id: string;
+    _id?: string;
+    title: string;
+    parentId?: string | null;
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface UserFormProps {
@@ -123,6 +130,46 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
     const [info,     setInfo]     = useState<Record<string, string>>(initialData?.info ?? {});
     const [saving,   setSaving]   = useState(false);
     const [message,  setMessage]  = useState("");
+
+    // ── Location data ─────────────────────────────────────────────────────
+    const [allLocations, setAllLocations] = useState<Location[]>([]);
+    const [stateOptions, setStateOptions] = useState<Location[]>([]);
+    const [cityOptions, setCityOptions] = useState<Location[]>([]);
+
+    useEffect(() => {
+        fetch("/api/location/category?type=location&status=published")
+            .then((r) => (r.ok ? r.json() : { categories: [] }))
+            .then((data) => {
+                const locs: Location[] = (data.categories || []).map((loc: any) => ({
+                    ...loc,
+                    id: loc.id || loc._id,
+                }));
+                setAllLocations(locs);
+                setStateOptions(locs.filter((l) => !l.parentId));
+
+                if (initialData?.state) {
+                    const match = locs.find(
+                        (l) => l.id === initialData.state || l.title.toLowerCase() === String(initialData.state).toLowerCase()
+                    );
+                    if (match) setState(match.id);
+                }
+                if (initialData?.city) {
+                    const match = locs.find(
+                        (l) => l.id === initialData.city || l.title.toLowerCase() === String(initialData.city).toLowerCase()
+                    );
+                    if (match) setCity(match.id);
+                }
+            })
+            .catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        if (state) {
+            setCityOptions(allLocations.filter((l) => l.parentId === state));
+        } else {
+            setCityOptions([]);
+        }
+    }, [state, allLocations]);
 
     const isSeller = type === "seller";
 
@@ -456,16 +503,27 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
                             </Field>
                         </div>
 
-                        <Field label="City">
-                            <input type="text" value={city}
-                                onChange={e => setCity(e.target.value)}
-                                className={inputCls} placeholder="New York" />
+                        <Field label="State / Province">
+                            <select value={state}
+                                onChange={e => { setState(e.target.value); setCity(""); }}
+                                className={inputCls}>
+                                <option value="">Select State</option>
+                                {stateOptions.map(s => (
+                                    <option key={s.id} value={s.id}>{s.title}</option>
+                                ))}
+                            </select>
                         </Field>
 
-                        <Field label="State / Province">
-                            <input type="text" value={state}
-                                onChange={e => setState(e.target.value)}
-                                className={inputCls} placeholder="NY" />
+                        <Field label="City">
+                            <select value={city}
+                                onChange={e => setCity(e.target.value)}
+                                disabled={!state}
+                                className={inputCls}>
+                                <option value="">Select City</option>
+                                {cityOptions.map(c => (
+                                    <option key={c.id} value={c.id}>{c.title}</option>
+                                ))}
+                            </select>
                         </Field>
 
                         <Field label="Zip / Postal Code">
