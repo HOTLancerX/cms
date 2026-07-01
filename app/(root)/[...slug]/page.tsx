@@ -414,7 +414,12 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
         );
         if (staticPage?.component) {
             const Component = staticPage.component;
-            return <Component settings={settings} permalinkMap={permalinkMap} />;
+            // Allow plugins to enrich static pages with server-side data.
+            // runServerDataHook returns undefined when no hook is registered
+            // for this key — Component receives pageData={undefined} and
+            // must handle that gracefully (show empty state, etc.).
+            const pageData = await runServerDataHook(slug[0], "", slug[0]);
+            return <Component settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
         }
     }
 
