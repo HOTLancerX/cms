@@ -1,6 +1,6 @@
 import { Column, Row, PresetColumn } from "./types";
-import headingElement from "./elements/heading";
 import columnElement from "./elements/column";
+import { getBuilderElements, getBuilderElement } from "@/hook";
 
 // ============================================================
 // UID
@@ -56,28 +56,31 @@ export function getColumnByPath(row: Row, path: number[]): Column {
 }
 
 // ============================================================
-// ELEMENT REGISTRY
+// ELEMENT REGISTRY (dynamic from hook registry)
 // ============================================================
 
-const ELEMENTS = [headingElement, columnElement];
+/**
+ * Returns the catalog of all registered builder elements.
+ * Includes core elements + plugin elements from active plugins.
+ */
+export function getElementCatalog() {
+    const elements = getBuilderElements();
+    return elements.map((el) => ({
+        type: el.type,
+        label: el.label || "Element",
+        icon: el.icon || "mdi:cube-outline",
+        category: el.category || "General",
+        element: el,
+    }));
+}
 
-export const ELEMENT_CATALOG = [
-    {
-        type: headingElement.type,
-        label: headingElement.label || "Heading",
-        icon: headingElement.icon || "mdi:cube-outline",
-        category: headingElement.category || "General",
-        element: headingElement,
-    },
-    {
-        type: columnElement.type,
-        label: columnElement.label || "Container",
-        icon: columnElement.icon || "mdi:cube-outline",
-        category: columnElement.category || "General",
-        element: columnElement,
-    },
-];
+/** @deprecated Use getElementCatalog() directly — this is a static snapshot taken at module load. */
+export const ELEMENT_CATALOG = getElementCatalog();
 
+/**
+ * Returns the element definition by type.
+ * Respects the active-plugin gate — plugin elements only returned when active.
+ */
 export function getElementDef(type: string) {
-    return ELEMENTS.find((e) => e.type === type);
+    return getBuilderElement(type);
 }

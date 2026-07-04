@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useDraggable } from "@dnd-kit/react";
-import { ELEMENT_CATALOG } from "../helpers";
+import { getElementCatalog } from "../helpers";
 
 interface Props {
     onClickAdd: (elementType: string) => void;
@@ -12,12 +12,15 @@ interface Props {
 export default function ElementsPanel({ onClickAdd }: Props) {
     const [search, setSearch] = useState("");
 
+    // Get fresh catalog on every render (reflects active plugins)
+    const catalog = getElementCatalog();
+
     // Filter by search
     const filtered = search
-        ? ELEMENT_CATALOG.filter((item) =>
+        ? catalog.filter((item) =>
             item.label.toLowerCase().includes(search.toLowerCase())
         )
-        : ELEMENT_CATALOG;
+        : catalog;
 
     // Group by category
     const categories = [...new Set(filtered.map((item) => item.category))];
@@ -73,7 +76,7 @@ function DraggableCatalogItem({
     item,
     onClickAdd,
 }: {
-    item: (typeof ELEMENT_CATALOG)[number];
+    item: ReturnType<typeof getElementCatalog>[number];
     onClickAdd: () => void;
 }) {
     const { ref, isDragging } = useDraggable({

@@ -57,7 +57,7 @@ export default function BlogCategoryLayout1({
     return (
         <main className="min-h-screen bg-gray-50">
             {/* ── Banner ── */}
-            <header className="bg-gradient-to-r from-violet-600 to-purple-700 py-14 px-6">
+            <header className="bg-linear-to-r from-violet-600 to-purple-700 py-14 px-6">
                 <div className="max-w-6xl mx-auto">
                     {/* Breadcrumb */}
                     <nav className="flex items-center gap-1.5 text-sm text-white/70 mb-4 flex-wrap"

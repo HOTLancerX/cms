@@ -51,7 +51,7 @@ export default function BlogCategoryLayout2({
     return (
         <main className="min-h-screen bg-[#0a0c10]">
             <header className="relative py-16 px-6 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-violet-900/60 to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-r from-violet-900/60 to-transparent" />
                 <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-violet-500/10 blur-3xl pointer-events-none" />
 
                 <div className="relative max-w-6xl mx-auto">

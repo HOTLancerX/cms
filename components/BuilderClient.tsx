@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { getElementDef } from "@/components/builder/helpers";
 import columnElement from "@/components/builder/elements/column";
 import { controlToCSS, controlToHoverCSS } from "@/components/builder/controls/css";
@@ -284,9 +284,23 @@ function generateElementCSSForDevice(element: any, device: "desktop" | "tablet" 
 // RENDER COMPONENTS
 // ============================================================
 
-function RenderElement({ element }: { element: any }) {
+// ============================================================
+// RENDER COMPONENTS
+// ============================================================
+
+function RenderElement({ element, serverElements }: { element: any; serverElements: Record<string, React.ReactNode> }) {
+    // Server-rendered element — node already built by Builder.tsx
+    if (serverElements[element.id] !== undefined) {
+        return (
+            <div className={`bel-${element.id}`}>
+                {serverElements[element.id]}
+            </div>
+        );
+    }
+
     const def = getElementDef(element.type);
     if (!def || !def.render) return null;
+
     return (
         <div className={`bel-${element.id}`}>
             {def.render(element)}
@@ -294,7 +308,11 @@ function RenderElement({ element }: { element: any }) {
     );
 }
 
-function RenderColumn({ column, device = "desktop" }: { column: any; device?: "desktop" | "tablet" | "mobile" }) {
+function RenderColumn({ column, device = "desktop", serverElements }: {
+    column: any;
+    device?: "desktop" | "tablet" | "mobile";
+    serverElements: Record<string, React.ReactNode>;
+}) {
     const w = column.widths
         ? (device === "mobile" && column.widths.mobile !== undefined ? column.widths.mobile
             : device === "tablet" && column.widths.tablet !== undefined ? column.widths.tablet
@@ -305,17 +323,17 @@ function RenderColumn({ column, device = "desktop" }: { column: any; device?: "d
             <div className={`bcol-${column.id}`}>
                 {column.columns?.length > 0
                     ? column.columns.map((nested: any) => (
-                        <RenderColumn key={nested.id} column={nested} device={device} />
+                        <RenderColumn key={nested.id} column={nested} device={device} serverElements={serverElements} />
                     ))
                     : column.elements?.map((el: any) => (
-                        <RenderElement key={el.id} element={el} />
+                        <RenderElement key={el.id} element={el} serverElements={serverElements} />
                     ))}
             </div>
         </div>
     );
 }
 
-function RenderRow({ row }: { row: any }) {
+function RenderRow({ row, serverElements }: { row: any; serverElements: Record<string, React.ReactNode> }) {
     const s = row.schema;
     const overlay = s?.style?.backgroundOverlay;
     const overlayNormal = overlay?.normal || overlay;
@@ -323,7 +341,6 @@ function RenderRow({ row }: { row: any }) {
 
     return (
         <section className={`brow-${row.id}`}>
-            {/* Background overlay */}
             {overlayEnabled && (
                 <div
                     style={{
@@ -335,13 +352,11 @@ function RenderRow({ row }: { row: any }) {
                     }}
                 />
             )}
-            {/* Inner wrapper — max-width + flex */}
             <div className={`brow-${row.id}-inner`}>
                 {row.columns?.map((col: any) => (
-                    <RenderColumn key={col.id} column={col} />
+                    <RenderColumn key={col.id} column={col} serverElements={serverElements} />
                 ))}
             </div>
-            {/* Shape divider */}
             {s?.style?.shapeDivider?.enabled && (
                 <div
                     style={{
@@ -364,9 +379,11 @@ function RenderRow({ row }: { row: any }) {
 
 interface Props {
     content: any[];
+    /** Pre-rendered server nodes keyed by element id, provided by Builder.tsx */
+    serverElements?: Record<string, React.ReactNode>;
 }
 
-export default function BuilderClient({ content }: Props) {
+export default function BuilderClient({ content, serverElements = {} }: Props) {
     const css = useMemo(() => collectAllCSS(content), [content]);
 
     if (!content || !Array.isArray(content) || content.length === 0) return null;
@@ -375,7 +392,7 @@ export default function BuilderClient({ content }: Props) {
         <>
             <style dangerouslySetInnerHTML={{ __html: css }} />
             {content.map((row: any) => (
-                <RenderRow key={row.id} row={row} />
+                <RenderRow key={row.id} row={row} serverElements={serverElements} />
             ))}
         </>
     );

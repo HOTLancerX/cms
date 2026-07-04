@@ -14,6 +14,9 @@ import type { PluginMeta } from "@/hook";
 import { setActivePlugins, clearHooks, registerCoreHooks } from "@/hook";
 import { register as coreRegister } from "@/components/admin";
 
+// Register core builder elements once at module load — permanent, never cleared.
+import "@/components/builder/elements/index";
+
 interface RequireContext {
     keys(): string[];
     (id: string): any;

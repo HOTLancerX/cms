@@ -525,3 +525,92 @@ export function hasDataHook(contentType: string): boolean {
     if (!entry) return false;
     return isPluginActive(entry.pluginNx);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Builder Element Registry
+//
+// Allows core and plugins to register builder canvas elements.
+// Elements are permanent — never cleared by clearHooks() — because the
+// builder canvas needs them regardless of which client-side hooks are active.
+//
+// Core elements are registered once at module load time via
+// components/builder/elements/index.ts (imported by PluginList.ts).
+// Plugin elements are registered inside the plugin's register() function.
+//
+// Usage (core):
+//   import headingElement from "@/components/builder/elements/heading";
+//   addBuilderElement(headingElement);
+//
+// Usage (plugin):
+//   import myElement from "./elements/my-element";
+//   export function register() {
+//     addBuilderElement(myElement, PLUGINS.nx);
+//   }
+//
+// Rules:
+//   - Permanent store — never cleared by clearHooks()
+//   - Deduped by element.type — first registration wins for core elements,
+//     plugin elements with a different type are always added
+//   - Gate check at retrieval time via getBuilderElements()
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface BuilderElementDef {
+    type: string;
+    category?: string;
+    label?: string;
+    icon?: string;
+    schema: any;
+    controls: any[];
+    render: (element: any) => any;
+    /** Stamped automatically by addBuilderElement */
+    pluginNx?: string;
+}
+
+interface BuilderElementEntry {
+    def: BuilderElementDef;
+    pluginNx: string;
+}
+
+const _builderElements: BuilderElementEntry[] = [];
+
+/** Sentinel used for elements that belong to the core (not a plugin). */
+const BUILDER_CORE_NX = "__core__";
+
+/**
+ * Register a builder element definition.
+ *
+ * @param def       - The element definition object
+ * @param pluginNx  - The plugin's nx identifier. Omit for core elements.
+ */
+export function addBuilderElement(
+    def: BuilderElementDef,
+    pluginNx: string = BUILDER_CORE_NX
+): void {
+    // Deduplicate by type — skip if already registered with same type + nx
+    const exists = _builderElements.some(
+        (e) => e.def.type === def.type && e.pluginNx === pluginNx
+    );
+    if (exists) return;
+    _builderElements.push({ def: { ...def, pluginNx }, pluginNx });
+}
+
+/**
+ * Returns all registered builder element definitions.
+ * Core elements (pluginNx === "__core__") are always included.
+ * Plugin elements are gated — only included when the owning plugin is active.
+ */
+export function getBuilderElements(): BuilderElementDef[] {
+    return _builderElements
+        .filter((e) =>
+            e.pluginNx === BUILDER_CORE_NX || isPluginActive(e.pluginNx)
+        )
+        .map((e) => e.def);
+}
+
+/**
+ * Returns a single builder element definition by type, or undefined.
+ * Respects the active-plugin gate for plugin-owned elements.
+ */
+export function getBuilderElement(type: string): BuilderElementDef | undefined {
+    return getBuilderElements().find((e) => e.type === type);
+}

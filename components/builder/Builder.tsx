@@ -7,6 +7,7 @@ import { DragDropProvider } from "@dnd-kit/react";
 import { Row, Column, Selection, LeftPanelMode, Device } from "./types";
 import { getColumnByPath, uid } from "./helpers";
 import { xFetch } from "@/lib/express";
+import { reregisterHooks } from "@/hook/PluginList";
 
 // Settings popup (co-located with the [id] route)
 import BuilderSettingsPopup from "@/app/admin/builder/[id]/Popup";
@@ -93,6 +94,23 @@ export default function Builder() {
     const [panelWidth, setPanelWidth] = useState(280);
     const [isResizing, setIsResizing] = useState(false);
     const [device, setDevice] = useState<Device>("desktop");
+    // Incremented after reregisterHooks() so ElementsPanel re-renders with plugin elements
+    const [catalogKey, setCatalogKey] = useState(0);
+
+    // ── Register active plugin hooks (including builder elements) on mount ──
+    useEffect(() => {
+        xFetch("/plugin/installed", { cache: "no-store" })
+            .then((r) => r.json())
+            .then((data: { plugins: { nx: string; status: string }[] }) => {
+                const activeNxIds = (data.plugins ?? [])
+                    .filter((p) => p.status === "active")
+                    .map((p) => p.nx);
+                reregisterHooks(activeNxIds);
+                // Bump key so ElementsPanel re-renders with the updated catalog
+                setCatalogKey((k) => k + 1);
+            })
+            .catch(() => {});
+    }, []);
 
     // Load content from API
     useEffect(() => {
@@ -311,6 +329,7 @@ export default function Builder() {
 
                         {(leftPanel === "elements" || !leftPanel) && (
                             <ElementsPanel
+                                key={catalogKey}
                                 onClickAdd={(type) => {
                                     if (targetCol) addElementToColumn(targetCol.rowId, targetCol.path, type);
                                 }}
