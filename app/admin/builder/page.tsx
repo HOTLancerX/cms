@@ -9,8 +9,17 @@ interface BuilderDoc {
     _id: string;
     title: string;
     status: string;
+    templateType?: string | null;
     updatedAt: string;
 }
+
+const TYPE_ICON: Record<string, string> = {
+    header: "solar:sidebar-minimalistic-bold",
+    footer: "solar:list-bold",
+    page: "solar:file-bold",
+    post: "solar:document-bold",
+    cat: "solar:folder-bold",
+};
 
 export default function BuilderListPage() {
     const [docs, setDocs] = useState<BuilderDoc[]>([]);
@@ -50,6 +59,7 @@ export default function BuilderListPage() {
                 <thead>
                     <tr className="border-b border-neutral-200 text-left">
                         <th className="px-3 py-2 text-xs text-neutral-500 font-medium">Title</th>
+                        <th className="px-3 py-2 text-xs text-neutral-500 font-medium">Type</th>
                         <th className="px-3 py-2 text-xs text-neutral-500 font-medium">Status</th>
                         <th className="px-3 py-2 text-xs text-neutral-500 font-medium">Updated</th>
                         <th className="px-3 py-2 text-xs text-neutral-500 font-medium">Actions</th>
@@ -59,16 +69,33 @@ export default function BuilderListPage() {
                     {docs.map((doc) => (
                         <tr key={doc._id} className="border-b border-neutral-100">
                             <td className="px-3 py-2.5 text-sm">
-                                <Link href={`/admin/builder/${doc._id}`} className="text-blue-500 no-underline hover:underline">
+                                <Link
+                                    href={`/admin/builder/${doc._id}`}
+                                    className="text-blue-500 no-underline hover:underline"
+                                >
                                     {doc.title}
                                 </Link>
                             </td>
                             <td className="px-3 py-2.5">
+                                {doc.templateType ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-600 capitalize">
+                                        <Icon
+                                            icon={TYPE_ICON[doc.templateType] ?? "solar:file-bold"}
+                                            width={11}
+                                        />
+                                        {doc.templateType}
+                                    </span>
+                                ) : (
+                                    <span className="text-[11px] text-neutral-300">—</span>
+                                )}
+                            </td>
+                            <td className="px-3 py-2.5">
                                 <span
-                                    className={`px-2 py-0.5 rounded-full text-[11px] ${doc.status === "active"
-                                        ? "bg-green-100 text-green-800"
-                                        : "bg-neutral-100 text-neutral-500"
-                                        }`}
+                                    className={`px-2 py-0.5 rounded-full text-[11px] ${
+                                        doc.status === "active"
+                                            ? "bg-green-100 text-green-800"
+                                            : "bg-neutral-100 text-neutral-500"
+                                    }`}
                                 >
                                     {doc.status}
                                 </span>
@@ -88,7 +115,10 @@ export default function BuilderListPage() {
                     ))}
                     {docs.length === 0 && (
                         <tr>
-                            <td colSpan={4} className="px-3 py-5 text-center text-neutral-400 text-sm">
+                            <td
+                                colSpan={5}
+                                className="px-3 py-5 text-center text-neutral-400 text-sm"
+                            >
                                 No builder pages yet.
                             </td>
                         </tr>

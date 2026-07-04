@@ -8,6 +8,9 @@ import { Row, Column, Selection, LeftPanelMode, Device } from "./types";
 import { getColumnByPath, uid } from "./helpers";
 import { xFetch } from "@/lib/express";
 
+// Settings popup (co-located with the [id] route)
+import BuilderSettingsPopup from "@/app/admin/builder/[id]/Popup";
+
 // Canvas
 import CanvasRow from "./canvas/CanvasRow";
 import CanvasStyles from "./canvas/CanvasStyles";
@@ -39,6 +42,7 @@ export default function Builder() {
     const [targetCol, setTargetCol] = useState<{ rowId: string; path: number[] } | null>(null);
     const [saving, setSaving] = useState(false);
     const [title, setTitle] = useState("");
+    const [templateType, setTemplateType] = useState<string | null>(null);
     const [contextMenu, setContextMenu] = useState<ContextMenuTarget | null>(null);
 
     // Clipboard is persisted to localStorage so copy/paste works across builder pages
@@ -83,6 +87,7 @@ export default function Builder() {
     );
     const [showStructure, setShowStructure] = useState(false);
     const [showSaveSection, setShowSaveSection] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
     const [saveSectionRow, setSaveSectionRow] = useState<string | null>(null);
     const [panelCollapsed, setPanelCollapsed] = useState(false);
     const [panelWidth, setPanelWidth] = useState(280);
@@ -97,6 +102,7 @@ export default function Builder() {
             .then((doc) => {
                 if (doc.content && Array.isArray(doc.content)) setRows(doc.content);
                 if (doc.title) setTitle(doc.title);
+                if (doc.templateType !== undefined) setTemplateType(doc.templateType ?? null);
             })
             .catch(() => { });
     }, [builderId]);
@@ -403,6 +409,20 @@ export default function Builder() {
                                 <Icon icon="mdi:file-tree" width="14" />
                                 Structure
                             </button>
+                            {/* Settings toggle */}
+                            <button
+                                type="button"
+                                onClick={() => setShowSettings(!showSettings)}
+                                title="Page settings"
+                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded cursor-pointer border-none ${
+                                    showSettings
+                                        ? "text-indigo-600 bg-indigo-50"
+                                        : "text-neutral-600 bg-neutral-100 hover:bg-neutral-200"
+                                }`}
+                            >
+                                <Icon icon="solar:settings-bold" width="14" />
+                                Settings
+                            </button>
                             {/* Back button */}
                             <button
                                 type="button"
@@ -564,6 +584,27 @@ export default function Builder() {
                         }}
                     />
                 )}
+
+                {/* Page Settings Panel (slides in from the right) */}
+                <BuilderSettingsPopup
+                    open={showSettings}
+                    title={title}
+                    templateType={templateType}
+                    onClose={() => setShowSettings(false)}
+                    onSave={async ({ title: newTitle, templateType: newType }) => {
+                        if (!builderId) return;
+                        await xFetch("/builder", {
+                            method: "PUT",
+                            body: JSON.stringify({
+                                id: builderId,
+                                title: newTitle,
+                                templateType: newType,
+                            }),
+                        });
+                        setTitle(newTitle);
+                        setTemplateType(newType);
+                    }}
+                />
             </div>
         </DragDropProvider>
     );

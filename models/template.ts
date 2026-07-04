@@ -7,6 +7,12 @@ export interface ITemplate extends Document {
     position: number;  // ordering within the type
     pluginNx: string;  // nx of the plugin that registered this template
     isDefault: boolean;
+    /**
+     * When the template is backed by a builder page, this holds the
+     * builder document _id. The root layout uses this to render
+     * <Builder id={builderId}> instead of a hook component.
+     */
+    builderId?: string | null;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -19,6 +25,7 @@ const TemplateSchema = new Schema<ITemplate>(
         position: { type: Number, default: 0 },
         pluginNx: { type: String, required: true },
         isDefault: { type: Boolean, default: false },
+        builderId: { type: String, default: null },
     },
     { timestamps: true }
 );
