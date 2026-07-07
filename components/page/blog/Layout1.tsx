@@ -98,7 +98,7 @@ export default function BlogLayout1({ data, permalinkMap = {}, pageData }: BlogP
                 <article className="lg:col-span-2 space-y-8">
                     {description ? (
                         <div
-                            className="prose prose-lg max-w-none text-gray-700"
+                            className="prose prose-lg max-w-none text-gray-700 description"
                             dangerouslySetInnerHTML={{ __html: description }}
                         />
                     ) : (
@@ -107,26 +107,6 @@ export default function BlogLayout1({ data, permalinkMap = {}, pageData }: BlogP
                                 Post content renders here. Connect your rich-text body field to replace this placeholder.
                             </p>
                         </div>
-                    )}
-
-                    {/* Extra plugin fields */}
-                    {extraInfo.length > 0 && (
-                        <section>
-                            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                                <span className="w-1.5 h-5 rounded-full bg-violet-500 inline-block" />
-                                Additional Information
-                            </h2>
-                            <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 overflow-hidden">
-                                {extraInfo.map(([key, value]) => (
-                                    <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-2 px-5 py-3.5 bg-white hover:bg-gray-50 transition">
-                                        <dt className="text-xs font-mono font-semibold text-violet-500 uppercase tracking-wide min-w-[180px]">
-                                            {key.replace(/_/g, ' ')}
-                                        </dt>
-                                        <dd className="text-sm text-gray-700 break-all">{value}</dd>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
                     )}
                 </article>
 

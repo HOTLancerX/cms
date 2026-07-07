@@ -112,3 +112,204 @@ body {
     border-color: var(--color-gray-200, currentColor);
   }
 }
+
+
+.description {
+  word-break: normal;
+  word-wrap: break-word;
+  margin: 0;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.description figure figcaption {
+  background-color: #f9f9f9;
+  outline: none;
+  margin: 0;
+  padding: 1em .5em;
+}
+
+.description blockquote {
+  font-family: inherit;
+  font-size: inherit;
+  color: #999;
+  border: 0 solid #b1b1b1;
+  border-left-width: 5px;
+  margin-block: 1em;
+  margin-inline: 0;
+  padding: 0 5px 0 20px;
+  display: block;
+}
+
+.description .__se__float-right {
+  float: right;
+  margin-left: 4px;
+}
+
+.slick-slider {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  user-select: none;
+  touch-action: pan-y;
+}
+
+/* Allow hover overlays (e.g. product card descriptions) to escape the slider — handled via portal */
+
+.slick-track {
+  position: relative;
+  top: 0;
+  left: 0;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.slick-slide {
+  display: none;
+  float: left;
+  height: 100%;
+  min-height: 1px;
+}
+
+.slick-slide img {
+  display: block;
+}
+
+.slick-initialized .slick-slide {
+  display: block;
+}
+
+/* Smooth transitions */
+.slick-slide {
+  transition: all 0.3s ease;
+}
+
+/* Remove default slick dots styling if needed */
+.slick-dots {
+  display: none !important;
+}
+
+/* Custom arrow hover effects */
+.slick-arrow {
+  transition: all 0.3s ease;
+}
+
+.slick-arrow:hover {
+  transform: scale(1.1);
+}
+
+/* Thumbnail active state enhancement */
+.slick-current {
+  opacity: 1;
+}
+
+
+.description h1 {
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.description h2 {
+  font-size: 25px;
+  font-weight: 600;
+}
+
+.description ol,
+.description ul {
+  padding-left: 35px;
+  list-style: disc;
+}
+
+table>tbody>tr:nth-child(odd) {
+  background-color: #e6ecee;
+}
+
+.description h4,
+.description h3 {
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 25px;
+  margin: 7px 0;
+}
+
+.description a {
+  color: #124d9d;
+}
+
+.description p {
+  line-height: 30px;
+  margin: 5px 0;
+}
+
+.description.pre pre,
+.nober::-webkit-scrollbar {
+  display: none;
+}
+
+.description ol,
+.description ul {
+  padding-left: 20px;
+  list-style: disc;
+}
+
+.description td:first-child,
+.description th:first-child {
+  background: #f7f9fa;
+  text-align: left;
+  width: 30% !important;
+  border: 1px solid rgba(16, 49, 120, .1);
+  padding: 10px;
+}
+
+.description td {
+  background: #fff;
+  text-align: left;
+  width: auto;
+  padding-left: 15px;
+  border-bottom: 1px solid rgba(16, 49, 120, .1);
+}
+
+.description h3 {
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 25px;
+  margin: 7px 0;
+}
+
+.description h1 {
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.description h2 {
+  font-size: 25px;
+  font-weight: 600;
+}
+
+.description ol,
+.description ul {
+  padding-left: 35px;
+  list-style: disc;
+}
+
+table>tbody>tr:nth-child(odd) {
+  background-color: #e6ecee50;
+}
+
+table>tbody>tr>th {
+  text-align: left;
+  padding: 10px;
+  font-weight: 400;
+}
+
+.description table {
+  margin: 10px auto;
+  width: 100%;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

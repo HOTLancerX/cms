@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/auto-news",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/ai-auto-post-run",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
