@@ -2,73 +2,110 @@ import type { NextConfig } from "next";
 import path from "path";
 import fs from "fs";
 
-// ── Optional-plugin alias helper ──────────────────────────────────────────────
-// When a plugin folder is absent on disk, every import from that plugin is
-// aliased to an empty stub so the build never errors.
-// Works for both Turbopack (next.config turbopack.resolveAlias) and webpack
-// (config.resolve.alias inside the webpack() callback).
+// ─────────────────────────────────────────────────────────────────────────────
+// Optional-plugin stub system
+//
+// When a user installs only some plugins, missing cross-plugin imports must
+// not break the build. This file aliases every absent module to an empty stub.
+//
+// HOW IT WORKS
+// ─────────────────────────────────────────────────────────────────────────────
+// For every entry in OPTIONAL_MODULES we check whether the actual file exists
+// on disk. If it does NOT, we add TWO alias entries:
+//
+//   1. "@/plugin/foo/bar"        ← webpack resolves this via tsconfig @/ map
+//   2. "<root>/plugin/foo/bar"   ← Turbopack resolves this (it sees the
+//                                   expanded absolute path after tsconfig
+//                                   paths are applied)
+//
+// Both point to lib/optional-plugin-stub.ts which exports `undefined` as
+// both default and named exports so null-guards in consuming code work.
+//
+// For entire-plugin entries (when a plugin directory is fully absent) we also
+// alias the directory itself so that dynamic import() and require() calls
+// resolve cleanly.
+// ─────────────────────────────────────────────────────────────────────────────
 
-const STUB = path.join(__dirname, "lib", "optional-plugin-stub.ts");
+const ROOT = __dirname;
+const STUB = path.join(ROOT, "lib", "optional-plugin-stub.ts");
 
-/**
- * Cross-plugin imports that must be aliased to the stub when the specific
- * module file is absent on disk. Add new entries here as new cross-plugin
- * dependencies are introduced.
- *
- * The check is intentionally against the FULL RESOLVED FILE PATH (with
- * common extensions tried), not just the plugin root folder — a plugin
- * folder can exist without containing the specific file being imported.
- */
+// ── File-level optional cross-plugin imports ──────────────────────────────────
+// Each entry is an @/ specifier. If the resolved file does not exist on disk,
+// BOTH the @/ specifier and the absolute path are aliased to the stub.
 const OPTIONAL_MODULES: string[] = [
-    // flash-sale → used by product plugin boxes and ProductClient
+    // flash-sale → product boxes (flashSaleOptional.ts) + ProductClient
     "@/plugin/flash-sale/lib/useFlashSale",
     "@/plugin/flash-sale/lib/applyFlashSale",
 
-    // seller → used by product/api/returns and seller/api/wallet/process
+    // seller → product/api/returns + seller/api/wallet
     "@/plugin/seller/models/Transaction",
     "@/plugin/seller/models/Wallet",
 
-    // compare → used by product/product/ProductClient via dynamic import
+    // compare → product/product/ProductClient (dynamic import)
     "@/plugin/compare/ui/Compare",
 
-    // seller-membership → used by product/api/orders/[orderNumber]/route.ts
-    // via runtime require() — still needs a build-time alias when absent
+    // seller-membership → product/api/orders/[orderNumber]/route.ts (require)
     "@/plugin/seller-membership/models/MembershipPackage",
     "@/plugin/seller-membership/models/SellerMembership",
 
-    // product → used by paypal, stripe, seller, checkout-auto-suggested, upsell-trigger
+    // product → paypal, stripe, seller, checkout-auto-suggested, upsell-trigger
     "@/plugin/product/models/Order",
     "@/plugin/product/lib/cart",
 ];
 
-/**
- * Build the alias map.
- *
- * For each optional module, resolve the @/ prefix to the project root and
- * try common TypeScript/JavaScript extensions. If NO matching file is found
- * on disk, alias the specifier to the stub so the build never errors.
- *
- * This handles the case where the plugin FOLDER exists but the specific
- * file inside it does not (e.g. flash-sale plugin exists but applyFlashSale
- * hasn't been created yet).
- */
+// ── npm-package-level optionals ───────────────────────────────────────────────
+// These are node_modules packages that are only needed when a specific plugin
+// is installed. When that plugin folder is absent the package import is dead
+// code, but the bundler still resolves it. We alias to stub when the plugin
+// folder that owns them is absent.
+//
+// Format: [pluginFolder, packageName]
+const OPTIONAL_NPM_PACKAGES: [string, string][] = [
+    // embla-carousel-* only needed by daraz plugin slider
+    ["daraz", "embla-carousel-react"],
+    ["daraz", "embla-carousel-autoplay"],
+];
+
+// ── Extensions to try when checking file existence ────────────────────────────
+const EXTS = ["ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs"];
+
+function fileExists(base: string): boolean {
+    // Exact path first (for directory index files)
+    if (fs.existsSync(base)) return true;
+    return EXTS.some((ext) => fs.existsSync(`${base}.${ext}`));
+}
+
+function pluginExists(pluginName: string): boolean {
+    return fs.existsSync(path.join(ROOT, "plugin", pluginName));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function buildAliases(): Record<string, string> {
-    const root    = __dirname;
     const aliases: Record<string, string> = {};
-    const EXTS    = ["ts", "tsx", "js", "jsx", "mts", "mjs"];
 
+    // ── File-level ────────────────────────────────────────────────────────────
     for (const mod of OPTIONAL_MODULES) {
-        // Convert @/plugin/foo/bar  →  <root>/plugin/foo/bar
-        const rel  = mod.replace(/^@\//, "");
-        const base = path.join(root, rel);
+        const rel  = mod.replace(/^@\//, "");          // "plugin/foo/bar"
+        const base = path.join(ROOT, rel);             // "<root>/plugin/foo/bar"
 
-        // Try every extension — the module is "present" if any file matches
-        const exists = EXTS.some((ext) => fs.existsSync(`${base}.${ext}`));
-
-        if (!exists) {
+        if (!fileExists(base)) {
+            // Webpack key  (@/ specifier — resolved via tsconfig paths)
             aliases[mod] = STUB;
+            // Turbopack key (absolute path — what Turbopack sees after tsconfig
+            // @/ → <root>/ expansion)
+            aliases[base] = STUB;
         }
     }
+
+    // ── npm packages ──────────────────────────────────────────────────────────
+    for (const [plugin, pkg] of OPTIONAL_NPM_PACKAGES) {
+        if (!pluginExists(plugin)) {
+            // Both bundlers use the bare package name as the key for npm pkgs
+            aliases[pkg] = STUB;
+        }
+    }
+
     return aliases;
 }
 
@@ -99,12 +136,12 @@ const nextConfig: NextConfig = {
     },
     devIndicators: false,
 
-    // ── Turbopack alias (Next.js 15+ / 16 default bundler) ───────────────────
+    // ── Turbopack (Next.js 15+ / 16 default bundler) ─────────────────────────
     turbopack: {
         resolveAlias: optionalAliases,
     },
 
-    // ── Webpack alias (used when --webpack flag is passed or Next.js < 15) ───
+    // ── Webpack (--webpack flag or Next.js < 15) ──────────────────────────────
     webpack(config) {
         if (Object.keys(optionalAliases).length > 0) {
             config.resolve.alias = {
