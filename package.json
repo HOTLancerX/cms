@@ -12,8 +12,8 @@
     "postinstall": "node lib/plugin-runner.mjs"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1079.0",
-    "@aws-sdk/s3-request-presigner": "^3.1079.0",
+    "@aws-sdk/client-s3": "^3.1080.0",
+    "@aws-sdk/s3-request-presigner": "^3.1080.0",
     "@dnd-kit/helpers": "^0.5.0",
     "@dnd-kit/react": "^0.5.0",
     "@google/generative-ai": "^0.24.1",
@@ -22,8 +22,10 @@
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "dnd-kit": "^0.0.2",
+    "embla-carousel-autoplay": "8.6.0",
+    "embla-carousel-react": "8.6.0",
     "html2canvas": "^1.4.1",
-    "mongoose": "^9.7.3",
+    "mongoose": "^9.7.4",
     "next": "^16.2.10",
     "next-auth": "^4.24.14",
     "react": "^19.2.7",
@@ -44,10 +46,10 @@
     "@types/react-dom": "19.2.3",
     "@types/react-slick": "^0.23.13",
     "@types/webpack-env": "^1.18.8",
+    "@types/xml2js": "^0.4.14",
     "eslint": "^10.6.0",
     "eslint-config-next": "^16.2.10",
     "tailwindcss": "^4.3.2",
-    "typescript": "6.0.3",
-    "@types/xml2js": "^0.4.14"
+    "typescript": "6.0.3"
   }
 }
