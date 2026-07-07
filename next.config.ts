@@ -8,13 +8,16 @@ import fs from "fs";
 // Works for both Turbopack (next.config turbopack.resolveAlias) and webpack
 // (config.resolve.alias inside the webpack() callback).
 
-const PLUGIN_DIR = path.join(__dirname, "plugin");
-const STUB       = path.join(__dirname, "lib", "optional-plugin-stub.ts");
+const STUB = path.join(__dirname, "lib", "optional-plugin-stub.ts");
 
 /**
- * Cross-plugin imports that must be aliased to the stub when the source
- * plugin folder is absent. Add new entries here as new cross-plugin
+ * Cross-plugin imports that must be aliased to the stub when the specific
+ * module file is absent on disk. Add new entries here as new cross-plugin
  * dependencies are introduced.
+ *
+ * The check is intentionally against the FULL RESOLVED FILE PATH (with
+ * common extensions tried), not just the plugin root folder — a plugin
+ * folder can exist without containing the specific file being imported.
  */
 const OPTIONAL_MODULES: string[] = [
     // flash-sale → used by product plugin boxes and ProductClient
@@ -25,8 +28,13 @@ const OPTIONAL_MODULES: string[] = [
     "@/plugin/seller/models/Transaction",
     "@/plugin/seller/models/Wallet",
 
-    // compare → used by product/product/ProductClient
+    // compare → used by product/product/ProductClient via dynamic import
     "@/plugin/compare/ui/Compare",
+
+    // seller-membership → used by product/api/orders/[orderNumber]/route.ts
+    // via runtime require() — still needs a build-time alias when absent
+    "@/plugin/seller-membership/models/MembershipPackage",
+    "@/plugin/seller-membership/models/SellerMembership",
 
     // product → used by paypal, stripe, seller, checkout-auto-suggested, upsell-trigger
     "@/plugin/product/models/Order",
@@ -34,19 +42,30 @@ const OPTIONAL_MODULES: string[] = [
 ];
 
 /**
- * Build the alias map: only alias modules whose plugin folder is missing.
- * Returns { '@/plugin/flash-sale/lib/useFlashSale': '/abs/path/to/stub', ... }
+ * Build the alias map.
+ *
+ * For each optional module, resolve the @/ prefix to the project root and
+ * try common TypeScript/JavaScript extensions. If NO matching file is found
+ * on disk, alias the specifier to the stub so the build never errors.
+ *
+ * This handles the case where the plugin FOLDER exists but the specific
+ * file inside it does not (e.g. flash-sale plugin exists but applyFlashSale
+ * hasn't been created yet).
  */
 function buildAliases(): Record<string, string> {
+    const root    = __dirname;
     const aliases: Record<string, string> = {};
+    const EXTS    = ["ts", "tsx", "js", "jsx", "mts", "mjs"];
+
     for (const mod of OPTIONAL_MODULES) {
-        const match = mod.match(/^@\/plugin\/([^/]+)/);
-        if (!match) continue;
-        const pluginFolder = path.join(PLUGIN_DIR, match[1]);
-        if (!fs.existsSync(pluginFolder)) {
-            // Turbopack resolveAlias uses the bare specifier as key; webpack
-            // needs the resolved absolute path — both use the same string key
-            // here because Next.js maps @/ → <root>/ in both cases.
+        // Convert @/plugin/foo/bar  →  <root>/plugin/foo/bar
+        const rel  = mod.replace(/^@\//, "");
+        const base = path.join(root, rel);
+
+        // Try every extension — the module is "present" if any file matches
+        const exists = EXTS.some((ext) => fs.existsSync(`${base}.${ext}`));
+
+        if (!exists) {
             aliases[mod] = STUB;
         }
     }
