@@ -622,3 +622,10 @@ export function getBuilderElements(): BuilderElementDef[] {
 export function getBuilderElement(type: string): BuilderElementDef | undefined {
     return getBuilderElements().find((e) => e.type === type);
 }
+
+// ─── Wire the plugin bus gate ──────────────────────────────────────────────────
+// pluginHooks.ts is self-contained (no @/ imports) so it resolves under
+// Turbopack from any plugin subdirectory. We connect isPluginActive here so
+// doAction / applyFilter / resolveService respect the active-plugin gate.
+import { setPluginBusGate } from "./pluginHooks";
+setPluginBusGate(isPluginActive);
