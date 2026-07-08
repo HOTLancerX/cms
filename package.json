@@ -22,8 +22,6 @@
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "dnd-kit": "^0.0.2",
-    "embla-carousel-autoplay": "8.6.0",
-    "embla-carousel-react": "8.6.0",
     "html2canvas": "^1.4.1",
     "mongoose": "^9.7.4",
     "next": "^16.2.10",

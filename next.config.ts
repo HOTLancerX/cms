@@ -49,11 +49,7 @@ const OPTIONAL_MODULES: string[] = [
 // folder that owns them is absent.
 //
 // Format: [pluginFolder, packageName]
-const OPTIONAL_NPM_PACKAGES: [string, string][] = [
-    // embla-carousel-* only needed by daraz plugin slider
-    ["daraz", "embla-carousel-react"],
-    ["daraz", "embla-carousel-autoplay"],
-];
+const OPTIONAL_NPM_PACKAGES: [string, string][] = [];
 
 // ── Extensions to try when checking file existence ────────────────────────────
 const EXTS = ["ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs"];
