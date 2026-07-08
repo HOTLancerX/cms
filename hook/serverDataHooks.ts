@@ -71,6 +71,19 @@ serverHookContext.keys().forEach((key: string) => {
     serverHookContext(key);
 });
 
+// Plugin action hooks (server-only Mongoose action handlers)
+// Each plugin/*/lib/actionHooks.ts registers addAction() handlers that
+// touch the DB. Kept separate from index.ts so Mongoose never reaches
+// the client bundle.
+const actionHookContext = require.context(
+    "../plugin",
+    true,
+    /^\.\/[^/]+\/lib\/actionHooks\.(ts|js)$/
+);
+actionHookContext.keys().forEach((key: string) => {
+    actionHookContext(key);
+});
+
 // Core server hooks — always registered regardless of active plugins
 // Use require() (not import) so this runs AFTER _registry is initialised.
 // A static import would be hoisted above the `const _registry = new Map()`
