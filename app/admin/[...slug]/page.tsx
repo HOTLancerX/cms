@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getAdminPages } from "@/hook/adminPages";
+import { resolveLazyComponent } from "@/hook/pluginHooks";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -47,11 +48,18 @@ export default async function AdminDynamicPage({
     .filter((p) => p.key === slugPath || slugPath.startsWith(p.key))
     .sort((a, b) => b.key.length - a.key.length)[0];
 
-  if (!pageDef || !pageDef.path) {
+  if (!pageDef || (!pageDef.path && !pageDef.lazyPath)) {
     notFound();
   }
 
-  const DynamicComponent = pageDef.path;
+  // Resolve the component — either directly from `path` (static import)
+  // or lazily from `lazyPath` (dynamic import via pluginHooks registry).
+  let DynamicComponent = pageDef.path;
+  if (!DynamicComponent && pageDef.lazyPath) {
+    const lazy = await resolveLazyComponent(pageDef.lazyPath);
+    if (!lazy) notFound();
+    DynamicComponent = lazy;
+  }
 
   return (
     <main>

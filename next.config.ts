@@ -33,20 +33,9 @@ const STUB = path.join(ROOT, "lib", "optional-plugin-stub.ts");
 // Each entry is an @/ specifier. If the resolved file does not exist on disk,
 // BOTH the @/ specifier and the absolute path are aliased to the stub.
 const OPTIONAL_MODULES: string[] = [
-    // flash-sale → product boxes (flashSaleOptional.ts) + ProductClient
-    "@/plugin/flash-sale/lib/useFlashSale",
-    "@/plugin/flash-sale/lib/applyFlashSale",
-
-    // seller → product/api/returns + seller/api/wallet
+    // seller → product/api/wallet (still used in seller/api routes)
     "@/plugin/seller/models/Transaction",
     "@/plugin/seller/models/Wallet",
-
-    // compare → product/product/ProductClient (dynamic import)
-    "@/plugin/compare/ui/Compare",
-
-    // seller-membership → product/api/orders/[orderNumber]/route.ts (require)
-    "@/plugin/seller-membership/models/MembershipPackage",
-    "@/plugin/seller-membership/models/SellerMembership",
 
     // product → paypal, stripe, seller, checkout-auto-suggested, upsell-trigger
     "@/plugin/product/models/Order",

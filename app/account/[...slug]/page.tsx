@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getUserPages } from "@/hook/userPages";
+import { resolveLazyComponent } from "@/hook/pluginHooks";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +21,18 @@ export default async function AccountDynamicPage({ params }: AccountPageProps) {
         .filter((p) => p.key === slugPath || slugPath.startsWith(p.key))
         .sort((a, b) => b.key.length - a.key.length)[0];
 
-    if (!pageDef || !pageDef.path) {
+    if (!pageDef || (!pageDef.path && !pageDef.lazyPath)) {
         notFound();
     }
 
-    const DynamicComponent = pageDef.path;
+    // Resolve the component — either directly from `path` (static import)
+    // or lazily from `lazyPath` (dynamic import via pluginHooks registry).
+    let DynamicComponent = pageDef.path;
+    if (!DynamicComponent && pageDef.lazyPath) {
+        const lazy = await resolveLazyComponent(pageDef.lazyPath);
+        if (!lazy) notFound();
+        DynamicComponent = lazy;
+    }
 
     return <DynamicComponent />;
 }

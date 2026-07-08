@@ -44,6 +44,14 @@ export interface FormHookField {
     hierarchicalCatType?: string;
     component?: ComponentType<any>;
     path?: ComponentType<any>;
+    /**
+     * Lazy component key registered via registerLazyComponent().
+     * Used instead of `path` when the component should be dynamically
+     * imported only when the plugin is active (avoids static bundle inclusion).
+     * The admin/account/root page renderers call resolveLazyComponent(lazyPath)
+     * before rendering.
+     */
+    lazyPath?: string;
     options?: { label: string; value: string }[];
     pluginNx?: string; // stamped automatically by addHook
 }

@@ -14,6 +14,7 @@ import { getCatTypes } from "@/hook/CategoryType";
 import { withCache } from "@/lib/cache";
 import { Settings } from "@/lib/settings";
 import { runServerDataHook } from "@/hook/serverDataHooks";
+import { resolveLazyComponent } from "@/hook/pluginHooks";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -412,14 +413,16 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
                 p.key === slug[0] &&
                 activeNxSet.has(p.pluginNx!)
         );
-        if (staticPage?.component) {
-            const Component = staticPage.component;
-            // Allow plugins to enrich static pages with server-side data.
-            // runServerDataHook returns undefined when no hook is registered
-            // for this key — Component receives pageData={undefined} and
-            // must handle that gracefully (show empty state, etc.).
-            const pageData = await runServerDataHook(slug[0], "", slug[0]);
-            return <Component settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
+        if (staticPage) {
+            // Resolve component: static import or lazy dynamic import
+            let Component = staticPage.component as any;
+            if (!Component && staticPage.lazyPath) {
+                Component = await resolveLazyComponent(staticPage.lazyPath);
+            }
+            if (Component) {
+                const pageData = await runServerDataHook(slug[0], "", slug[0]);
+                return <Component settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
+            }
         }
     }
 
@@ -434,9 +437,14 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
                 p.key === slug[0] &&
                 activeNxSet.has(p.pluginNx!)
         );
-        if (prefixPage?.component) {
-            const Component = prefixPage.component as any;
-            return <Component settings={settings} permalinkMap={permalinkMap} />;
+        if (prefixPage) {
+            let Component = prefixPage.component as any;
+            if (!Component && prefixPage.lazyPath) {
+                Component = await resolveLazyComponent(prefixPage.lazyPath);
+            }
+            if (Component) {
+                return <Component settings={settings} permalinkMap={permalinkMap} />;
+            }
         }
     }
 
