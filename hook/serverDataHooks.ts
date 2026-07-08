@@ -14,9 +14,9 @@
  *   - hook/PluginList.ts
  *   - Any client component
  *
- * Adding a new plugin's category data provider requires ZERO changes here
+ * Adding a new plugin's data provider requires ZERO changes here
  * or in page.tsx — just create plugin/myplugin/lib/serverHooks.ts and
- * call registerServerDataHook() inside it.
+ * call registerServerDataHook() or registerProductEnricher() inside it.
  */
 
 type ServerDataFn = (id: string, slug: string, data?: any) => Promise<any>;
@@ -44,6 +44,97 @@ export async function runServerDataHook(
     const fn = _registry.get(contentType);
     if (!fn) return undefined;
     return fn(id, slug, data);
+}
+
+// ─── Product enricher registry ────────────────────────────────────────────────
+//
+// WordPress-style: any plugin can register an async enricher that receives
+// the base pageData and returns additional fields merged on top.
+//
+// Usage in plugin/compare/lib/serverHooks.ts:
+//   registerProductEnricher(async (pageData, postData) => {
+//       const compareProducts = await fetchCompare(postData.info._compare);
+//       return { compareProducts };
+//   });
+//
+// Usage in plugin/flash-sale/lib/serverHooks.ts:
+//   registerProductEnricher(async (pageData, postData) => {
+//       const campaign = await fetchCampaign(postData._id, postData.category);
+//       return { flashSaleCampaign: campaign };
+//   });
+//
+// product/lib/serverHooks.ts calls runProductEnrichers(baseData, postData)
+// which merges all enricher results — zero manual imports needed.
+
+type ProductEnricherFn = (
+    pageData: Record<string, any>,
+    postData: any
+) => Promise<Record<string, any>>;
+
+const _productEnrichers: ProductEnricherFn[] = [];
+
+/**
+ * Register a product page data enricher.
+ * Called by plugin lib/serverHooks.ts files (compare, flash-sale, etc.)
+ * The returned object is shallow-merged into the product pageData.
+ * Errors are caught per-enricher — one failing plugin never breaks the page.
+ */
+export function registerProductEnricher(fn: ProductEnricherFn): void {
+    _productEnrichers.push(fn);
+}
+
+/**
+ * Run all registered product enrichers and merge their results.
+ * Called by product/lib/serverHooks.ts after building the base pageData.
+ */
+export async function runProductEnrichers(
+    baseData: Record<string, any>,
+    postData: any
+): Promise<Record<string, any>> {
+    let merged = { ...baseData };
+    for (const fn of _productEnrichers) {
+        try {
+            const extra = await fn(merged, postData);
+            merged = { ...merged, ...extra };
+        } catch { /* enricher error — skip, keep existing data */ }
+    }
+    return merged;
+}
+
+// ─── Category enricher registry ───────────────────────────────────────────────
+// Same pattern for category pages (product-category, brands, etc.)
+
+type CategoryEnricherFn = (
+    pageData: Record<string, any>,
+    catData: any
+) => Promise<Record<string, any>>;
+
+const _categoryEnrichers: CategoryEnricherFn[] = [];
+
+/**
+ * Register a category page data enricher.
+ * Called by plugin lib/serverHooks.ts files (flash-sale for category pages, etc.)
+ */
+export function registerCategoryEnricher(fn: CategoryEnricherFn): void {
+    _categoryEnrichers.push(fn);
+}
+
+/**
+ * Run all registered category enrichers and merge their results.
+ * Called by product/lib/serverHooks.ts for product-category pages.
+ */
+export async function runCategoryEnrichers(
+    baseData: Record<string, any>,
+    catData: any
+): Promise<Record<string, any>> {
+    let merged = { ...baseData };
+    for (const fn of _categoryEnrichers) {
+        try {
+            const extra = await fn(merged, catData);
+            merged = { ...merged, ...extra };
+        } catch { /* enricher error — skip */ }
+    }
+    return merged;
 }
 
 // ── Auto-discover all plugin server hook files ────────────────────────────────
