@@ -8,5 +8,6 @@
       "path": "/api/ai-auto-post-run",
       "schedule": "*/15 * * * *"
     }
-  ]
+  ],
+  "buildCommand": "next build --no-turbopack"
 }
