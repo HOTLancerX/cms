@@ -9,46 +9,29 @@ import fs from "fs";
 // must not break the build. Each absent module is aliased to a stub that
 // exports `undefined` for every import.
 //
-// TURBOPACK / VERCEL COMPATIBILITY
+// TURBOPACK INCOMPATIBILITY
 // ─────────────────────────────────────────────────────────────────────────────
-// Turbopack on Vercel rejects absolute path keys in resolveAlias with:
+// Turbopack on Vercel rejects @/ alias values with:
 //   "server relative imports are not implemented yet"
-// The alias key MUST be the bare @/ specifier (e.g. "@/plugin/foo/bar"),
-// NOT an absolute path. Turbopack resolves @/ via tsconfig.json paths itself.
-//
-// For webpack we keep the @/ key — it also resolves via tsconfig paths.
-// The absolute-path second key is removed because it causes the Vercel error.
-//
-// STUB VALUE
-// ─────────────────────────────────────────────────────────────────────────────
-// The stub value must also be an @/ path, not an absolute path, for the same
-// Turbopack compatibility reason.
+// and cannot resolve require.context (used by PluginList, pluginApiRoutes,
+// serverDataHooks). The Vercel build therefore uses `next build --webpack`
+// via vercel.json buildCommand. This webpack config is only used by that
+// build path — local `next dev` (Turbopack) does not need aliases because
+// all plugins are present on disk.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ROOT = __dirname;
 
-// Stub as @/ alias — works on both webpack and Turbopack/Vercel
 const STUB = "@/lib/optional-plugin-stub";
 
-// ── Optional cross-plugin file imports ───────────────────────────────────────
-// Add an @/ specifier here whenever a file imports from another plugin that
-// may not be installed. If the target file doesn't exist on disk, the import
-// is aliased to the stub (exports undefined for everything).
 const OPTIONAL_MODULES: string[] = [
-    // seller models — used in seller/api routes when seller plugin present
     "@/plugin/seller/models/Transaction",
     "@/plugin/seller/models/Wallet",
-
-    // product models — used by paypal, stripe, checkout plugins
     "@/plugin/product/models/Order",
     "@/plugin/product/lib/cart",
-
-    // compare UI — dynamic import in ProductClient.tsx (client component)
-    // when compare plugin is not installed the stub is returned
     "@/plugin/compare/ui/Compare",
 ];
 
-// ── Extensions to try when checking file existence ────────────────────────────
 const EXTS = ["ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs"];
 
 function fileExists(base: string): boolean {
@@ -60,11 +43,10 @@ function buildAliases(): Record<string, string> {
     const aliases: Record<string, string> = {};
 
     for (const mod of OPTIONAL_MODULES) {
-        const rel  = mod.replace(/^@\//, "");   // "plugin/foo/bar"
-        const base = path.join(ROOT, rel);      // "<root>/plugin/foo/bar"
+        const rel  = mod.replace(/^@\//, "");
+        const base = path.join(ROOT, rel);
 
         if (!fileExists(base)) {
-            // @/ key only — Turbopack on Vercel rejects absolute path keys
             aliases[mod] = STUB;
         }
     }
@@ -99,13 +81,7 @@ const nextConfig: NextConfig = {
     },
     devIndicators: false,
 
-    // ── Turbopack ─────────────────────────────────────────────────────────────
-    // Keys must be @/ specifiers or bare package names — NOT absolute paths.
-    turbopack: {
-        resolveAlias: optionalAliases,
-    },
-
-    // ── Webpack ───────────────────────────────────────────────────────────────
+    // Webpack alias config — used by `next build --webpack` on Vercel
     webpack(config) {
         if (Object.keys(optionalAliases).length > 0) {
             config.resolve.alias = {
