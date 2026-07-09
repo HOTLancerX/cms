@@ -3,10 +3,13 @@
 import { Icon } from "@iconify/react";
 
 export interface ContextMenuTarget {
-    type: "row" | "column" | "element";
+    type: "row" | "column" | "element" | "carousel-slide-element";
     rowId: string;
     colPath?: number[];
     elementId?: string;
+    carouselId?: string;
+    slideIndex?: number;
+    childElementId?: string;
     x: number;
     y: number;
 }
@@ -45,7 +48,9 @@ export default function ContextMenu({
             ? "Edit Flexbox"
             : target.type === "column"
                 ? "Edit Column"
-                : "Edit Element";
+                : target.type === "carousel-slide-element"
+                    ? "Edit Slide Element"
+                    : "Edit Element";
 
     return (
         <>

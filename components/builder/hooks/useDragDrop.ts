@@ -2,23 +2,8 @@
 
 import { useCallback } from "react";
 import { Row, Column, BuilderElement } from "../types";
-import { uid, makeColumns, getColumnByPath, getElementDef } from "../helpers";
+import { uid, makeColumns, getColumnByPath, getElementDef, regenRowIds } from "../helpers";
 import rowElement from "../elements/row";
-
-/** Recursively regenerate all IDs in a row's columns and elements */
-function regenRowIds(row: Row): Row {
-    const regenCol = (col: Column): Column => ({
-        ...col,
-        id: uid(),
-        elements: col.elements.map((el) => ({ ...el, id: uid() })),
-        columns: col.columns.map(regenCol),
-    });
-    return {
-        ...row,
-        id: uid(),
-        columns: row.columns.map(regenCol),
-    };
-}
 
 export function useDragDrop(
     rows: Row[],
@@ -160,6 +145,34 @@ export function useDragDrop(
         // Only handle catalog items being dropped (new element from left panel)
         const elementType = source.data?.elementType;
         if (!elementType) return;
+
+        // Dropped onto a carousel slide
+        if (target.data?.dndType === "carousel-slide") {
+            const { carouselId, slideIndex, rowId: tgtRowId, colPath: tgtColPath } = target.data;
+            const def = getElementDef(elementType);
+            if (!def) return;
+            const newEl: BuilderElement = {
+                id: uid(),
+                type: elementType,
+                schema: JSON.parse(JSON.stringify(def.schema)),
+            };
+            setRows((prev) =>
+                prev.map((row) => {
+                    if (row.id !== tgtRowId) return row;
+                    const updated = JSON.parse(JSON.stringify(row)) as Row;
+                    const col = getColumnByPath(updated, tgtColPath);
+                    const carousel = col.elements.find((e) => e.id === carouselId);
+                    if (carousel && carousel.type === "carousel") {
+                        if (!carousel.schema.content.slides[slideIndex].elements) {
+                            carousel.schema.content.slides[slideIndex].elements = [];
+                        }
+                        carousel.schema.content.slides[slideIndex].elements.push(newEl);
+                    }
+                    return updated;
+                })
+            );
+            return;
+        }
 
         // Dropped onto the "Add Row" zone — create a new row with 1 column + the element
         if (target.data?.dndType === "add-row-zone") {

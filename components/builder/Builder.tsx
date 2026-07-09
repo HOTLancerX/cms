@@ -8,6 +8,7 @@ import { Row, Column, Selection, LeftPanelMode, Device } from "./types";
 import { getColumnByPath, uid } from "./helpers";
 import { xFetch } from "@/lib/express";
 import { reregisterHooks } from "@/hook/PluginList";
+import { getBuilderElement } from "@/hook";
 
 // Settings popup (co-located with the [id] route)
 import BuilderSettingsPopup from "@/app/admin/builder/[id]/Popup";
@@ -41,6 +42,8 @@ export default function Builder() {
     const [selected, setSelected] = useState<Selection | null>(null);
     const [leftPanel, setLeftPanel] = useState<LeftPanelMode>(null);
     const [targetCol, setTargetCol] = useState<{ rowId: string; path: number[] } | null>(null);
+    const [selectedCarouselSlide, setSelectedCarouselSlide] = useState<{ elementId: string; slideIndex: number } | null>(null);
+    const [selectedCarouselSlideElement, setSelectedCarouselSlideElement] = useState<{ elementId: string; slideIndex: number; childElementId: string } | null>(null);
     const [saving, setSaving] = useState(false);
     const [title, setTitle] = useState("");
     const [templateType, setTemplateType] = useState<string | null>(null);
@@ -186,6 +189,90 @@ export default function Builder() {
     const selectElement = (rowId: string, colPath: number[], elementId: string) => {
         setSelected({ type: "element", rowId, colPath, elementId });
         setLeftPanel("element-controls");
+        setSelectedCarouselSlide(null);
+        setSelectedCarouselSlideElement(null);
+    };
+
+    const selectCarouselSlide = (carouselElementId: string, slideIndex: number) => {
+        setSelectedCarouselSlide({ elementId: carouselElementId, slideIndex });
+        setSelectedCarouselSlideElement(null);
+        setLeftPanel("element-controls");
+    };
+
+    const selectCarouselSlideElement = (carouselElementId: string, slideIndex: number, childElementId: string) => {
+        setSelectedCarouselSlideElement({ elementId: carouselElementId, slideIndex, childElementId });
+        setSelectedCarouselSlide(null);
+        setLeftPanel("element-controls");
+    };
+
+    const addElementToCarouselSlide = (carouselElementId: string, slideIndex: number) => {
+        setLeftPanel("elements");
+        setTargetCarouselSlide({ elementId: carouselElementId, slideIndex });
+    };
+
+    const [targetCarouselSlide, setTargetCarouselSlide] = useState<{ elementId: string; slideIndex: number } | null>(null);
+
+    const addElementToSlideAction = (elementType: string) => {
+        if (!targetCarouselSlide) return;
+        const { elementId, slideIndex } = targetCarouselSlide;
+        const def = getBuilderElement(elementType);
+        if (!def) return;
+        const newEl = {
+            id: uid(),
+            type: elementType,
+            schema: JSON.parse(JSON.stringify(def.schema)),
+        };
+        setRows((prev) =>
+            prev.map((row) => {
+                const updated = JSON.parse(JSON.stringify(row));
+                for (const col of updated.columns) {
+                    const el = col.elements?.find((e: any) => e.id === elementId);
+                    if (el && el.type === "carousel") {
+                        if (!el.schema.content.slides[slideIndex].elements) {
+                            el.schema.content.slides[slideIndex].elements = [];
+                        }
+                        el.schema.content.slides[slideIndex].elements.push(newEl);
+                        return updated;
+                    }
+                }
+                return row;
+            })
+        );
+        setTargetCarouselSlide(null);
+    };
+
+    const deleteCarouselSlideElement = (carouselId: string, slideIndex: number, childElementId: string) => {
+        setRows((prev) =>
+            prev.map((row) => {
+                const updated = JSON.parse(JSON.stringify(row));
+                for (const col of updated.columns) {
+                    const el = col.elements?.find((e: any) => e.id === carouselId);
+                    if (el && el.type === "carousel") {
+                        const slide = el.schema.content.slides[slideIndex];
+                        if (slide?.elements) {
+                            slide.elements = slide.elements.filter((e: any) => e.id !== childElementId);
+                        }
+                        return updated;
+                    }
+                }
+                return row;
+            })
+        );
+        setSelectedCarouselSlideElement(null);
+    };
+
+    const handleContextMenuCarouselSlide = (e: React.MouseEvent, carouselId: string, slideIndex: number, childElementId: string | null) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({
+            type: "carousel-slide-element",
+            rowId: rows.find((r) => r.columns.some((c) => c.elements?.some((el) => el.id === carouselId)))?.id || "",
+            carouselId,
+            slideIndex,
+            childElementId: childElementId || undefined,
+            x: e.clientX,
+            y: e.clientY,
+        });
     };
 
     // ---- ACTIONS (extracted hook) ----
@@ -219,7 +306,8 @@ export default function Builder() {
         rows, setRows, contextMenu, setContextMenu,
         clipboard, setClipboard,
         selectRow, selectColumn, selectElement,
-        deleteRow, setShowStructure
+        deleteRow, setShowStructure,
+        selectCarouselSlideElement
     );
 
     // ---- DND (extracted hook) ----
@@ -252,19 +340,46 @@ export default function Builder() {
             })()
             : null;
 
+    // Find carousel slide child element
+    const selectedCarouselSlideChildElement =
+        selectedCarouselSlideElement
+            ? (() => {
+                const row = rows.find((r) => {
+                    for (const col of r.columns) {
+                        const el = col.elements?.find((e) => e.id === selectedCarouselSlideElement.elementId);
+                        if (el) return true;
+                    }
+                    return false;
+                });
+                if (!row) return null;
+                for (const col of row.columns) {
+                    const carousel = col.elements?.find((e) => e.id === selectedCarouselSlideElement.elementId);
+                    if (carousel && carousel.type === "carousel") {
+                        const slide = carousel.schema.content.slides[selectedCarouselSlideElement.slideIndex];
+                        if (slide) {
+                            return slide.elements?.find((e: any) => e.id === selectedCarouselSlideElement.childElementId) ?? null;
+                        }
+                    }
+                }
+                return null;
+            })()
+            : null;
+
     // Panel title
     const panelTitle =
         leftPanel === "row-controls"
             ? "Row Settings"
             : leftPanel === "column-controls"
                 ? "Column Settings"
-                : leftPanel === "element-controls" && selectedElement
-                    ? `Edit ${selectedElement.type.charAt(0).toUpperCase() + selectedElement.type.slice(1)}`
-                    : leftPanel === "add-columns"
-                        ? "Column Layout"
-                        : leftPanel === "sections"
-                            ? "Sections"
-                            : "Elements";
+                : leftPanel === "element-controls" && selectedCarouselSlideChildElement
+                    ? `Edit ${selectedCarouselSlideChildElement.type.charAt(0).toUpperCase() + selectedCarouselSlideChildElement.type.slice(1)}`
+                    : leftPanel === "element-controls" && selectedElement
+                        ? `Edit ${selectedElement.type.charAt(0).toUpperCase() + selectedElement.type.slice(1)}`
+                        : leftPanel === "add-columns"
+                            ? "Column Layout"
+                            : leftPanel === "sections"
+                                ? "Sections"
+                                : "Elements";
 
     return (
         <DragDropProvider onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
@@ -331,7 +446,11 @@ export default function Builder() {
                             <ElementsPanel
                                 key={catalogKey}
                                 onClickAdd={(type) => {
-                                    if (targetCol) addElementToColumn(targetCol.rowId, targetCol.path, type);
+                                    if (targetCarouselSlide) {
+                                        addElementToSlideAction(type);
+                                    } else if (targetCol) {
+                                        addElementToColumn(targetCol.rowId, targetCol.path, type);
+                                    }
                                 }}
                             />
                         )}
@@ -357,13 +476,41 @@ export default function Builder() {
                             />
                         )}
 
-                        {leftPanel === "element-controls" && selectedElement && selected?.type === "element" && (
+                        {leftPanel === "element-controls" && selectedElement && selected?.type === "element" && !selectedCarouselSlideChildElement && (
                             <ElementControls
                                 element={selectedElement}
                                 device={device}
                                 onChange={(newSchema) =>
                                     updateElement(selected.rowId, selected.colPath, selected.elementId, newSchema)
                                 }
+                            />
+                        )}
+
+                        {leftPanel === "element-controls" && selectedCarouselSlideChildElement && selectedCarouselSlideElement && (
+                            <ElementControls
+                                element={selectedCarouselSlideChildElement}
+                                device={device}
+                                onChange={(newSchema) => {
+                                    setRows((prev) =>
+                                        prev.map((row) => {
+                                            const updated = JSON.parse(JSON.stringify(row));
+                                            for (const col of updated.columns) {
+                                                const carousel = col.elements?.find((e: any) => e.id === selectedCarouselSlideElement.elementId);
+                                                if (carousel && carousel.type === "carousel") {
+                                                    const slide = carousel.schema.content.slides[selectedCarouselSlideElement.slideIndex];
+                                                    if (slide) {
+                                                        const childIdx = slide.elements.findIndex((e: any) => e.id === selectedCarouselSlideElement.childElementId);
+                                                        if (childIdx !== -1) {
+                                                            slide.elements[childIdx].schema = newSchema;
+                                                        }
+                                                    }
+                                                    return updated;
+                                                }
+                                            }
+                                            return row;
+                                        })
+                                    );
+                                }}
                             />
                         )}
                     </div>
@@ -511,6 +658,13 @@ export default function Builder() {
                                             ? selected.elementId
                                             : null
                                     }
+                                    selectedCarouselSlide={selectedCarouselSlide}
+                                    selectedCarouselSlideElement={selectedCarouselSlideElement}
+                                    onSelectCarouselSlide={selectCarouselSlide}
+                                    onSelectCarouselSlideElement={selectCarouselSlideElement}
+                                    onAddElementToCarouselSlide={addElementToCarouselSlide}
+                                    onDeleteCarouselSlideElement={deleteCarouselSlideElement}
+                                    onContextMenuCarouselSlide={handleContextMenuCarouselSlide}
                                 />
                             ))}
 

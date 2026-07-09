@@ -23,13 +23,21 @@ interface RenderedElement {
 
 function collectRegisteredElements(content: any[]): { id: string; type: string; schema: any }[] {
     const results: { id: string; type: string; schema: any }[] = [];
-    function walkCols(cols: any[]) {
-        for (const col of cols) {
-            for (const el of col.elements ?? []) {
-                if (hasBuilderElement(el.type)) {
-                    results.push({ id: el.id, type: el.type, schema: el.schema });
+    function walkElements(elements: any[]) {
+        for (const el of elements ?? []) {
+            if (hasBuilderElement(el.type)) {
+                results.push({ id: el.id, type: el.type, schema: el.schema });
+            }
+            if (el.type === "carousel" && el.schema?.content?.slides) {
+                for (const slide of el.schema.content.slides) {
+                    walkElements(slide.elements ?? []);
                 }
             }
+        }
+    }
+    function walkCols(cols: any[]) {
+        for (const col of cols) {
+            walkElements(col.elements ?? []);
             walkCols(col.columns ?? []);
         }
     }

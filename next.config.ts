@@ -80,6 +80,7 @@ const nextConfig: NextConfig = {
                 : false,
     },
     devIndicators: false,
+    turbopack: {},
 
     // Webpack alias config — used by `next build --webpack` on Vercel
     webpack(config) {

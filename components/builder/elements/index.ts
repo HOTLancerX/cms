@@ -18,8 +18,10 @@ import { addBuilderElement } from "@/hook";
 import headingElement from "./heading";
 import columnElement from "./column";
 import rowElement from "./row";
+import carouselElement from "./carousel";
 
 // Core elements are registered with no pluginNx — they are always visible.
 addBuilderElement(headingElement);
 addBuilderElement(columnElement);
 addBuilderElement(rowElement);
+addBuilderElement(carouselElement);

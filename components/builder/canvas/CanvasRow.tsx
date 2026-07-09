@@ -20,6 +20,13 @@ interface Props {
     onSelectElement: (rowId: string, colPath: number[], elementId: string) => void;
     selectedColumn: number[] | null;
     selectedElementId: string | null;
+    selectedCarouselSlide?: { elementId: string; slideIndex: number } | null;
+    selectedCarouselSlideElement?: { elementId: string; slideIndex: number; childElementId: string } | null;
+    onSelectCarouselSlide?: (elementId: string, slideIndex: number) => void;
+    onSelectCarouselSlideElement?: (elementId: string, slideIndex: number, childElementId: string) => void;
+    onAddElementToCarouselSlide?: (elementId: string, slideIndex: number) => void;
+    onDeleteCarouselSlideElement?: (carouselId: string, slideIndex: number, childId: string) => void;
+    onContextMenuCarouselSlide?: (e: React.MouseEvent, carouselId: string, slideIndex: number, elementId: string | null) => void;
 }
 
 export default function CanvasRow({
@@ -36,6 +43,13 @@ export default function CanvasRow({
     onSelectElement,
     selectedColumn,
     selectedElementId,
+    selectedCarouselSlide,
+    selectedCarouselSlideElement,
+    onSelectCarouselSlide,
+    onSelectCarouselSlideElement,
+    onAddElementToCarouselSlide,
+    onDeleteCarouselSlideElement,
+    onContextMenuCarouselSlide,
 }: Props) {
     const [hovered, setHovered] = useState(false);
     const s = row.schema;
@@ -137,6 +151,13 @@ export default function CanvasRow({
                                 JSON.stringify(selectedColumn) === JSON.stringify([idx])
                             }
                             selectedElementId={selectedElementId}
+                            selectedCarouselSlideIndex={selectedCarouselSlide?.elementId ? selectedCarouselSlide.slideIndex : undefined}
+                            selectedCarouselSlideElementId={selectedCarouselSlideElement?.childElementId}
+                            onSelectCarouselSlide={onSelectCarouselSlide}
+                            onSelectCarouselSlideElement={onSelectCarouselSlideElement}
+                            onAddElementToCarouselSlide={onAddElementToCarouselSlide}
+                            onDeleteCarouselSlideElement={onDeleteCarouselSlideElement}
+                            onContextMenuCarouselSlide={onContextMenuCarouselSlide}
                         />
                     ))}
                 </div>

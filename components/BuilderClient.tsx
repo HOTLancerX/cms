@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useCallback, useEffect, useState } from "react";
 import { getElementDef } from "@/components/builder/helpers";
+import "@/components/builder/elements/index";
 import columnElement from "@/components/builder/elements/column";
 import { controlToCSS, controlToHoverCSS } from "@/components/builder/controls/css";
 import { getDeviceValue } from "@/components/builder/device";
@@ -203,6 +204,17 @@ function collectAllCSS(content: any[]): string {
     const tabletParts: string[] = [];
     const mobileParts: string[] = [];
 
+    function walkCarouselSlidesForCSS(el: any, device: "desktop" | "tablet" | "mobile", target: string[]) {
+        if (el.type === "carousel" && el.schema?.content?.slides) {
+            for (const slide of el.schema.content.slides) {
+                for (const childEl of slide.elements ?? []) {
+                    const childCSS = generateElementCSSForDevice(childEl, device);
+                    if (childCSS) target.push(childCSS);
+                }
+            }
+        }
+    }
+
     for (const row of content) {
         parts.push(generateRowCSSForDevice(row, "desktop"));
 
@@ -214,6 +226,7 @@ function collectAllCSS(content: any[]): string {
                     for (const el of col.elements) {
                         const elCSS = generateElementCSSForDevice(el, "desktop");
                         if (elCSS) parts.push(elCSS);
+                        walkCarouselSlidesForCSS(el, "desktop", parts);
                     }
                 }
                 if (col.columns?.length > 0) walkCols(col.columns);
@@ -234,6 +247,7 @@ function collectAllCSS(content: any[]): string {
                     for (const el of col.elements) {
                         const elCSS = generateElementCSSForDevice(el, "tablet");
                         if (elCSS) tabletParts.push(elCSS);
+                        walkCarouselSlidesForCSS(el, "tablet", tabletParts);
                     }
                 }
                 if (col.columns?.length > 0) walkColsTablet(col.columns);
@@ -254,6 +268,7 @@ function collectAllCSS(content: any[]): string {
                     for (const el of col.elements) {
                         const elCSS = generateElementCSSForDevice(el, "mobile");
                         if (elCSS) mobileParts.push(elCSS);
+                        walkCarouselSlidesForCSS(el, "mobile", mobileParts);
                     }
                 }
                 if (col.columns?.length > 0) walkColsMobile(col.columns);

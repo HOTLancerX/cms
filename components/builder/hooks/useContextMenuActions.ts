@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { Row, Column, Selection } from "../types";
-import { uid, getColumnByPath, getElementDef } from "../helpers";
+import { uid, getColumnByPath, getElementDef, regenRowIds } from "../helpers";
 import { ContextMenuTarget } from "../canvas/ContextMenu";
 import rowElement from "../elements/row";
 
@@ -17,7 +17,8 @@ export function useContextMenuActions(
     selectColumn: (rowId: string, path: number[]) => void,
     selectElement: (rowId: string, colPath: number[], elementId: string) => void,
     deleteRow: (rowId: string) => void,
-    setShowStructure: React.Dispatch<React.SetStateAction<boolean>>
+    setShowStructure: React.Dispatch<React.SetStateAction<boolean>>,
+    selectCarouselSlideElement?: (carouselElementId: string, slideIndex: number, childElementId: string) => void
 ) {
     const handleContextMenu = useCallback(
         (e: React.MouseEvent, target: Omit<ContextMenuTarget, "x" | "y">) => {
@@ -107,6 +108,13 @@ export function useContextMenuActions(
         if (clipboard.type === "element" && contextMenu.colPath) {
             const clone = JSON.parse(JSON.stringify(clipboard.data));
             clone.id = uid();
+            if (clone.type === "carousel" && clone.schema?.content?.slides) {
+                clone.schema.content.slides = clone.schema.content.slides.map((slide: any) => ({
+                    ...slide,
+                    id: uid(),
+                    elements: (slide.elements || []).map((el: any) => ({ ...el, id: uid() })),
+                }));
+            }
             setRows((prev) =>
                 prev.map((r) => {
                     if (r.id !== contextMenu.rowId) return r;
@@ -117,11 +125,12 @@ export function useContextMenuActions(
                 })
             );
         } else if (clipboard.type === "row") {
-            const clone = JSON.parse(JSON.stringify(clipboard.data)) as Row;
-            clone.id = uid();
-            clone.columns = clone.columns.map((c: Column) => ({ ...c, id: uid(), elements: c.elements.map((el) => ({ ...el, id: uid() })) }));
+            const clone = regenRowIds(JSON.parse(JSON.stringify(clipboard.data)) as Row);
             const idx = rows.findIndex((r) => r.id === contextMenu.rowId);
             setRows((prev) => [...prev.slice(0, idx + 1), clone, ...prev.slice(idx + 1)]);
+        } else if (clipboard.type === "all") {
+            const cloned = (JSON.parse(JSON.stringify(clipboard.data)) as Row[]).map(regenRowIds);
+            setRows((prev) => [...prev, ...cloned]);
         }
         setContextMenu(null);
     }, [clipboard, contextMenu, rows, setRows, setContextMenu]);
@@ -217,8 +226,11 @@ export function useContextMenuActions(
         if (contextMenu.type === "row") selectRow(contextMenu.rowId);
         else if (contextMenu.type === "column" && contextMenu.colPath) selectColumn(contextMenu.rowId, contextMenu.colPath);
         else if (contextMenu.type === "element" && contextMenu.colPath && contextMenu.elementId) selectElement(contextMenu.rowId, contextMenu.colPath, contextMenu.elementId);
+        else if (contextMenu.type === "carousel-slide-element" && contextMenu.carouselId && contextMenu.slideIndex != null && contextMenu.childElementId && selectCarouselSlideElement) {
+            selectCarouselSlideElement(contextMenu.carouselId, contextMenu.slideIndex, contextMenu.childElementId);
+        }
         setContextMenu(null);
-    }, [contextMenu, selectRow, selectColumn, selectElement, setContextMenu]);
+    }, [contextMenu, selectRow, selectColumn, selectElement, selectCarouselSlideElement, setContextMenu]);
 
     const handleContextDelete = useCallback(() => {
         if (!contextMenu) return;
@@ -242,6 +254,24 @@ export function useContextMenuActions(
                     const updated = JSON.parse(JSON.stringify(r)) as Row;
                     const col = getColumnByPath(updated, contextMenu.colPath!);
                     col.elements = col.elements.filter((e) => e.id !== contextMenu.elementId);
+                    return updated;
+                })
+            );
+        } else if (contextMenu.type === "carousel-slide-element" && contextMenu.carouselId && contextMenu.slideIndex != null && contextMenu.childElementId) {
+            setRows((prev) =>
+                prev.map((r) => {
+                    if (r.id !== contextMenu.rowId) return r;
+                    const updated = JSON.parse(JSON.stringify(r)) as Row;
+                    for (const col of updated.columns) {
+                        const el = col.elements?.find((e: any) => e.id === contextMenu.carouselId);
+                        if (el && el.type === "carousel") {
+                            const slide = el.schema.content.slides[contextMenu.slideIndex!];
+                            if (slide?.elements) {
+                                slide.elements = slide.elements.filter((e: any) => e.id !== contextMenu.childElementId);
+                            }
+                            return updated;
+                        }
+                    }
                     return updated;
                 })
             );

@@ -84,3 +84,37 @@ export const ELEMENT_CATALOG = getElementCatalog();
 export function getElementDef(type: string) {
     return getBuilderElement(type);
 }
+
+// ============================================================
+// DEEP ID REGENERATION (for copy/paste, drag-drop)
+// ============================================================
+
+/** Recursively regenerate all IDs in a row, including nested columns, elements, and carousel slide elements. */
+export function regenRowIds(row: Row): Row {
+    const regenElements = (elements: any[]): any[] =>
+        elements.map((el) => {
+            const newEl = { ...el, id: uid() };
+            if (el.type === "carousel" && el.schema?.content?.slides) {
+                newEl.schema = JSON.parse(JSON.stringify(el.schema));
+                newEl.schema.content.slides = newEl.schema.content.slides.map((slide: any) => ({
+                    ...slide,
+                    id: uid(),
+                    elements: regenElements(slide.elements || []),
+                }));
+            }
+            return newEl;
+        });
+
+    const regenCol = (col: Column): Column => ({
+        ...col,
+        id: uid(),
+        elements: regenElements(col.elements),
+        columns: col.columns.map(regenCol),
+    });
+
+    return {
+        ...row,
+        id: uid(),
+        columns: row.columns.map(regenCol),
+    };
+}

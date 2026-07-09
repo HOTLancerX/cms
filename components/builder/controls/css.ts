@@ -245,6 +245,27 @@ export const cssRegistry: Record<string, CSSGeneratorFn> = {
     tag: () => "",
     link: () => "",
 
+    // --- CAROUSEL ---
+    slidesGap: (value) => {
+        if (value === undefined || value === null || value === 0) return "";
+        return `gap: ${value}px;`;
+    },
+
+    navIconSize: (value) => {
+        if (!value) return "";
+        return "";
+    },
+
+    paginationDotSize: (value) => {
+        if (!value) return "";
+        return "";
+    },
+
+    paginationDotSpacing: (value) => {
+        if (value === undefined || value === null) return "";
+        return "";
+    },
+
     // --- BOX SHADOW ---
     boxShadow: (value) => {
         if (!value || typeof value !== "object") return "";

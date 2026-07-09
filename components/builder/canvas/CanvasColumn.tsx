@@ -20,6 +20,13 @@ interface Props {
     onSelectElement: (rowId: string, colPath: number[], elementId: string) => void;
     isSelected: boolean;
     selectedElementId: string | null;
+    selectedCarouselSlideIndex?: number | null;
+    selectedCarouselSlideElementId?: string | null;
+    onSelectCarouselSlide?: (carouselId: string, slideIndex: number) => void;
+    onSelectCarouselSlideElement?: (carouselId: string, slideIndex: number, childId: string) => void;
+    onAddElementToCarouselSlide?: (carouselId: string, slideIndex: number) => void;
+    onDeleteCarouselSlideElement?: (carouselId: string, slideIndex: number, childId: string) => void;
+    onContextMenuCarouselSlide?: (e: React.MouseEvent, carouselId: string, slideIndex: number, elementId: string | null) => void;
 }
 
 export default function CanvasColumn({
@@ -35,6 +42,13 @@ export default function CanvasColumn({
     onSelectElement,
     isSelected,
     selectedElementId,
+    selectedCarouselSlideIndex,
+    selectedCarouselSlideElementId,
+    onSelectCarouselSlide,
+    onSelectCarouselSlideElement,
+    onAddElementToCarouselSlide,
+    onDeleteCarouselSlideElement,
+    onContextMenuCarouselSlide,
 }: Props) {
     const [hovered, setHovered] = useState(false);
     const hasNestedColumns = column.columns.length > 0;
@@ -130,6 +144,13 @@ export default function CanvasColumn({
                             onSelectElement={onSelectElement}
                             isSelected={false}
                             selectedElementId={selectedElementId}
+                            selectedCarouselSlideIndex={selectedCarouselSlideIndex}
+                            selectedCarouselSlideElementId={selectedCarouselSlideElementId}
+                            onSelectCarouselSlide={onSelectCarouselSlide}
+                            onSelectCarouselSlideElement={onSelectCarouselSlideElement}
+                            onAddElementToCarouselSlide={onAddElementToCarouselSlide}
+                            onDeleteCarouselSlideElement={onDeleteCarouselSlideElement}
+                            onContextMenuCarouselSlide={onContextMenuCarouselSlide}
                         />
                     ))
                 ) : hasElements ? (
@@ -143,11 +164,32 @@ export default function CanvasColumn({
                             isSelected={selectedElementId === el.id}
                             onSelect={() => onSelectElement(rowId, path, el.id)}
                             onContextMenu={(e) => onContextMenu(e, { type: "element", rowId, colPath: path, elementId: el.id })}
+                            selectedSlideIndex={el.type === "carousel" ? selectedCarouselSlideIndex : undefined}
+                            selectedSlideElementId={el.type === "carousel" ? selectedCarouselSlideElementId : undefined}
+                            onSelectSlide={el.type === "carousel" ? (slideIdx) => {
+                                if (selectedElementId !== el.id) onSelectElement(rowId, path, el.id);
+                                onSelectCarouselSlide?.(el.id, slideIdx);
+                            } : undefined}
+                            onSelectSlideElement={el.type === "carousel" ? (slideIdx, elId) => {
+                                if (selectedElementId !== el.id) onSelectElement(rowId, path, el.id);
+                                onSelectCarouselSlideElement?.(el.id, slideIdx, elId);
+                            } : undefined}
+                            onAddElementToSlide={el.type === "carousel" ? (slideIdx) => {
+                                if (selectedElementId !== el.id) onSelectElement(rowId, path, el.id);
+                                onAddElementToCarouselSlide?.(el.id, slideIdx);
+                            } : undefined}
+                            onDeleteSlideElement={el.type === "carousel" ? (slideIdx, elId) => {
+                                onDeleteCarouselSlideElement?.(el.id, slideIdx, elId);
+                            } : undefined}
+                            onContextMenuSlide={el.type === "carousel" ? (e, slideIdx, elId) => {
+                                onContextMenuCarouselSlide?.(e, el.id, slideIdx, elId);
+                            } : undefined}
                         />
                     ))
                 ) : (
-                    <div className="flex items-center justify-center w-full min-h-[50px] text-gray-400">
-                        <Icon icon="mdi:plus" width="22" />
+                    <div className="flex flex-col items-center justify-center w-full min-h-[80px] text-gray-400 gap-1.5">
+                        <Icon icon="mdi:plus-circle-outline" width="24" />
+                        <span className="text-[11px]">Drag widget here</span>
                     </div>
                 )}
             </div>
