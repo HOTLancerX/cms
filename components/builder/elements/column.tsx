@@ -11,6 +11,17 @@ import {
     AlignSelf,
 } from "../controls";
 
+/**
+ * Elementor-style Container definition.
+ *
+ * Used for:
+ *  1. Schema + controls of every structural Column (nestable)
+ *  2. Widget panel entry "Container" — adding it nests a new Column
+ *     into the target container (columns[]), never as a leaf element.
+ *
+ * Tree model at every depth:
+ *   Column { columns: Column[], elements: BuilderElement[] }
+ */
 const columnElement = {
     type: "column",
     category: "Basic",

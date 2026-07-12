@@ -1,8 +1,17 @@
 "use client";
 
 import { useCallback } from "react";
-import { Row, Column, BuilderElement } from "../types";
-import { uid, makeColumns, getColumnByPath, getElementDef, regenRowIds } from "../helpers";
+import { Row, BuilderElement } from "../types";
+import {
+    uid,
+    makeColumns,
+    makeEmptyColumn,
+    getColumnByPath,
+    getElementDef,
+    regenRowIds,
+    isContainerType,
+    parentPathOf,
+} from "../helpers";
 import rowElement from "../elements/row";
 
 export function useDragDrop(
@@ -10,6 +19,7 @@ export function useDragDrop(
     setRows: React.Dispatch<React.SetStateAction<Row[]>>,
     moveRow: (fromIndex: number, toIndex: number) => void,
     moveColumn: (rowId: string, fromIndex: number, toIndex: number) => void,
+    moveColumnByPath: (rowId: string, fromPath: number[], toPath: number[]) => void,
     moveElement: (rowId: string, colPath: number[], fromIdx: number, toIdx: number) => void,
     addElementToColumn: (rowId: string, colPath: number[], elementType: string) => void
 ) {
@@ -30,18 +40,34 @@ export function useDragDrop(
             return;
         }
 
-        // Column reorder within same row
+        // Column/Container reorder — any nest depth, same parent only
         if (source.data?.dndType === "column" && target.data?.dndType === "column") {
-            const srcRowId = source.data.rowId;
-            const tgtRowId = target.data.rowId;
-            if (srcRowId === tgtRowId) {
-                const row = rows.find((r) => r.id === srcRowId);
-                if (!row) return;
-                const fromIdx = row.columns.findIndex((c) => c.id === source.id);
-                const toIdx = row.columns.findIndex((c) => c.id === target.id);
-                if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
-                    moveColumn(srcRowId, fromIdx, toIdx);
+            const srcRowId = source.data.rowId as string;
+            const tgtRowId = target.data.rowId as string;
+            if (srcRowId !== tgtRowId) return;
+
+            const srcPath = source.data.colPath as number[] | undefined;
+            const tgtPath = target.data.colPath as number[] | undefined;
+
+            if (srcPath && tgtPath && srcPath.length > 0 && tgtPath.length > 0) {
+                // Nested-aware reorder
+                if (
+                    srcPath.length === tgtPath.length &&
+                    JSON.stringify(parentPathOf(srcPath)) === JSON.stringify(parentPathOf(tgtPath)) &&
+                    srcPath[srcPath.length - 1] !== tgtPath[tgtPath.length - 1]
+                ) {
+                    moveColumnByPath(srcRowId, srcPath, tgtPath);
                 }
+                return;
+            }
+
+            // Legacy top-level only
+            const row = rows.find((r) => r.id === srcRowId);
+            if (!row) return;
+            const fromIdx = row.columns.findIndex((c) => c.id === source.id);
+            const toIdx = row.columns.findIndex((c) => c.id === target.id);
+            if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+                moveColumn(srcRowId, fromIdx, toIdx);
             }
             return;
         }
@@ -111,12 +137,13 @@ export function useDragDrop(
                 const tgtRow = updated.find((r) => r.id === tgtRowId);
                 if (!tgtRow) return prev;
                 const tgtCol = getColumnByPath(tgtRow, tgtColPath);
+                if (!tgtCol.elements) tgtCol.elements = [];
                 tgtCol.elements.push(movedEl);
                 return updated;
             });
             return;
         }
-    }, [rows, moveRow, moveColumn, moveElement, setRows]);
+    }, [rows, moveRow, moveColumn, moveColumnByPath, moveElement, setRows]);
 
     const handleDragEnd = useCallback((event: any) => {
         if (event.canceled) return;
@@ -127,7 +154,6 @@ export function useDragDrop(
         const sectionContent = source.data?.sectionContent;
         if (sectionContent && Array.isArray(sectionContent)) {
             const cloned = (JSON.parse(JSON.stringify(sectionContent)) as Row[]).map(regenRowIds);
-            // If dropped on a specific row, insert after it
             if (target.data?.dndType === "row") {
                 const targetRowId = target.id;
                 setRows((prev) => {
@@ -136,18 +162,18 @@ export function useDragDrop(
                     return [...prev.slice(0, idx + 1), ...cloned, ...prev.slice(idx + 1)];
                 });
             } else {
-                // Dropped on AddRowDropZone or anywhere else — append at end
                 setRows((prev) => [...prev, ...cloned]);
             }
             return;
         }
 
         // Only handle catalog items being dropped (new element from left panel)
-        const elementType = source.data?.elementType;
+        const elementType = source.data?.elementType as string | undefined;
         if (!elementType) return;
 
-        // Dropped onto a carousel slide
+        // Dropped onto a carousel slide — containers not allowed inside slides as structure
         if (target.data?.dndType === "carousel-slide") {
+            if (isContainerType(elementType)) return;
             const { carouselId, slideIndex, rowId: tgtRowId, colPath: tgtColPath } = target.data;
             const def = getElementDef(elementType);
             if (!def) return;
@@ -174,31 +200,39 @@ export function useDragDrop(
             return;
         }
 
-        // Dropped onto the "Add Row" zone — create a new row with 1 column + the element
+        // Dropped onto the "Add Row" zone
         if (target.data?.dndType === "add-row-zone") {
-            const def = getElementDef(elementType);
-            if (!def) return;
-            const newEl: BuilderElement = {
-                id: uid(),
-                type: elementType,
-                schema: JSON.parse(JSON.stringify(def.schema)),
-            };
             const newRow: Row = {
                 id: uid(),
                 columns: makeColumns([{ widths: { desktop: 100, tablet: 100, mobile: 100 } }]),
                 schema: JSON.parse(JSON.stringify(rowElement.schema)),
             };
-            newRow.columns[0].elements.push(newEl);
+            if (isContainerType(elementType)) {
+                // Extra nested container inside the new section (Elementor-style)
+                newRow.columns[0].columns.push(makeEmptyColumn());
+            } else {
+                const def = getElementDef(elementType);
+                if (!def) return;
+                newRow.columns[0].elements.push({
+                    id: uid(),
+                    type: elementType,
+                    schema: JSON.parse(JSON.stringify(def.schema)),
+                });
+            }
             setRows((prev) => [...prev, newRow]);
             return;
         }
 
-        const rowId = target.data?.rowId;
-        const colPath = target.data?.colPath;
+        const rowId = target.data?.rowId as string | undefined;
+        const colPath = target.data?.colPath as number[] | undefined;
         if (!rowId || !colPath) return;
 
-        // If dropped onto an element, insert at that element's position
+        // Dropped onto an element → insert after that element (or nest container into parent)
         if (target.data?.dndType === "element") {
+            if (isContainerType(elementType)) {
+                addElementToColumn(rowId, colPath, elementType);
+                return;
+            }
             const def = getElementDef(elementType);
             if (!def) return;
             const newEl: BuilderElement = {
@@ -220,10 +254,11 @@ export function useDragDrop(
                     return updated;
                 })
             );
-        } else {
-            // Dropped onto a column — append to end
-            addElementToColumn(rowId, colPath, elementType);
+            return;
         }
+
+        // Dropped onto a column/container — append widget or nest container
+        addElementToColumn(rowId, colPath, elementType);
     }, [setRows, addElementToColumn]);
 
     return { handleDragOver, handleDragEnd };

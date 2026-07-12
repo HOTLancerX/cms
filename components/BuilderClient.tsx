@@ -336,13 +336,13 @@ function RenderColumn({ column, device = "desktop", serverElements }: {
     return (
         <div style={{ flex: "0 0 auto", width: `${w}%`, maxWidth: `${w}%`, minWidth: 0, boxSizing: "border-box" }}>
             <div className={`bcol-${column.id}`}>
-                {column.columns?.length > 0
-                    ? column.columns.map((nested: any) => (
-                        <RenderColumn key={nested.id} column={nested} device={device} serverElements={serverElements} />
-                    ))
-                    : column.elements?.map((el: any) => (
-                        <RenderElement key={el.id} element={el} serverElements={serverElements} />
-                    ))}
+                {/* Structure: columns[columns[], elements[]] — both can coexist, nest unlimited */}
+                {column.columns?.map((nested: any) => (
+                    <RenderColumn key={nested.id} column={nested} device={device} serverElements={serverElements} />
+                ))}
+                {column.elements?.map((el: any) => (
+                    <RenderElement key={el.id} element={el} serverElements={serverElements} />
+                ))}
             </div>
         </div>
     );

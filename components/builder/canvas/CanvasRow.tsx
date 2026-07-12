@@ -150,6 +150,7 @@ export default function CanvasRow({
                                 selectedColumn !== null &&
                                 JSON.stringify(selectedColumn) === JSON.stringify([idx])
                             }
+                            selectedColumn={selectedColumn}
                             selectedElementId={selectedElementId}
                             selectedCarouselSlideIndex={selectedCarouselSlide?.elementId ? selectedCarouselSlide.slideIndex : undefined}
                             selectedCarouselSlideElementId={selectedCarouselSlideElement?.childElementId}

@@ -5,10 +5,23 @@ import { useParams, useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { Row, Column, Selection, LeftPanelMode, Device } from "./types";
-import { getColumnByPath, uid } from "./helpers";
+import { getColumnByPath, uid, isContainerType } from "./helpers";
 import { xFetch } from "@/lib/express";
 import { reregisterHooks } from "@/hook/PluginList";
 import { getBuilderElement } from "@/hook";
+
+/** Walk nested containers to find an element by id. */
+function findElementInColumns(cols: Column[], elementId: string): { col: Column; el: any } | null {
+    for (const col of cols) {
+        const el = col.elements?.find((e) => e.id === elementId);
+        if (el) return { col, el };
+        if (col.columns?.length) {
+            const nested = findElementInColumns(col.columns, elementId);
+            if (nested) return nested;
+        }
+    }
+    return null;
+}
 
 // Settings popup (co-located with the [id] route)
 import BuilderSettingsPopup from "@/app/admin/builder/[id]/Popup";
@@ -214,6 +227,7 @@ export default function Builder() {
 
     const addElementToSlideAction = (elementType: string) => {
         if (!targetCarouselSlide) return;
+        if (isContainerType(elementType)) return; // containers don't go inside slides
         const { elementId, slideIndex } = targetCarouselSlide;
         const def = getBuilderElement(elementType);
         if (!def) return;
@@ -224,16 +238,14 @@ export default function Builder() {
         };
         setRows((prev) =>
             prev.map((row) => {
-                const updated = JSON.parse(JSON.stringify(row));
-                for (const col of updated.columns) {
-                    const el = col.elements?.find((e: any) => e.id === elementId);
-                    if (el && el.type === "carousel") {
-                        if (!el.schema.content.slides[slideIndex].elements) {
-                            el.schema.content.slides[slideIndex].elements = [];
-                        }
-                        el.schema.content.slides[slideIndex].elements.push(newEl);
-                        return updated;
+                const updated = JSON.parse(JSON.stringify(row)) as Row;
+                const found = findElementInColumns(updated.columns, elementId);
+                if (found?.el?.type === "carousel") {
+                    if (!found.el.schema.content.slides[slideIndex].elements) {
+                        found.el.schema.content.slides[slideIndex].elements = [];
                     }
+                    found.el.schema.content.slides[slideIndex].elements.push(newEl);
+                    return updated;
                 }
                 return row;
             })
@@ -244,16 +256,14 @@ export default function Builder() {
     const deleteCarouselSlideElement = (carouselId: string, slideIndex: number, childElementId: string) => {
         setRows((prev) =>
             prev.map((row) => {
-                const updated = JSON.parse(JSON.stringify(row));
-                for (const col of updated.columns) {
-                    const el = col.elements?.find((e: any) => e.id === carouselId);
-                    if (el && el.type === "carousel") {
-                        const slide = el.schema.content.slides[slideIndex];
-                        if (slide?.elements) {
-                            slide.elements = slide.elements.filter((e: any) => e.id !== childElementId);
-                        }
-                        return updated;
+                const updated = JSON.parse(JSON.stringify(row)) as Row;
+                const found = findElementInColumns(updated.columns, carouselId);
+                if (found?.el?.type === "carousel") {
+                    const slide = found.el.schema.content.slides[slideIndex];
+                    if (slide?.elements) {
+                        slide.elements = slide.elements.filter((e: any) => e.id !== childElementId);
                     }
+                    return updated;
                 }
                 return row;
             })
@@ -285,6 +295,7 @@ export default function Builder() {
         updateColumn,
         moveRow,
         moveColumn,
+        moveColumnByPath,
         deleteRow,
         moveElement,
         moveElementCross,
@@ -313,7 +324,7 @@ export default function Builder() {
     // ---- DND (extracted hook) ----
 
     const { handleDragOver, handleDragEnd } = useDragDrop(
-        rows, setRows, moveRow, moveColumn, moveElement, addElementToColumn
+        rows, setRows, moveRow, moveColumn, moveColumnByPath, moveElement, addElementToColumn
     );
 
     // ---- DERIVED ----
@@ -340,20 +351,23 @@ export default function Builder() {
             })()
             : null;
 
-    // Find carousel slide child element
+    // Find carousel slide child element (walk nested containers)
     const selectedCarouselSlideChildElement =
         selectedCarouselSlideElement
             ? (() => {
-                const row = rows.find((r) => {
-                    for (const col of r.columns) {
+                const findCarousel = (cols: Column[]): any | null => {
+                    for (const col of cols) {
                         const el = col.elements?.find((e) => e.id === selectedCarouselSlideElement.elementId);
-                        if (el) return true;
+                        if (el) return el;
+                        if (col.columns?.length) {
+                            const nested = findCarousel(col.columns);
+                            if (nested) return nested;
+                        }
                     }
-                    return false;
-                });
-                if (!row) return null;
-                for (const col of row.columns) {
-                    const carousel = col.elements?.find((e) => e.id === selectedCarouselSlideElement.elementId);
+                    return null;
+                };
+                for (const row of rows) {
+                    const carousel = findCarousel(row.columns);
                     if (carousel && carousel.type === "carousel") {
                         const slide = carousel.schema.content.slides[selectedCarouselSlideElement.slideIndex];
                         if (slide) {
@@ -368,15 +382,15 @@ export default function Builder() {
     // Panel title
     const panelTitle =
         leftPanel === "row-controls"
-            ? "Row Settings"
+            ? "Section"
             : leftPanel === "column-controls"
-                ? "Column Settings"
+                ? "Container"
                 : leftPanel === "element-controls" && selectedCarouselSlideChildElement
                     ? `Edit ${selectedCarouselSlideChildElement.type.charAt(0).toUpperCase() + selectedCarouselSlideChildElement.type.slice(1)}`
                     : leftPanel === "element-controls" && selectedElement
                         ? `Edit ${selectedElement.type.charAt(0).toUpperCase() + selectedElement.type.slice(1)}`
                         : leftPanel === "add-columns"
-                            ? "Column Layout"
+                            ? "Container Structure"
                             : leftPanel === "sections"
                                 ? "Sections"
                                 : "Elements";
@@ -493,19 +507,17 @@ export default function Builder() {
                                 onChange={(newSchema) => {
                                     setRows((prev) =>
                                         prev.map((row) => {
-                                            const updated = JSON.parse(JSON.stringify(row));
-                                            for (const col of updated.columns) {
-                                                const carousel = col.elements?.find((e: any) => e.id === selectedCarouselSlideElement.elementId);
-                                                if (carousel && carousel.type === "carousel") {
-                                                    const slide = carousel.schema.content.slides[selectedCarouselSlideElement.slideIndex];
-                                                    if (slide) {
-                                                        const childIdx = slide.elements.findIndex((e: any) => e.id === selectedCarouselSlideElement.childElementId);
-                                                        if (childIdx !== -1) {
-                                                            slide.elements[childIdx].schema = newSchema;
-                                                        }
+                                            const updated = JSON.parse(JSON.stringify(row)) as Row;
+                                            const found = findElementInColumns(updated.columns, selectedCarouselSlideElement.elementId);
+                                            if (found?.el?.type === "carousel") {
+                                                const slide = found.el.schema.content.slides[selectedCarouselSlideElement.slideIndex];
+                                                if (slide) {
+                                                    const childIdx = slide.elements.findIndex((e: any) => e.id === selectedCarouselSlideElement.childElementId);
+                                                    if (childIdx !== -1) {
+                                                        slide.elements[childIdx].schema = newSchema;
                                                     }
-                                                    return updated;
                                                 }
+                                                return updated;
                                             }
                                             return row;
                                         })

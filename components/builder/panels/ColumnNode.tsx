@@ -137,7 +137,7 @@ export default function ColumnNode({
                     className="flex items-center gap-1.5 flex-1 bg-transparent border-none cursor-pointer text-left"
                 >
                     <Icon icon="mdi:diamond-outline" width="12" className="text-emerald-500" />
-                    <span className="text-[11px] text-neutral-600">Flexbox</span>
+                    <span className="text-[11px] text-neutral-600">Container</span>
                 </button>
             </div>
 

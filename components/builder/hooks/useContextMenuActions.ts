@@ -1,10 +1,19 @@
 "use client";
 
 import { useCallback } from "react";
-import { Row, Column, Selection } from "../types";
-import { uid, getColumnByPath, getElementDef, regenRowIds } from "../helpers";
+import { Row, Column } from "../types";
+import {
+    uid,
+    getColumnByPath,
+    getElementDef,
+    regenRowIds,
+    regenColumnIds,
+    regenElements,
+    parentPathOf,
+} from "../helpers";
 import { ContextMenuTarget } from "../canvas/ContextMenu";
 import rowElement from "../elements/row";
+import columnElement from "../elements/column";
 
 export function useContextMenuActions(
     rows: Row[],
@@ -34,31 +43,24 @@ export function useContextMenuActions(
         if (contextMenu.type === "row") {
             const row = rows.find((r) => r.id === contextMenu.rowId);
             if (!row) return;
-            const clone = JSON.parse(JSON.stringify(row)) as Row;
-            clone.id = uid();
-            const reId = (col: Column): Column => ({
-                ...col,
-                id: uid(),
-                elements: col.elements.map((el) => ({ ...el, id: uid() })),
-                columns: col.columns.map(reId),
-            });
-            clone.columns = clone.columns.map(reId);
+            const clone = regenRowIds(JSON.parse(JSON.stringify(row)) as Row);
             const idx = rows.findIndex((r) => r.id === contextMenu.rowId);
             setRows((prev) => [...prev.slice(0, idx + 1), clone, ...prev.slice(idx + 1)]);
         } else if (contextMenu.type === "column" && contextMenu.colPath) {
             const row = rows.find((r) => r.id === contextMenu.rowId);
             if (!row) return;
             const col = getColumnByPath(row, contextMenu.colPath);
-            const clone = JSON.parse(JSON.stringify(col)) as Column;
-            clone.id = uid();
-            clone.elements = clone.elements.map((el) => ({ ...el, id: uid() }));
+            const clone = regenColumnIds(JSON.parse(JSON.stringify(col)) as Column);
+            const path = contextMenu.colPath;
             setRows((prev) =>
                 prev.map((r) => {
                     if (r.id !== contextMenu.rowId) return r;
                     const updated = JSON.parse(JSON.stringify(r)) as Row;
-                    const parentPath = contextMenu.colPath!;
-                    if (parentPath.length === 1) {
-                        updated.columns.splice(parentPath[0] + 1, 0, clone);
+                    if (path.length === 1) {
+                        updated.columns.splice(path[0] + 1, 0, clone);
+                    } else {
+                        const parent = getColumnByPath(updated, parentPathOf(path));
+                        parent.columns.splice(path[path.length - 1] + 1, 0, clone);
                     }
                     return updated;
                 })
@@ -71,8 +73,7 @@ export function useContextMenuActions(
                     const col = getColumnByPath(updated, contextMenu.colPath!);
                     const idx = col.elements.findIndex((el) => el.id === contextMenu.elementId);
                     if (idx === -1) return updated;
-                    const clone = JSON.parse(JSON.stringify(col.elements[idx]));
-                    clone.id = uid();
+                    const clone = regenElements([JSON.parse(JSON.stringify(col.elements[idx]))])[0];
                     col.elements.splice(idx + 1, 0, clone);
                     return updated;
                 })
@@ -105,22 +106,48 @@ export function useContextMenuActions(
 
     const handlePaste = useCallback(() => {
         if (!clipboard || !contextMenu) { setContextMenu(null); return; }
+
+        // Paste element into a container (or as sibling of element → parent container)
         if (clipboard.type === "element" && contextMenu.colPath) {
-            const clone = JSON.parse(JSON.stringify(clipboard.data));
-            clone.id = uid();
-            if (clone.type === "carousel" && clone.schema?.content?.slides) {
-                clone.schema.content.slides = clone.schema.content.slides.map((slide: any) => ({
-                    ...slide,
-                    id: uid(),
-                    elements: (slide.elements || []).map((el: any) => ({ ...el, id: uid() })),
-                }));
-            }
+            const clone = regenElements([JSON.parse(JSON.stringify(clipboard.data))])[0];
             setRows((prev) =>
                 prev.map((r) => {
                     if (r.id !== contextMenu.rowId) return r;
                     const updated = JSON.parse(JSON.stringify(r)) as Row;
                     const col = getColumnByPath(updated, contextMenu.colPath!);
+                    if (!col.elements) col.elements = [];
                     col.elements.push(clone);
+                    return updated;
+                })
+            );
+        } else if (clipboard.type === "column" && contextMenu.colPath) {
+            // Elementor: paste container as nested child of the target container
+            const clone = regenColumnIds(JSON.parse(JSON.stringify(clipboard.data)) as Column);
+            setRows((prev) =>
+                prev.map((r) => {
+                    if (r.id !== contextMenu.rowId) return r;
+                    const updated = JSON.parse(JSON.stringify(r)) as Row;
+                    if (contextMenu.type === "column") {
+                        const col = getColumnByPath(updated, contextMenu.colPath!);
+                        if (!col.columns) col.columns = [];
+                        col.columns.push(clone);
+                    } else {
+                        // Pasting onto element context — nest into parent column
+                        const col = getColumnByPath(updated, contextMenu.colPath!);
+                        if (!col.columns) col.columns = [];
+                        col.columns.push(clone);
+                    }
+                    return updated;
+                })
+            );
+        } else if (clipboard.type === "column" && contextMenu.type === "row") {
+            // Paste container as top-level column in the row
+            const clone = regenColumnIds(JSON.parse(JSON.stringify(clipboard.data)) as Column);
+            setRows((prev) =>
+                prev.map((r) => {
+                    if (r.id !== contextMenu.rowId) return r;
+                    const updated = JSON.parse(JSON.stringify(r)) as Row;
+                    updated.columns.push(clone);
                     return updated;
                 })
             );
@@ -189,7 +216,6 @@ export function useContextMenuActions(
                 })
             );
         } else if (contextMenu.type === "column" && contextMenu.colPath) {
-            const columnElement = require("../elements/column").default;
             setRows((prev) =>
                 prev.map((r) => {
                     if (r.id !== contextMenu.rowId) return r;
@@ -237,12 +263,16 @@ export function useContextMenuActions(
         if (contextMenu.type === "row") {
             deleteRow(contextMenu.rowId);
         } else if (contextMenu.type === "column" && contextMenu.colPath) {
+            const path = contextMenu.colPath;
             setRows((prev) =>
                 prev.map((r) => {
                     if (r.id !== contextMenu.rowId) return r;
                     const updated = JSON.parse(JSON.stringify(r)) as Row;
-                    if (contextMenu.colPath!.length === 1) {
-                        updated.columns.splice(contextMenu.colPath![0], 1);
+                    if (path.length === 1) {
+                        updated.columns.splice(path[0], 1);
+                    } else {
+                        const parent = getColumnByPath(updated, parentPathOf(path));
+                        parent.columns.splice(path[path.length - 1], 1);
                     }
                     return updated;
                 })
@@ -262,16 +292,21 @@ export function useContextMenuActions(
                 prev.map((r) => {
                     if (r.id !== contextMenu.rowId) return r;
                     const updated = JSON.parse(JSON.stringify(r)) as Row;
-                    for (const col of updated.columns) {
-                        const el = col.elements?.find((e: any) => e.id === contextMenu.carouselId);
-                        if (el && el.type === "carousel") {
-                            const slide = el.schema.content.slides[contextMenu.slideIndex!];
-                            if (slide?.elements) {
-                                slide.elements = slide.elements.filter((e: any) => e.id !== contextMenu.childElementId);
+                    const walk = (cols: Column[]) => {
+                        for (const col of cols) {
+                            const el = col.elements?.find((e: any) => e.id === contextMenu.carouselId);
+                            if (el && el.type === "carousel") {
+                                const slide = el.schema.content.slides[contextMenu.slideIndex!];
+                                if (slide?.elements) {
+                                    slide.elements = slide.elements.filter((e: any) => e.id !== contextMenu.childElementId);
+                                }
+                                return true;
                             }
-                            return updated;
+                            if (col.columns?.length && walk(col.columns)) return true;
                         }
-                    }
+                        return false;
+                    };
+                    walk(updated.columns);
                     return updated;
                 })
             );

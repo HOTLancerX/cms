@@ -2,7 +2,15 @@
 
 import { useCallback } from "react";
 import { Row, Column, Selection, BuilderElement, PresetColumn, PresetRowSchema } from "../types";
-import { uid, makeColumns, getColumnByPath, getElementDef } from "../helpers";
+import {
+    uid,
+    makeColumns,
+    makeEmptyColumn,
+    getColumnByPath,
+    getElementDef,
+    isContainerType,
+    parentPathOf,
+} from "../helpers";
 import rowElement from "../elements/row";
 
 /** Deep-merge a PresetRowSchema into a cloned row schema. */
@@ -41,6 +49,10 @@ export function useBuilderActions(
         ]);
     }, [setRows]);
 
+    /**
+     * Apply a column structure preset as nested containers inside the target container.
+     * Elementor: structure becomes child containers (unlimited depth).
+     */
     const addNestedColumns = useCallback(
         (preset: PresetColumn[]) => {
             if (!targetCol) return;
@@ -49,7 +61,9 @@ export function useBuilderActions(
                     if (row.id !== targetCol.rowId) return row;
                     const updated = JSON.parse(JSON.stringify(row)) as Row;
                     const col = getColumnByPath(updated, targetCol.path);
-                    col.columns = makeColumns(preset);
+                    // Append structure as nested containers (keep existing elements)
+                    const kids = makeColumns(preset);
+                    col.columns = [...(col.columns || []), ...kids];
                     return updated;
                 })
             );
@@ -59,8 +73,27 @@ export function useBuilderActions(
         [targetCol, setRows, setLeftPanel, setTargetCol]
     );
 
+    /**
+     * Add a widget OR nest a Container into a column.
+     * Elementor: Container from the panel becomes a nested column, never a leaf element.
+     */
     const addElementToColumn = useCallback(
         (rowId: string, colPath: number[], elementType: string) => {
+            // Container widget → nested structural column (unlimited nesting)
+            if (isContainerType(elementType)) {
+                setRows((prev) =>
+                    prev.map((row) => {
+                        if (row.id !== rowId) return row;
+                        const updated = JSON.parse(JSON.stringify(row)) as Row;
+                        const col = getColumnByPath(updated, colPath);
+                        if (!col.columns) col.columns = [];
+                        col.columns.push(makeEmptyColumn());
+                        return updated;
+                    })
+                );
+                return;
+            }
+
             const def = getElementDef(elementType);
             if (!def) return;
             const newEl: BuilderElement = {
@@ -73,6 +106,7 @@ export function useBuilderActions(
                     if (row.id !== rowId) return row;
                     const updated = JSON.parse(JSON.stringify(row)) as Row;
                     const col = getColumnByPath(updated, colPath);
+                    if (!col.elements) col.elements = [];
                     col.elements.push(newEl);
                     return updated;
                 })
@@ -128,6 +162,7 @@ export function useBuilderActions(
         });
     }, [setRows]);
 
+    /** Reorder top-level columns in a row (legacy / structure panel). */
     const moveColumn = useCallback((rowId: string, fromIndex: number, toIndex: number) => {
         setRows((prev) =>
             prev.map((row) => {
@@ -135,6 +170,34 @@ export function useBuilderActions(
                 const updated = JSON.parse(JSON.stringify(row)) as Row;
                 const [moved] = updated.columns.splice(fromIndex, 1);
                 updated.columns.splice(toIndex, 0, moved);
+                return updated;
+            })
+        );
+    }, [setRows]);
+
+    /**
+     * Reorder sibling containers at any nest depth (Elementor).
+     * fromPath / toPath must share the same parent.
+     */
+    const moveColumnByPath = useCallback((rowId: string, fromPath: number[], toPath: number[]) => {
+        if (fromPath.length !== toPath.length) return;
+        const parentA = parentPathOf(fromPath);
+        const parentB = parentPathOf(toPath);
+        if (JSON.stringify(parentA) !== JSON.stringify(parentB)) return;
+        const fromIdx = fromPath[fromPath.length - 1];
+        const toIdx = toPath[toPath.length - 1];
+        if (fromIdx === toIdx) return;
+
+        setRows((prev) =>
+            prev.map((row) => {
+                if (row.id !== rowId) return row;
+                const updated = JSON.parse(JSON.stringify(row)) as Row;
+                const siblings =
+                    parentA.length === 0
+                        ? updated.columns
+                        : getColumnByPath(updated, parentA).columns;
+                const [moved] = siblings.splice(fromIdx, 1);
+                siblings.splice(toIdx, 0, moved);
                 return updated;
             })
         );
@@ -196,6 +259,7 @@ export function useBuilderActions(
         updateColumn,
         moveRow,
         moveColumn,
+        moveColumnByPath,
         deleteRow,
         moveElement,
         moveElementCross,
