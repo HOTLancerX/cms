@@ -188,7 +188,7 @@ export default async function RootLayout({
                     builderContent={builderContent}
                 />
             ) : null}
-            <ActivePluginsProvider>
+            <ActivePluginsProvider initialPlugins={activeNxList}>
                 {children}
             </ActivePluginsProvider>
             {footerBuilderId ? (

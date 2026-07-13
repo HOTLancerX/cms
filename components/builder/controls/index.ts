@@ -25,6 +25,7 @@ export { default as AlignSelf } from "./AlignSelf";
 export { default as ShapeDivider } from "./ShapeDivider";
 export { default as BoxShadow } from "./BoxShadow";
 export { default as IconPicker } from "./IconPicker";
+export { default as ImageGallery } from "./ImageGallery";
 
 // Group controls
 export { default as Typography } from "./group/Typography";

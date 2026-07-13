@@ -3,16 +3,11 @@
 /**
  * ActivePluginsContext
  *
- * Fetches /api/admin-init ONCE at the admin layout level, calls
- * reregisterHooks(), then exposes the active nx ID list to every
- * descendant via context — no component ever needs to fetch again.
+ * If `initialPlugins` is provided by the server (via layout.tsx), calls
+ * reregisterHooks() synchronously on first render — zero delay, no flash.
  *
- * Usage:
- *   // In layout (already done):
- *   <ActivePluginsProvider>...</ActivePluginsProvider>
- *
- *   // In any child component (replaces useActivePlugins()):
- *   const activePlugins = useActivePluginsCtx();
+ * Falls back to fetching /api/admin-init client-side only when
+ * initialPlugins is not provided (e.g. admin layout).
  */
 
 import {
@@ -28,10 +23,26 @@ type ActivePluginsCtxValue = string[] | null; // null = still loading
 
 const ActivePluginsContext = createContext<ActivePluginsCtxValue>(null);
 
-export function ActivePluginsProvider({ children }: { children: ReactNode }) {
-    const [activePlugins, setActivePlugins] = useState<string[] | null>(null);
+interface ActivePluginsProviderProps {
+    children: ReactNode;
+    /** Active plugin nx IDs resolved server-side. When provided, no client fetch is needed. */
+    initialPlugins?: string[];
+}
+
+export function ActivePluginsProvider({ children, initialPlugins }: ActivePluginsProviderProps) {
+    const [activePlugins, setActivePlugins] = useState<string[] | null>(() => {
+        if (initialPlugins) {
+            // Synchronous — runs during first render, before any paint.
+            reregisterHooks(initialPlugins);
+            return initialPlugins;
+        }
+        return null;
+    });
 
     useEffect(() => {
+        // Skip the fetch entirely when the server already provided the list.
+        if (initialPlugins) return;
+
         fetch("/api/admin-init", { cache: "no-store" })
             .then((r) => r.json())
             .then((data: { plugins: { nx: string; status: string }[] }) => {
@@ -45,7 +56,7 @@ export function ActivePluginsProvider({ children }: { children: ReactNode }) {
                 reregisterHooks([]);
                 setActivePlugins([]);
             });
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <ActivePluginsContext.Provider value={activePlugins}>
@@ -56,7 +67,7 @@ export function ActivePluginsProvider({ children }: { children: ReactNode }) {
 
 /**
  * Returns the active plugin nx IDs, or null while the first fetch is in flight.
- * Drop-in replacement for useActivePlugins() — reads from context, no fetch.
+ * When initialPlugins was provided this is never null — populated synchronously.
  */
 export function useActivePluginsCtx(): string[] | null {
     return useContext(ActivePluginsContext);

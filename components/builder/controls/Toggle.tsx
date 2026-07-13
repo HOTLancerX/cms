@@ -14,10 +14,7 @@ export default function Toggle({ value, onChange, label }: Props) {
     return (
         <div className="flex items-center justify-between">
             {label && (
-                <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-medium text-gray-700">{label}</span>
-                    <Icon icon="mdi:monitor" width="14" className="text-gray-400" />
-                </div>
+                <span className="text-[13px] font-medium text-gray-700">{label}</span>
             )}
             <button
                 type="button"

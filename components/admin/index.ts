@@ -126,7 +126,7 @@ export function register(): void {
             label: "Templates",
             icon: "solar:layers-bold",
             slug: "template",
-            parent: "",
+            parent: "settings",
             position: 110,
         },
         // ── Permalinks ──
@@ -135,7 +135,7 @@ export function register(): void {
             label: "Permalinks",
             icon: "solar:link-bold",
             slug: "permalink",
-            parent: "",
+            parent: "settings",
             position: 120,
         },
         {
@@ -168,7 +168,7 @@ export function register(): void {
             label: "Location",
             icon: "solar:map-point-bold",
             slug: "category/location",
-            parent: "",
+            parent: "settings",
             position: 130,
         },
         // ── AI Prompts ──
@@ -177,7 +177,7 @@ export function register(): void {
             label: "AI Prompts",
             icon: "solar:stars-bold",
             slug: "category/prompt",
-            parent: "",
+            parent: "settings",
             position: 131,
         },
         // ── Menu ──

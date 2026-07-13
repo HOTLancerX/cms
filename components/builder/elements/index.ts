@@ -5,13 +5,15 @@
  * Imported once by hook/PluginList.ts so elements are always available
  * before any plugin register() calls run.
  *
- * Plugins register their own elements inside their register() function:
+ * Also auto-discovers plugin elements via require.context, scanning every
+ * plugin/x/elements/index.(ts|tsx) file as a side-effect. Each such file
+ * calls addBuilderElement(...) for its own elements — no manual imports needed.
+ *
+ * Plugins register their own elements inside plugin/x/elements/index.ts:
  *
  *   import { addBuilderElement } from "@/hook";
- *   import myElement from "./elements/my-element";
- *   export function register() {
- *     addBuilderElement(myElement, PLUGINS.nx);
- *   }
+ *   import myElement from "./my-element";
+ *   addBuilderElement(myElement, "com.system.myplugin");
  */
 
 import { addBuilderElement } from "@/hook";

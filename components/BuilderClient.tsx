@@ -6,6 +6,7 @@ import "@/components/builder/elements/index";
 import columnElement from "@/components/builder/elements/column";
 import { controlToCSS, controlToHoverCSS } from "@/components/builder/controls/css";
 import { getDeviceValue } from "@/components/builder/device";
+import { useActivePluginsCtx } from "@/context/ActivePluginsContext";
 
 /**
  * BuilderClient — front-end renderer for saved builder content.
@@ -399,7 +400,11 @@ interface Props {
 }
 
 export default function BuilderClient({ content, serverElements = {} }: Props) {
-    const css = useMemo(() => collectAllCSS(content), [content]);
+    // Re-render once active plugins are loaded so plugin elements (registered
+    // inside reregisterHooks) are available to getElementDef at render time.
+    const activePlugins = useActivePluginsCtx();
+
+    const css = useMemo(() => collectAllCSS(content), [content, activePlugins]);
 
     if (!content || !Array.isArray(content) || content.length === 0) return null;
 
