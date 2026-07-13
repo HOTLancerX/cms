@@ -93,6 +93,18 @@ const STATUS_CONFIG: Record<PluginStatus, { label: string; cls: string }> = {
 export default function PluginList({ initialPlugins }: { initialPlugins: PluginRecord[] }) {
     const [plugins, setPlugins] = useState<PluginRecord[]>(initialPlugins);
     const [processing, setProcessing] = useState<string | null>(null);
+    const [search, setSearch] = useState("");
+
+    const filtered = plugins.filter((p) => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+            p.name.toLowerCase().includes(q) ||
+            p.nx.toLowerCase().includes(q) ||
+            p.description.toLowerCase().includes(q) ||
+            p.author.toLowerCase().includes(q)
+        );
+    });
 
     const updateLocal = (nx: string, patch: Partial<PluginRecord>) =>
         setPlugins((prev) => prev.map((p) => (p.nx === nx ? { ...p, ...patch } : p)));
@@ -186,15 +198,27 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
                 </div>
             </div>
 
+            {/* Search */}
+            <div className="relative max-w-sm">
+                <Icon icon="solar:magnifer-linear" width={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input
+                    type="text"
+                    placeholder="Search plugins…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-400 transition"
+                />
+            </div>
+
             {/* Grid */}
-            {plugins.length === 0 ? (
+            {filtered.length === 0 ? (
                 <div className="text-center py-20 text-gray-400">
                     <Icon icon="solar:box-minimalistic-bold" width={48} className="mx-auto mb-3 opacity-40" />
-                    <p>No plugins found in the codebase.</p>
+                    <p>{search ? "No plugins match your search." : "No plugins found in the codebase."}</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {plugins.map((plugin) => {
+                    {filtered.map((plugin) => {
                         const isActive = plugin.status === "active";
                         const isNew = plugin.status === "new";
                         const isExpired = plugin.isExpired ?? false;

@@ -76,6 +76,18 @@ export default function PluginStoreList({ available, installed }: Props) {
         () => new Map(installed.map((p) => [p.nx, p]))
     );
     const [processing, setProcessing] = useState<string | null>(null);
+    const [search, setSearch] = useState("");
+
+    const filtered = available.filter((p) => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+            p.name.toLowerCase().includes(q) ||
+            p.nx.toLowerCase().includes(q) ||
+            p.description.toLowerCase().includes(q) ||
+            p.author.toLowerCase().includes(q)
+        );
+    });
 
     const updateLocal = (nx: string, patch: Partial<InstalledRecord>) =>
         setInstalledMap((prev) => {
@@ -152,9 +164,27 @@ export default function PluginStoreList({ available, installed }: Props) {
                 </div>
             </div>
 
+            {/* Search */}
+            <div className="relative max-w-sm">
+                <Icon icon="solar:magnifer-linear" width={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input
+                    type="text"
+                    placeholder="Search store…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-400 transition"
+                />
+            </div>
+
             {/* Grid */}
+            {filtered.length === 0 ? (
+                <div className="text-center py-20 text-gray-400">
+                    <Icon icon="solar:shop-bold" width={48} className="mx-auto mb-3 opacity-40" />
+                    <p>{search ? "No plugins match your search." : "No plugins available."}</p>
+                </div>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {available.map((plugin) => {
+                {filtered.map((plugin) => {
                     const record = installedMap.get(plugin.nx);
                     const isInstalled = !!record;
                     const isActive = record?.status === "active";
@@ -283,6 +313,7 @@ export default function PluginStoreList({ available, installed }: Props) {
                     );
                 })}
             </div>
+            )}
         </div>
     );
 }
