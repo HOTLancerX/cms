@@ -1,19 +1,68 @@
 "use client";
 
 import React, { useState } from "react";
-import { Icon } from "@iconify/react";
 import {
   Text,
   Select,
   ButtonGroup,
-  Toggle,
   NumberControl,
   Dimensions,
   ImageGallery,
   Url,
-  ColorPickerPopup,
   Tabs,
+  Border,
 } from "../controls";
+
+function getBorderStyles(borderVal: any, hovered: boolean) {
+  if (!borderVal) return {};
+  const normal = borderVal.normal || {};
+  const hover = borderVal.hover || {};
+  const active = hovered ? { ...normal, ...hover } : normal;
+  
+  const styles: React.CSSProperties = {
+    borderStyle: active.type || "none",
+    borderColor: active.color || "#e2e8f0",
+  };
+  
+  const w = active.width;
+  if (w && typeof w === "object") {
+    const unit = w.unit || "px";
+    styles.borderTopWidth = `${w.top ?? 0}${unit}`;
+    styles.borderRightWidth = `${w.right ?? 0}${unit}`;
+    styles.borderBottomWidth = `${w.bottom ?? 0}${unit}`;
+    styles.borderLeftWidth = `${w.left ?? 0}${unit}`;
+  }
+  
+  const r = active.radius;
+  if (r && typeof r === "object") {
+    const unit = r.unit || "px";
+    styles.borderTopLeftRadius = `${r.top ?? 0}${unit}`;
+    styles.borderTopRightRadius = `${r.right ?? 0}${unit}`;
+    styles.borderBottomRightRadius = `${r.bottom ?? 0}${unit}`;
+    styles.borderBottomLeftRadius = `${r.left ?? 0}${unit}`;
+  }
+  
+  const shadow = borderVal.boxShadow;
+  if (shadow) {
+    const activeShadow = hovered ? shadow.hover : shadow.normal;
+    if (activeShadow) {
+      const inset = activeShadow.inset === true || activeShadow.inset === "true";
+      const x = activeShadow.x ?? 0;
+      const y = activeShadow.y ?? 0;
+      const b = activeShadow.blur ?? 0;
+      const s = activeShadow.spread ?? 0;
+      const c = activeShadow.color || "rgba(0,0,0,0.15)";
+      if (b !== 0 || s !== 0 || x !== 0 || y !== 0) {
+        styles.boxShadow = `${inset ? "inset " : ""}${x}px ${y}px ${b}px ${s}px ${c}`;
+      }
+    }
+  }
+
+  const transition = borderVal.transition ?? 300;
+  styles.transition = `all ${transition}ms ease`;
+
+  return styles;
+}
 
 function getDimensionsStyles(obj: any, property: "margin" | "padding" | "borderRadius") {
   if (!obj || typeof obj !== "object") return {};
@@ -69,16 +118,12 @@ function ImageFrontend({ element }: { element: any }) {
   const hoverContrast: number = s.style?.hoverContrast ?? 100;
   const hoverGrayscale: number = s.style?.hoverGrayscale ?? 0;
 
-  const borderType: string = s.style?.borderType || "none";
-  const borderColor: string = s.style?.borderColor || "#e2e8f0";
-  const borderWidth: number = s.style?.borderWidth ?? 1;
-  const borderRadius = s.style?.borderRadius || {};
+  const borderStyleObj = getBorderStyles(s.style?.border, hovered);
 
   const margin = s.advanced?.margin || {};
   const padding = s.advanced?.padding || {};
   const marginStyle = getDimensionsStyles(margin, "margin");
   const paddingStyle = getDimensionsStyles(padding, "padding");
-  const radiusStyle = getDimensionsStyles(borderRadius, "borderRadius");
 
   // Aligner wrapper rules
   let alignClass = "justify-center";
@@ -99,9 +144,7 @@ function ImageFrontend({ element }: { element: any }) {
     height: heightVal > 0 ? `${heightVal}${heightUnit}` : "auto",
     opacity: hovered ? hoverOpacity : opacity,
     filter: filterStyle,
-    border: borderType !== "none" ? `${borderWidth}px ${borderType} ${borderColor}` : "none",
-    ...radiusStyle,
-    transition: "all 0.3s ease",
+    ...borderStyleObj,
   };
 
   const imageNode = (
@@ -138,7 +181,7 @@ function ImageFrontend({ element }: { element: any }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="flex flex-col max-w-full">
+      <div className="flex flex-col w-full">
         {finalNode}
         {captionType === "custom" && captionText && (
           <span className="text-xs text-gray-500 mt-2 text-center block w-full italic">
@@ -183,10 +226,26 @@ const imageElement = {
       hoverBrightness: 100,
       hoverContrast: 100,
       hoverGrayscale: 0,
-      borderType: "none",
-      borderColor: "#e2e8f0",
-      borderWidth: 1,
-      borderRadius: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" },
+      border: {
+        normal: {
+          type: "none",
+          width: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" },
+          color: "#e2e8f0",
+          radius: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" },
+        },
+        hover: {
+          type: "none",
+          width: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" },
+          color: "#4f46e5",
+          radius: { top: 0, right: 0, bottom: 0, left: 0, unit: "px" },
+        },
+        boxShadow: {
+          normal: { x: 0, y: 0, blur: 0, spread: 0, color: "rgba(0,0,0,0.15)", inset: false },
+          hover: { x: 0, y: 0, blur: 0, spread: 0, color: "rgba(0,0,0,0.15)", inset: false },
+          transition: 300,
+        },
+        transition: 300,
+      },
     },
 
     advanced: {
@@ -415,47 +474,10 @@ const imageElement = {
       section: "Border Settings",
       controls: [
         {
-          name: "borderType",
+          name: "border",
           responsive: false,
           render: (value: any, onChange: any) => (
-            <Select
-              label="Border Type"
-              value={value ?? "none"}
-              onChange={onChange}
-              options={[
-                { value: "none", label: "None" },
-                { value: "solid", label: "Solid" },
-                { value: "dashed", label: "Dashed" },
-                { value: "dotted", label: "Dotted" },
-                { value: "double", label: "Double" },
-                { value: "groove", label: "Groove" },
-              ]}
-            />
-          ),
-        },
-        {
-          name: "borderWidth",
-          responsive: true,
-          render: (value: any, onChange: any, { schema }: any) => (
-            schema.style.borderType !== "none" ? (
-              <NumberControl label="Border Width (px)" value={value ?? 1} onChange={onChange} min={1} max={16} />
-            ) : null
-          ),
-        },
-        {
-          name: "borderColor",
-          responsive: false,
-          render: (value: any, onChange: any, { schema }: any) => (
-            schema.style.borderType !== "none" ? (
-              <ColorPickerPopup label="Border Color" value={value ?? "#e2e8f0"} onChange={onChange} />
-            ) : null
-          ),
-        },
-        {
-          name: "borderRadius",
-          responsive: true,
-          render: (value: any, onChange: any) => (
-            <Dimensions type="padding" label="Border Radius" value={value} onChange={onChange} />
+            <Border value={value} onChange={onChange} />
           ),
         },
       ],
