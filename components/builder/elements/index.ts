@@ -22,6 +22,11 @@ import columnElement from "./column";
 import rowElement from "./row";
 import carouselElement from "./carousel";
 import contactUsElement from "./ContactUs";
+import listElement from "./List";
+import iconListElement from "./IconList";
+import imageTextListElement from "./ImageTextList";
+import imageElement from "./Image";
+import imageBoxElement from "./ImageBox";
 
 // Core elements are registered with no pluginNx — they are always visible.
 addBuilderElement(headingElement);
@@ -29,3 +34,8 @@ addBuilderElement(columnElement);
 addBuilderElement(rowElement);
 addBuilderElement(carouselElement);
 addBuilderElement(contactUsElement);
+addBuilderElement(listElement);
+addBuilderElement(iconListElement);
+addBuilderElement(imageTextListElement);
+addBuilderElement(imageElement);
+addBuilderElement(imageBoxElement);

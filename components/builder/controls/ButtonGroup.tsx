@@ -31,7 +31,7 @@ export default function ButtonGroup({ value, onChange, label, options, deselecta
     const isInline = grid === 2;
 
     return (
-        <div className={isInline ? "flex items-center justify-between gap-3" : ""}>
+        <div className={isInline ? "flex items-center justify-between gap-3" : "flex items-center justify-between"}>
             {label && (
                 <span className={`text-sm font-medium text-gray-700 ${isInline ? "whitespace-nowrap" : "block mb-1.5"}`}>
                     {label}
