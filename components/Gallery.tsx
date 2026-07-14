@@ -223,7 +223,7 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
     if (!isOpen) return null
 
     const modalContent = (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-300">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center" style={{ zIndex: 9999 }}>
             <div className="bg-white rounded-lg w-full max-w-7xl h-3/4 flex flex-col">
                 <div className="p-4 border-b">
                     <div className="flex justify-between items-center mb-4">

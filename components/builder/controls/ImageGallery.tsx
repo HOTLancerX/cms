@@ -14,12 +14,7 @@ export default function ImageGallery({ value, onChange, label, multiple = false 
     return (
         <div>
             {label && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "13px", fontWeight: 500, color: "#374151" }}>{label}</span>
-                        <Icon icon="mdi:image-multiple" width="14" style={{ color: "#9ca3af" }} />
-                    </div>
-                </div>
+                <span className="text-sm font-medium text-gray-700">{label}</span>
             )}
             <Gallery
                 multiple={multiple}

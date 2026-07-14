@@ -13,9 +13,7 @@ export default function Text({ value, onChange, label, placeholder }: Props) {
     return (
         <div>
             {label && (
-                <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="text-sm font-medium text-gray-700">{label}</span>
-                </div>
+                <span className="text-sm font-medium text-gray-700">{label}</span>
             )}
             <input
                 type="text"

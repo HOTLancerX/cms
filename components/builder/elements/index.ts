@@ -21,9 +21,11 @@ import headingElement from "./heading";
 import columnElement from "./column";
 import rowElement from "./row";
 import carouselElement from "./carousel";
+import contactUsElement from "./ContactUs";
 
 // Core elements are registered with no pluginNx — they are always visible.
 addBuilderElement(headingElement);
 addBuilderElement(columnElement);
 addBuilderElement(rowElement);
 addBuilderElement(carouselElement);
+addBuilderElement(contactUsElement);

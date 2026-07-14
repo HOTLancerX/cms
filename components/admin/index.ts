@@ -197,6 +197,15 @@ export function register(): void {
             parent: "menu",
             position: 1,
         },
+        // ── Contact Submissions ──
+        {
+            key: "contactus",
+            label: "Contact Submissions",
+            icon: "solar:letter-bold",
+            slug: "contactus",
+            parent: "",
+            position: 150,
+        },
         // ── Settings ──
         {
             key: "settings",
