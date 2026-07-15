@@ -54,7 +54,7 @@ function generateRowCSS(row: Row, device: Device): string {
     if (hoverParts.length) css += `.${cls}:hover{${hoverParts.join(";")}}`;
 
     // --- INNER ---
-    const inner: string[] = ["display:flex", "width:100%", "margin-left:auto", "margin-right:auto", "overflow:hidden", "position:relative"];
+    const inner: string[] = ["display:flex", "width:100%", "margin-left:auto", "margin-right:auto", "overflow:visible", "position:relative"];
 
     const contentWidth = getDeviceValue(s.layout.contentWidth, device);
     if (contentWidth === "boxed") {

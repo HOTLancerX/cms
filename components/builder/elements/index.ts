@@ -29,6 +29,7 @@ import imageElement from "./Image";
 import imageBoxElement from "./ImageBox";
 import contentElement from "./Content";
 import galleryElement from "./gallery";
+import menusElement from "./Menus";
 
 // Core elements are registered with no pluginNx — they are always visible.
 addBuilderElement(headingElement);
@@ -43,3 +44,4 @@ addBuilderElement(imageElement);
 addBuilderElement(imageBoxElement);
 addBuilderElement(contentElement);
 addBuilderElement(galleryElement);
+addBuilderElement(menusElement);

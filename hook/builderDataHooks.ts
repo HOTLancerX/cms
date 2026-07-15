@@ -41,6 +41,14 @@ export async function renderBuilderElement(
     return component(schema);
 }
 
+import React from "react";
+import Menus from "@/components/Menus";
+
+registerBuilderElement("menus", async (schema: any) => {
+    const location = schema.content?.location || "header-1";
+    return React.createElement(Menus, { location, settings: schema.style || {} });
+});
+
 // Auto-discovery: scans plugin/*/lib/builderData.ts files.
 // Each discovered file calls registerBuilderElement() as a side-effect.
 

@@ -59,8 +59,8 @@ function generateRowCSS(row: any, device: "desktop" | "tablet" | "mobile" = "des
     if (shadowHover) hoverParts.push(shadowHover);
     if (hoverParts.length) css += `.${cls}:hover{${hoverParts.join(";")}}`;
 
-    // --- INNER --- (overflow:hidden here — clips background/content, not shadow)
-    const inner: string[] = ["display:flex", "width:100%", "margin-left:auto", "margin-right:auto", "overflow:hidden", "position:relative"];
+    // --- INNER --- (overflow:visible here — does not clip dropdowns / shadow)
+    const inner: string[] = ["display:flex", "width:100%", "margin-left:auto", "margin-right:auto", "overflow:visible", "position:relative"];
 
     const contentWidth = getDeviceValue(s.layout?.contentWidth, device);
     if (contentWidth === "boxed") {
