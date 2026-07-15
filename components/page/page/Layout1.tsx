@@ -14,7 +14,11 @@ interface PageProps {
  * Page template — Layout 1
  * Clean document style: centred content column, subtle header, SEO sidebar card.
  */
-export default function PageLayout1({ data }: PageProps) {
+export default function PageLayout1({ data, builder }: PageProps & { builder?: React.ReactNode }) {
+    if (data.info?.builderId && builder) {
+        return builder;
+    }
+
     const publishedAt = data.updatedAt
         ? new Date(data.updatedAt).toLocaleDateString("en-US", {
             year: "numeric",

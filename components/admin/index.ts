@@ -10,7 +10,7 @@
  */
 
 import { addHook, addPostType, addCatType } from "@/hook";
-import { Text, Textarea, Tags, CategorySelect, Switch, Select, Number, ColorPicker } from "@/components/ui";
+import { Text, Textarea, Tags, CategorySelect, Switch, Select, Number, ColorPicker, BuilderSelect } from "@/components/ui";
 import BlogLayout1 from "@/components/page/blog/Layout1";
 import BlogLayout2 from "@/components/page/blog/Layout2";
 import BlogCategoryLayout1 from "@/components/page/blog-category/Layout1";
@@ -275,6 +275,14 @@ export function register(): void {
             position: 5,
             component: CategorySelect,
             hierarchicalCatType: "blog-category",
+        },
+        {
+            key: "builderId",
+            label: "Select Builder",
+            type: "page",
+            style: "left",
+            position: 10,
+            component: BuilderSelect,
         },
     ], CORE_NX);
 
@@ -567,7 +575,7 @@ export function register(): void {
             type: "settings",
             style: "left",
             position: 50,
-            component: Text,
+            component: BuilderSelect,
         },
         {
             key: "phone",

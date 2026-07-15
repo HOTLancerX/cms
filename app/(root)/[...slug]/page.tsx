@@ -1,4 +1,5 @@
 import connectDB from "@/lib/mongodb";
+import Builder from "@/components/Builder";
 import Post from "@/models/post";
 import PostInfo from "@/models/post_info";
 import Cat from "@/models/cat";
@@ -457,6 +458,8 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
         const postData = await getPost(contentSlug, postType.key);
         if (!postData) continue;
 
+        const builder = postData.info?.builderId ? <Builder id={postData.info.builderId} /> : null;
+
         const pageData = await runServerDataHook(
             postType.key,
             String(postData._id),
@@ -469,11 +472,11 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
             const fallback = await resolveTemplate("post", activeNxSet);
             if (!fallback?.component) continue;
             const C = fallback.component as any;
-            return <C data={postData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
+            return <C data={postData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} builder={builder} />;
         }
 
         const PostComponent = template.component as any;
-        return <PostComponent data={postData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} />;
+        return <PostComponent data={postData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} builder={builder} />;
     }
 
     // ─── Seller pages — resolved from User.slug, no Post document needed ─────

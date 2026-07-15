@@ -9,3 +9,4 @@ export { Number } from "./Number";
 export { ColorPicker } from "./ColorPicker";
 export { CategorySelect } from "./CategorySelect";
 export { CategoryHierarchicalSelect } from "./CategoryHierarchicalSelect";
+export { BuilderSelect } from "./Builder";
