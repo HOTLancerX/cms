@@ -37,12 +37,12 @@ export default function Header3({
         <header className={`z-50 border-b border-white/10 backdrop-blur-sm ${isSticky ? 'sticky top-0' : 'relative'} ${isTransparent ? 'bg-transparent' : 'bg-[#0f1117]/95'}`}>
             {topItems.length > 0 && (
                 <div className="bg-black/30 text-gray-400 text-xs px-6 py-1.5">
-                    <div className="max-w-6xl mx-auto flex items-center justify-end">
+                    <div className="container flex items-center justify-end">
                         <MenuClients menuItems={topItems} settings={darkSettings} builderContent={builderContent} className="flex items-center" />
                     </div>
                 </div>
             )}
-            <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-6">
+            <div className="container h-16 flex items-center gap-6">
                 <Link href="/" className="text-xl font-extrabold text-white tracking-tight shrink-0">
                     {settings.siteName || <><span>My</span><span className="text-violet-400">Site</span></>}
                 </Link>

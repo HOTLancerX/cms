@@ -9,7 +9,7 @@ export default function Footer3() {
 
     return (
         <footer className="bg-[#0f1117] border-t border-white/10 mt-auto">
-            <div className="max-w-6xl mx-auto px-6 py-8">
+            <div className="container py-8">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                     {/* Brand */}
                     <Link href="/" className="text-lg font-extrabold text-white tracking-tight">

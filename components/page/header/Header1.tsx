@@ -28,7 +28,7 @@ export default function Header1({
         <header className={`z-50 border-b border-gray-200 shadow-sm ${isSticky ? 'sticky top-0' : 'relative'} ${isTransparent ? 'bg-transparent' : 'bg-white'}`}>
             {topItems.length > 0 && (
                 <div className="bg-gray-900 text-gray-300 text-xs px-6 py-1.5">
-                    <div className="max-w-6xl mx-auto flex items-center justify-end">
+                    <div className="container flex items-center justify-end">
                         <MenuClients menuItems={topItems} settings={settings} builderContent={builderContent} className="flex items-center" />
                     </div>
                 </div>

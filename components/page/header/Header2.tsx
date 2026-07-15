@@ -32,15 +32,15 @@ export default function Header2({
     };
 
     return (
-        <header className={`z-50 shadow-lg bg-gradient-to-r from-violet-600 to-purple-700 ${isSticky ? 'sticky top-0' : 'relative'}`}>
+        <header className={`z-50 shadow-lg bg-linear-to-r from-violet-600 to-purple-700 ${isSticky ? 'sticky top-0' : 'relative'}`}>
             {topItems.length > 0 && (
                 <div className="bg-violet-900/60 text-violet-200 text-xs px-6 py-1.5">
-                    <div className="max-w-6xl mx-auto flex items-center justify-end">
+                    <div className="container flex items-center justify-end">
                         <MenuClients menuItems={topItems} settings={darkSettings} builderContent={builderContent} className="flex items-center" />
                     </div>
                 </div>
             )}
-            <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-6">
+            <div className="container h-16 flex items-center gap-6">
                 <Link href="/" className="text-xl font-extrabold text-white tracking-tight shrink-0">
                     {settings.siteName || 'MySite'}
                 </Link>
