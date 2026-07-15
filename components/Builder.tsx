@@ -14,6 +14,7 @@ import {
 
 interface Props {
     id: string;
+    data?: any;
 }
 
 interface RenderedElement {
@@ -47,7 +48,7 @@ function collectRegisteredElements(content: any[]): { id: string; type: string; 
     return results;
 }
 
-export default async function Builder({ id }: Props) {
+export default async function Builder({ id, data }: Props) {
     await connectDB();
     const doc = await BuilderModel.findById(id).lean();
     if (!doc || !doc.content) return null;
@@ -63,7 +64,7 @@ export default async function Builder({ id }: Props) {
     if (registered.length > 0) {
         await Promise.all(
             registered.map(async ({ id: elId, type, schema }) => {
-                rendered[elId] = await renderBuilderElement(type, schema);
+                rendered[elId] = await renderBuilderElement(type, schema, data);
             })
         );
     }

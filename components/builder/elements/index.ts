@@ -30,6 +30,12 @@ import imageBoxElement from "./ImageBox";
 import contentElement from "./Content";
 import galleryElement from "./gallery";
 import menusElement from "./Menus";
+import blogTitleElement from "./BlogTitle";
+import blogImageElement from "./BlogImage";
+import blogCategoryElement from "./BlogCategory";
+import blogDescriptionElement from "./BlogDescription";
+import blogMetaElement from "./BlogMeta";
+import relatedElement from "./Related";
 
 // Core elements are registered with no pluginNx — they are always visible.
 addBuilderElement(headingElement);
@@ -45,3 +51,9 @@ addBuilderElement(imageBoxElement);
 addBuilderElement(contentElement);
 addBuilderElement(galleryElement);
 addBuilderElement(menusElement);
+addBuilderElement(blogTitleElement);
+addBuilderElement(blogImageElement);
+addBuilderElement(blogCategoryElement);
+addBuilderElement(blogDescriptionElement);
+addBuilderElement(blogMetaElement);
+addBuilderElement(relatedElement);

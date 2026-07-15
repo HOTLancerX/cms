@@ -1,5 +1,6 @@
 import connectDB from "@/lib/mongodb";
 import Builder from "@/components/Builder";
+import { runBuilderWrapper } from "@/hook/builderDataHooks";
 import Post from "@/models/post";
 import PostInfo from "@/models/post_info";
 import Cat from "@/models/cat";
@@ -467,6 +468,17 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
             postData
         );
 
+        const dbDefault = (await getDefaultTemplate(postType.key)) || (await getDefaultTemplate("post"));
+        if (dbDefault?.builderId) {
+            return runBuilderWrapper(
+                <Builder id={dbDefault.builderId} data={postData} />,
+                postData,
+                pageData,
+                settings,
+                permalinkMap
+            );
+        }
+
         const template = await resolveTemplate(postType.key, activeNxSet);
         if (!template?.component) {
             const fallback = await resolveTemplate("post", activeNxSet);
@@ -548,6 +560,11 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
             catData.slug,
             catData
         );
+
+        const dbDefault = (await getDefaultTemplate(catType.key)) || (await getDefaultTemplate("cat"));
+        if (dbDefault?.builderId) {
+            return <Builder id={dbDefault.builderId} data={catData} />;
+        }
 
         // Resolve template by catType.key (e.g. "product-category"),
         // then fall back to the generic "cat" template if none is registered.

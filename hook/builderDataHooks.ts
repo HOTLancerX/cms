@@ -6,9 +6,29 @@
 import type { ReactNode } from "react";
 
 // A server component factory: receives the element's schema, returns JSX.
-type BuilderElementComponent = (schema: any) => ReactNode | Promise<ReactNode>;
+// A server component factory: receives the element's schema and optional page data, returns JSX.
+type BuilderElementComponent = (schema: any, data?: any) => ReactNode | Promise<ReactNode>;
 
 const _registry = new Map<string, BuilderElementComponent>();
+
+type BuilderWrapperFn = (builderComponent: ReactNode, data?: any, pageData?: any, settings?: any, permalinkMap?: any) => ReactNode;
+
+let _builderWrapper: BuilderWrapperFn | null = null;
+
+export function registerBuilderWrapper(fn: BuilderWrapperFn): void {
+    _builderWrapper = fn;
+}
+
+export function runBuilderWrapper(
+    builderComponent: ReactNode,
+    data?: any,
+    pageData?: any,
+    settings?: any,
+    permalinkMap?: any
+): ReactNode {
+    if (!_builderWrapper) return builderComponent;
+    return _builderWrapper(builderComponent, data, pageData, settings, permalinkMap);
+}
 
 /**
  * Register a server-side component for a builder element type.
@@ -34,11 +54,12 @@ export function hasBuilderElement(elementType: string): boolean {
  */
 export async function renderBuilderElement(
     elementType: string,
-    schema: any
+    schema: any,
+    data?: any
 ): Promise<ReactNode> {
     const component = _registry.get(elementType);
     if (!component) return null;
-    return component(schema);
+    return component(schema, data);
 }
 
 import React from "react";
