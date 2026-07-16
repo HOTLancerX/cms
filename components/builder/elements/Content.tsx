@@ -140,7 +140,7 @@ function ContentFrontend({ element }: { element: any }) {
         ` : ""}
       `}</style>
       <div
-        className="content-inner-wrapper w-full"
+        className="content-inner-wrapper description w-full"
         style={{
           ...typStyles,
           ...columnStyle,

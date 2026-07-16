@@ -9,6 +9,16 @@ import { getColumnByPath, uid, isContainerType, getElementDef } from "./helpers"
 import { xFetch } from "@/lib/express";
 import { reregisterHooks } from "@/hook/PluginList";
 import { getBuilderElement } from "@/hook";
+if (typeof window !== "undefined") {
+    const originalError = console.error;
+    console.error = (...args: any[]) => {
+        const msg = args[0];
+        if (typeof msg === "string" && msg.includes("useInsertionEffect must not schedule updates")) {
+            return;
+        }
+        originalError(...args);
+    };
+}
 
 /** Walk nested containers to find an element by id. */
 function findElementInColumns(cols: Column[], elementId: string): { col: Column; el: any } | null {
@@ -647,9 +657,9 @@ export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
                     {/* Canvas scroll area */}
                     <div className={`flex-1 overflow-y-auto p-6 ${panelCollapsed ? "builder-preview-mode" : ""}`} data-preview={panelCollapsed ? "true" : undefined}>
                         <div
-                            className="mx-auto transition-[max-width] duration-300 ease-in-out"
+                            className="mx-auto container transition-[max-width] duration-300 ease-in-out"
                             style={{
-                                maxWidth: device === "desktop" ? "100%" : device === "tablet" ? "768px" : "375px",
+                                maxWidth: device === "desktop" ? "" : device === "tablet" ? "768px" : "375px",
                             }}
                         >
                             <CanvasStyles rows={rows} device={device} />
