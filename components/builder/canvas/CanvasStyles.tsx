@@ -20,6 +20,31 @@ import { commonAdvancedControls, mergeControls } from "../controls/common";
 // ROW CSS
 // ============================================================
 
+function getVisibilityCSS(advanced: any, device: Device, displayDefault: string = "block"): string {
+    const hideDesktop = advanced?.hideDesktop;
+    const hideTablet = advanced?.hideTablet;
+    const hideMobile = advanced?.hideMobile;
+
+    if (device === "desktop" && hideDesktop) {
+        return "display:none!important";
+    }
+    if (device === "tablet") {
+        if (hideTablet) {
+            return "display:none!important";
+        } else if (hideDesktop) {
+            return `display:${displayDefault}!important`;
+        }
+    }
+    if (device === "mobile") {
+        if (hideMobile) {
+            return "display:none!important";
+        } else if (hideTablet || hideDesktop) {
+            return `display:${displayDefault}!important`;
+        }
+    }
+    return "";
+}
+
 function generateRowCSS(row: Row, device: Device): string {
     const s = row.schema;
     const cls = `brow-${row.id}`;
@@ -27,6 +52,9 @@ function generateRowCSS(row: Row, device: Device): string {
 
     // --- OUTER --- (no overflow:hidden here — it clips box-shadow)
     const outer: string[] = ["width:100%", "position:relative"];
+
+    const visibility = getVisibilityCSS(s.advanced, device, "block");
+    if (visibility) outer.push(visibility);
 
     const bg = controlToCSS("background", getDeviceValue(s.style.background, device), s);
     if (bg) outer.push(bg);
@@ -136,6 +164,9 @@ function generateColumnCSS(col: Column, device: Device): string {
         "box-sizing:border-box",
     ];
 
+    const visibility = getVisibilityCSS(schema.advanced, device, "flex");
+    if (visibility) lines.push(visibility);
+
     // For nested containers, read the column's own flex/wrap schema.
     // Fall back to row+wrap only when no explicit direction is stored.
     if (hasNestedCols) {
@@ -209,6 +240,10 @@ function generateElementCSS(element: BuilderElement, device: Device): string {
     const cls = `bel-${element.id}`;
     const schema = element.schema;
     const lines: string[] = [];
+
+    const visibility = getVisibilityCSS(schema.advanced, device, "block");
+    if (visibility) lines.push(visibility);
+
     const hoverLines: string[] = [];
 
     const allControls = mergeControls(def.controls);

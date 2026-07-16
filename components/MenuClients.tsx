@@ -7,7 +7,8 @@ import Image from 'next/image';
 import { Icon } from '@iconify/react';
 import { MenuItem } from '@/models/Menu';
 
-import BuilderClient from '@/components/BuilderClient';
+import dynamic from 'next/dynamic';
+const BuilderClient = dynamic(() => import('@/components/BuilderClient'), { ssr: false });
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -233,7 +234,7 @@ interface BuilderPanelProps {
 function BuilderPanel({ colors, panelTop, content, onMouseEnter, onMouseLeave }: BuilderPanelProps) {
     return (
         <div
-            className="fixed left-0 right-0 z-[9999] shadow-2xl border-t overflow-auto max-h-[80vh]"
+            className="fixed left-0 right-0 z-9999 shadow-2xl border-t overflow-auto max-h-[80vh]"
             style={{
                 top:         panelTop,
                 background:  colors.navBoxBg,

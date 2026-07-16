@@ -25,6 +25,31 @@ const MOBILE_MAX = 767;
 // CSS GENERATION (same logic as CanvasStyles but for front-end)
 // ============================================================
 
+function getVisibilityCSS(advanced: any, device: "desktop" | "tablet" | "mobile", displayDefault: string = "block"): string {
+    const hideDesktop = advanced?.hideDesktop;
+    const hideTablet = advanced?.hideTablet;
+    const hideMobile = advanced?.hideMobile;
+
+    if (device === "desktop" && hideDesktop) {
+        return "display:none!important";
+    }
+    if (device === "tablet") {
+        if (hideTablet) {
+            return "display:none!important";
+        } else if (hideDesktop) {
+            return `display:${displayDefault}!important`;
+        }
+    }
+    if (device === "mobile") {
+        if (hideMobile) {
+            return "display:none!important";
+        } else if (hideTablet || hideDesktop) {
+            return `display:${displayDefault}!important`;
+        }
+    }
+    return "";
+}
+
 function generateRowCSS(row: any, device: "desktop" | "tablet" | "mobile" = "desktop"): string {
     const s = row.schema;
     if (!s) return "";
@@ -34,6 +59,9 @@ function generateRowCSS(row: any, device: "desktop" | "tablet" | "mobile" = "des
 
     // --- OUTER --- (no overflow:hidden — it clips box-shadow)
     const outer: string[] = ["width:100%", "position:relative"];
+
+    const visibility = getVisibilityCSS(s.advanced, device, "block");
+    if (visibility) outer.push(visibility);
 
     const bg = controlToCSS("background", getDeviceValue(s.style?.background, device), s);
     if (bg) outer.push(bg);
@@ -143,6 +171,9 @@ function generateColumnCSS(col: any, device: "desktop" | "tablet" | "mobile" = "
         "box-sizing:border-box",
     ];
 
+    const visibility = getVisibilityCSS(schema.advanced, device, "block");
+    if (visibility) wrapLines.push(visibility);
+
     const lines: string[] = [
         "display:flex",
         "width:100%",
@@ -219,6 +250,10 @@ function generateElementCSS(element: any, device: "desktop" | "tablet" | "mobile
     const cls = `bel-${element.id}`;
     const schema = element.schema;
     const lines: string[] = [];
+
+    const visibility = getVisibilityCSS(schema.advanced, device, "block");
+    if (visibility) lines.push(visibility);
+
     const hoverLines: string[] = [];
 
     const allControls = mergeControls(def.controls);
@@ -573,9 +608,14 @@ interface Props {
     content: any[];
     /** Pre-rendered server nodes keyed by element id, provided by Builder.tsx */
     serverElements?: Record<string, React.ReactNode>;
+    initialMenus?: any[];
 }
 
-export default function BuilderClient({ content, serverElements = {} }: Props) {
+export default function BuilderClient({ content, serverElements = {}, initialMenus }: Props) {
+    if (typeof window !== "undefined" && initialMenus) {
+        (window as any).__initialMenus = initialMenus;
+    }
+
     // Re-render once active plugins are loaded so plugin elements (registered
     // inside reregisterHooks) are available to getElementDef at render time.
     const activePlugins = useActivePluginsCtx();

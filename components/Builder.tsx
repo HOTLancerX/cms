@@ -52,12 +52,18 @@ function collectRegisteredElements(content: any[]): { id: string; type: string; 
     return results;
 }
 
+import MenuModel from "@/models/Menu";
+
 export default async function Builder({ id, data }: Props) {
     await connectDB();
     const doc = await BuilderModel.findById(id).lean();
     if (!doc || !doc.content) return null;
 
     const content = doc.content as any[];
+
+    // Fetch active menus to serialize and pass to client cache
+    const menus = await MenuModel.find({ status: "active" }).lean();
+    const serializedMenus = JSON.parse(JSON.stringify(menus));
 
     // Find all elements that have a registered server component
     const registered = collectRegisteredElements(content);
@@ -73,5 +79,5 @@ export default async function Builder({ id, data }: Props) {
         );
     }
 
-    return <BuilderClient content={content} serverElements={rendered} />;
+    return <BuilderClient content={content} serverElements={rendered} initialMenus={serializedMenus} />;
 }

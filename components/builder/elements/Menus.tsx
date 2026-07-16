@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import MenuClients from "@/components/MenuClients";
+import MobileMenuClients from "@/components/MobileMenuClients";
 import { MenuItem } from "@/models/Menu";
 import { xFetch } from "@/lib/express";
 import {
@@ -11,6 +12,7 @@ import {
   Dimensions,
   Section,
   NumberControl,
+  IconPicker,
 } from "../controls";
 
 function getDimensionsStyles(obj: any, property: "margin" | "padding") {
@@ -38,18 +40,27 @@ function collectBuilderIds(items: MenuItem[]): string[] {
   return [...new Set(ids)];
 }
 
+function getInitialMenuItems(location: string): MenuItem[] {
+  if (typeof window === "undefined") return [];
+  const menus = (window as any).__initialMenus || [];
+  const matched = menus.find((m: any) => m.location?.includes(location));
+  return (matched?.items ?? []) as MenuItem[];
+}
+
 /* ── Frontend Component ── */
 function MenusFrontend({ element }: { element: any }) {
   const s = element.schema;
   const location = s.content?.location || "header-1";
+  const menuType = s.content?.menu_type || "desktop";
 
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const initialItems = getInitialMenuItems(location);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(initialItems);
   const [builderContent, setBuilderContent] = useState<Record<string, any[]>>({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(initialItems.length === 0);
 
   useEffect(() => {
     if (!location) return;
-    setLoading(true);
+    if (menuItems.length === 0) setLoading(true);
     xFetch(`/menu?location=${location}`)
       .then((res) => res.json())
       .then(async (data) => {
@@ -113,11 +124,19 @@ function MenusFrontend({ element }: { element: any }) {
         ...paddingStyle,
       }}
     >
-      <MenuClients
-        menuItems={menuItems}
-        settings={s.style}
-        builderContent={builderContent}
-      />
+      {menuType === "mobile" ? (
+        <MobileMenuClients
+          menuItems={menuItems}
+          settings={s.style}
+          builderContent={builderContent}
+        />
+      ) : (
+        <MenuClients
+          menuItems={menuItems}
+          settings={s.style}
+          builderContent={builderContent}
+        />
+      )}
     </div>
   );
 }
@@ -146,7 +165,7 @@ function MenuLocationControl({ value, onChange }: { value: any; onChange: any })
   }, []);
 
   return (
-    <Section label="Menu Source Slot" defaultOpen>
+    <>
       {slots.length > 0 ? (
         <Select
           label="Select Active Menu Location"
@@ -168,7 +187,7 @@ function MenuLocationControl({ value, onChange }: { value: any; onChange: any })
         onChange={onChange}
         placeholder="e.g. header-1"
       />
-    </Section>
+    </>
   );
 }
 
@@ -182,6 +201,7 @@ const menusElement = {
   schema: {
     content: {
       location: "header-1",
+      menu_type: "desktop",
     },
 
     style: {
@@ -198,6 +218,15 @@ const menusElement = {
       nav_gap: 4,
       nav_font_size: 14,
       nav_font_weight: 500,
+
+      // Mobile Defaults
+      mobile_icon: "solar:hamburger-menu-bold",
+      mobile_icon_color: "#111827",
+      mobile_icon_size: 24,
+      mobile_drawer_bg: "#ffffff",
+      mobile_drawer_text: "#111827",
+      mobile_drawer_active: "#00aaa6",
+      mobile_align: "right",
     },
 
     advanced: {
@@ -212,6 +241,21 @@ const menusElement = {
       tab: "Layout",
       section: "Menu Connection",
       controls: [
+        {
+          name: "menu_type",
+          responsive: false,
+          render: (value: any, onChange: any) => (
+            <Select
+              label="Menu Layout Type"
+              value={value || "desktop"}
+              onChange={onChange}
+              options={[
+                { value: "desktop", label: "Desktop Navigation List" },
+                { value: "mobile", label: "Mobile Hamburger Drawer" },
+              ]}
+            />
+          ),
+        },
         {
           name: "location",
           responsive: false,
@@ -366,24 +410,114 @@ const menusElement = {
       ],
     },
 
-    // ═══════════════════ ADVANCED TAB ═══════════════
     {
-      tab: "Advanced",
-      section: "Spacing Bounds",
+      tab: "Style",
+      section: "Mobile Menu Styles",
       controls: [
         {
-          name: "margin",
-          responsive: true,
-          render: (value: any, onChange: any) => (
-            <Dimensions type="margin" value={value} onChange={onChange} />
-          ),
+          name: "mobile_icon",
+          responsive: false,
+          render: (value: any, onChange: any, { schema }: any) => {
+            if (schema.content?.menu_type !== "mobile") return null;
+            return (
+              <IconPicker
+                label="Mobile Menu Icon"
+                value={value ?? "solar:hamburger-menu-bold"}
+                onChange={onChange}
+              />
+            );
+          },
         },
         {
-          name: "padding",
-          responsive: true,
-          render: (value: any, onChange: any) => (
-            <Dimensions type="padding" value={value} onChange={onChange} />
-          ),
+          name: "mobile_icon_color",
+          responsive: false,
+          render: (value: any, onChange: any, { schema }: any) => {
+            if (schema.content?.menu_type !== "mobile") return null;
+            return (
+              <ColorPickerPopup
+                label="Icon Color"
+                value={value ?? "#111827"}
+                onChange={onChange}
+              />
+            );
+          },
+        },
+        {
+          name: "mobile_icon_size",
+          responsive: false,
+          render: (value: any, onChange: any, { schema }: any) => {
+            if (schema.content?.menu_type !== "mobile") return null;
+            return (
+              <NumberControl
+                label="Icon Size (px)"
+                value={value ?? 24}
+                onChange={onChange}
+                min={16}
+                max={48}
+                step={1}
+              />
+            );
+          },
+        },
+        {
+          name: "mobile_align",
+          responsive: false,
+          render: (value: any, onChange: any, { schema }: any) => {
+            if (schema.content?.menu_type !== "mobile") return null;
+            return (
+              <Select
+                label="Alignment"
+                value={value ?? "right"}
+                onChange={onChange}
+                options={[
+                  { value: "left", label: "Left" },
+                  { value: "right", label: "Right" },
+                ]}
+              />
+            );
+          },
+        },
+        {
+          name: "mobile_drawer_bg",
+          responsive: false,
+          render: (value: any, onChange: any, { schema }: any) => {
+            if (schema.content?.menu_type !== "mobile") return null;
+            return (
+              <ColorPickerPopup
+                label="Drawer Background"
+                value={value ?? "#ffffff"}
+                onChange={onChange}
+              />
+            );
+          },
+        },
+        {
+          name: "mobile_drawer_text",
+          responsive: false,
+          render: (value: any, onChange: any, { schema }: any) => {
+            if (schema.content?.menu_type !== "mobile") return null;
+            return (
+              <ColorPickerPopup
+                label="Drawer Text Color"
+                value={value ?? "#111827"}
+                onChange={onChange}
+              />
+            );
+          },
+        },
+        {
+          name: "mobile_drawer_active",
+          responsive: false,
+          render: (value: any, onChange: any, { schema }: any) => {
+            if (schema.content?.menu_type !== "mobile") return null;
+            return (
+              <ColorPickerPopup
+                label="Drawer Active/Highlight Color"
+                value={value ?? "#00aaa6"}
+                onChange={onChange}
+              />
+            );
+          },
         },
       ],
     },

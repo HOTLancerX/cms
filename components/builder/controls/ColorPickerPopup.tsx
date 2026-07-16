@@ -3,22 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
 
-/**
- * ColorPickerPopup — inline color picker.
- *
- * Features:
- *   - Saturation / brightness canvas (with alpha checkerboard bg)
- *   - Hue slider
- *   - Alpha slider (checkerboard + color→transparent gradient)
- *   - Color input with HEXA / RGBA / HSLA mode switcher
- *   - Reset button (↺) — sets value to "transparent"
- *   - Swatch trigger toggles the picker open/closed
- *
- * Value format: any valid CSS color string.
- *   Internally works in HSVA. Emits hex (#rrggbb) when alpha=1,
- *   rgba(...) when alpha < 1.
- */
-
 interface Props {
     label: string;
     value: string;
@@ -283,7 +267,7 @@ export default function ColorPickerPopup({ label, value, onChange }: Props) {
         <div className="mb-1">
             {/* ── Trigger row: label + reset + swatch ── */}
             <div className="flex items-center justify-between mb-1">
-                <span className="text-[13px] text-gray-700">{label}</span>
+                <span className="text-sm text-gray-500">{label}</span>
                 <div className="flex items-center gap-1">
                     <button
                         type="button"

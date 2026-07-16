@@ -46,7 +46,11 @@ import FloatingPanel from "./panels/FloatingPanel";
 // Hooks
 import { useBuilderActions, useContextMenuActions, useDragDrop } from "./hooks";
 
-export default function Builder() {
+export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
+    if (typeof window !== "undefined" && initialMenus) {
+        (window as any).__initialMenus = initialMenus;
+    }
+
     const params = useParams();
     const router = useRouter();
     const builderId = params?.id as string | undefined;

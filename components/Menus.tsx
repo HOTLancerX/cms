@@ -1,5 +1,6 @@
 import { getMenuByLocation } from '@/lib/menu';
 import MenuClients from './MenuClients';
+import MobileMenuClients from './MobileMenuClients';
 import type { MenuItem } from '@/models/Menu';
 import connectDB from '@/lib/mongodb';
 import BuilderModel from '@/models/builder';
@@ -9,6 +10,7 @@ interface MenusProps {
     settings?: Record<string, any>;
     style?: number;
     className?: string;
+    menuType?: string;
 }
 
 /**
@@ -36,7 +38,7 @@ function collectBuilderIds(items: MenuItem[]): string[] {
  *
  * Usage:  <Menus location="header-1" settings={settings} />
  */
-export default async function Menus({ location, settings = {}, style, className }: MenusProps) {
+export default async function Menus({ location, settings = {}, style, className, menuType = 'desktop' }: MenusProps) {
     const menuItems = await getMenuByLocation(location).catch(() => []);
 
     if (!menuItems || menuItems.length === 0) return null;
@@ -58,6 +60,16 @@ export default async function Menus({ location, settings = {}, style, className 
                     // leave empty — BuilderPanel will render nothing
                 }
             })
+        );
+    }
+
+    if (menuType === 'mobile') {
+        return (
+            <MobileMenuClients
+                menuItems={menuItems}
+                settings={settings}
+                builderContent={builderContent}
+            />
         );
     }
 

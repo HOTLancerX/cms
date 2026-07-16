@@ -365,12 +365,24 @@ export const cssRegistry: Record<string, CSSGeneratorFn> = {
     },
 
     hideTablet: (value, schema) => {
-        if (value === true && schema?._device === "tablet") return "display: none !important;";
+        if (schema?._device === "tablet") {
+            if (value === true) return "display: none !important;";
+            if (schema.advanced?.hideDesktop === true) {
+                const isCol = schema.type === "column" || schema.columns !== undefined;
+                return isCol ? "display: flex !important;" : "display: block !important;";
+            }
+        }
         return "";
     },
 
     hideMobile: (value, schema) => {
-        if (value === true && schema?._device === "mobile") return "display: none !important;";
+        if (schema?._device === "mobile") {
+            if (value === true) return "display: none !important;";
+            if (schema.advanced?.hideTablet === true || schema.advanced?.hideDesktop === true) {
+                const isCol = schema.type === "column" || schema.columns !== undefined;
+                return isCol ? "display: flex !important;" : "display: block !important;";
+            }
+        }
         return "";
     },
 };

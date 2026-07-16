@@ -332,18 +332,16 @@ export function TransformControl({ value, onChange }: { value: any; onChange: (v
                 </div>
 
                 {/* Flip horizontal / vertical */}
-                <div className="flex gap-4 pt-1.5 border-t border-gray-100">
-                    <Toggle
-                        label="Flip H"
-                        value={vals.flipH || false}
-                        onChange={(v) => updateVal("flipH", v)}
-                    />
-                    <Toggle
-                        label="Flip V"
-                        value={vals.flipV || false}
-                        onChange={(v) => updateVal("flipV", v)}
-                    />
-                </div>
+                <Toggle
+                    label="Flip H"
+                    value={vals.flipH || false}
+                    onChange={(v) => updateVal("flipH", v)}
+                />
+                <Toggle
+                    label="Flip V"
+                    value={vals.flipV || false}
+                    onChange={(v) => updateVal("flipV", v)}
+                />
             </div>
         );
     };

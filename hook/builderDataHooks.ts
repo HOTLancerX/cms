@@ -67,7 +67,8 @@ import Menus from "@/components/Menus";
 
 registerBuilderElement("menus", async (schema: any) => {
     const location = schema.content?.location || "header-1";
-    return React.createElement(Menus, { location, settings: schema.style || {} });
+    const menuType = schema.content?.menu_type || "desktop";
+    return React.createElement(Menus, { location, menuType, settings: schema.style || {} });
 });
 
 // Auto-discovery: scans plugin/*/lib/builderData.ts files.
