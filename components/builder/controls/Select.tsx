@@ -27,7 +27,7 @@ export default function Select({ value, onChange, label, options, placeholder, g
             <select
                 value={value || ""}
                 onChange={(e) => onChange(e.target.value)}
-                className={`p-2 border border-gray-200 rounded text-sm outline-none bg-white cursor-pointer ${isInline ? "min-w-0" : "w-full"}`}
+                className={`p-1 border border-gray-200 rounded text-sm outline-none bg-white cursor-pointer ${isInline ? "min-w-0" : "w-full"}`}
             >
                 {placeholder && <option value="">{placeholder}</option>}
                 {options.map((opt) => (

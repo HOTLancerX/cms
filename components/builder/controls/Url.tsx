@@ -7,7 +7,6 @@ interface UrlValue {
     url: string;
     target: string;
     nofollow: boolean;
-    customAttributes: string;
 }
 
 interface Props {
@@ -23,10 +22,9 @@ function normalize(value: any): UrlValue {
             url: value.url || "",
             target: value.target || "",
             nofollow: value.nofollow === true || value.nofollow === "true",
-            customAttributes: value.customAttributes || "",
         };
     }
-    return { url: typeof value === "string" ? value : "", target: "", nofollow: false, customAttributes: "" };
+    return { url: typeof value === "string" ? value : "", target: "", nofollow: false };
 }
 
 export default function Url({ value, onChange, label, placeholder }: Props) {
@@ -47,9 +45,7 @@ export default function Url({ value, onChange, label, placeholder }: Props) {
     return (
         <div>
             {label && (
-                <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="text-[13px] font-medium text-gray-700">{label}</span>
-                </div>
+                <span className="text-[13px] font-medium text-gray-700">{label}</span>
             )}
 
             {/* URL input + settings toggle */}
@@ -100,18 +96,6 @@ export default function Url({ value, onChange, label, placeholder }: Props) {
                             className="w-4 h-4 rounded border-gray-300 pointer-events-none"
                         />
                         <span className="text-[13px] text-gray-600">Add nofollow</span>
-                    </div>
-
-                    {/* Custom Attributes */}
-                    <div className="flex items-center gap-2 pt-1">
-                        <span className="text-[13px] text-gray-500 whitespace-nowrap">Custom Attributes</span>
-                        <input
-                            type="text"
-                            value={data.customAttributes}
-                            onChange={(e) => update("customAttributes", e.target.value)}
-                            placeholder="key|value"
-                            className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded text-[13px] outline-none"
-                        />
                     </div>
                 </div>
             )}

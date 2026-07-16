@@ -17,14 +17,14 @@ export default function Section({ label, defaultOpen = false, children }: Props)
             <button
                 type="button"
                 onClick={() => setOpen(!open)}
-                className="flex items-center"
+                className="flex items-center justify-between w-full"
             >
+                <span className="text-sm font-medium text-gray-600">{label}</span>
                 <Icon
                     icon="mdi:chevron-down"
                     width="15"
                     className={`text-gray-400 transition-transform duration-300 ${open ? "rotate-180 text-fuchsia-500" : ""}`}
                 />
-                <span className="text-sm font-medium text-gray-600">{label}</span>
             </button>
             {open && (
                 <div className="pt-2 animate-[fadeSlideIn_0.2s_ease-out]">

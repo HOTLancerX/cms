@@ -9,7 +9,6 @@ import {
   AlignSelf,
   Url,
   Typography,
-  Section,
   Tabs,
 } from "../controls";
 
@@ -65,27 +64,37 @@ const headingElement = {
         {
           name: "text",
           responsive: false,
-          render: (value: any, onChange: any, { schema, updateSchema }: any) => (
-            <Section label="Title" defaultOpen>
-              <Text value={value} onChange={onChange} label="Title" placeholder="Heading text" />
-              <Select
-                value={schema.content.tag}
-                onChange={(v: string) => updateSchema("content", "tag", v)}
-                label="HTML Tag"
-                grid={2}
-                options={[
-                  { value: "h1", label: "H1" },
-                  { value: "h2", label: "H2" },
-                  { value: "h3", label: "H3" },
-                  { value: "h4", label: "H4" },
-                  { value: "h5", label: "H5" },
-                  { value: "h6", label: "H6" },
-                  { value: "p", label: "P" },
-                  { value: "span", label: "Span" },
-                ]}
-              />
-              <Url value={schema.content.link} onChange={(v: any) => updateSchema("content", "link", v)} label="Link" />
-            </Section>
+          render: (value: any, onChange: any) => (
+            <Text value={value} onChange={onChange} label="Title" placeholder="Heading text" />
+          ),
+        },
+        {
+          name: "tag",
+          responsive: false,
+          render: (value: any, onChange: any) => (
+            <Select
+              value={value}
+              onChange={onChange}
+              label="HTML Tag"
+              grid={2}
+              options={[
+                { value: "h1", label: "H1" },
+                { value: "h2", label: "H2" },
+                { value: "h3", label: "H3" },
+                { value: "h4", label: "H4" },
+                { value: "h5", label: "H5" },
+                { value: "h6", label: "H6" },
+                { value: "p", label: "P" },
+                { value: "span", label: "Span" },
+              ]}
+            />
+          ),
+        },
+        {
+          name: "link",
+          responsive: false,
+          render: (value: any, onChange: any) => (
+            <Url value={value} onChange={onChange} label="Link" />
           ),
         },
       ],

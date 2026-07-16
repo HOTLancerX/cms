@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { Row, Column, Selection, LeftPanelMode, Device } from "./types";
-import { getColumnByPath, uid, isContainerType } from "./helpers";
+import { getColumnByPath, uid, isContainerType, getElementDef } from "./helpers";
 import { xFetch } from "@/lib/express";
 import { reregisterHooks } from "@/hook/PluginList";
 import { getBuilderElement } from "@/hook";
@@ -384,20 +384,21 @@ export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
             : null;
 
     // Panel title
-    const panelTitle =
-        leftPanel === "row-controls"
-            ? "Section"
-            : leftPanel === "column-controls"
-                ? "Container"
-                : leftPanel === "element-controls" && selectedCarouselSlideChildElement
-                    ? `Edit ${selectedCarouselSlideChildElement.type.charAt(0).toUpperCase() + selectedCarouselSlideChildElement.type.slice(1)}`
-                    : leftPanel === "element-controls" && selectedElement
-                        ? `Edit ${selectedElement.type.charAt(0).toUpperCase() + selectedElement.type.slice(1)}`
-                        : leftPanel === "add-columns"
-                            ? "Container Structure"
-                            : leftPanel === "sections"
-                                ? "Sections"
-                                : "Elements";
+    const panelTitle = (() => {
+        if (leftPanel === "row-controls") return "Section";
+        if (leftPanel === "column-controls") return "Container";
+        if (leftPanel === "element-controls") {
+            const el = selectedCarouselSlideChildElement || selectedElement;
+            if (el) {
+                const def = getElementDef(el.type);
+                const name = def?.label || (el.type.charAt(0).toUpperCase() + el.type.slice(1));
+                return `Edit ${name}`;
+            }
+        }
+        if (leftPanel === "add-columns") return "Container Structure";
+        if (leftPanel === "sections") return "Sections";
+        return "Elements";
+    })();
 
     return (
         <DragDropProvider onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
@@ -409,7 +410,9 @@ export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
                 >
                     {/* Panel Header */}
                     <div className="flex items-center justify-between px-3 py-2.5 border-b border-neutral-200 shrink-0">
-                        <span className="text-[13px] font-semibold text-neutral-700 whitespace-nowrap">{panelTitle}</span>
+                        <span className="text-sm font-semibold text-neutral-700 whitespace-nowrap">
+                            {panelTitle}
+                        </span>
                         <div className="flex items-center gap-1">
                             <button
                                 type="button"
