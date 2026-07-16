@@ -60,7 +60,7 @@ export default function CanvasRow({
         data: { dndType: "row" },
         group: "rows",
         type: "row",
-        accept: ["row", "column", "element", "catalog", "catalog-section"],
+        accept: ["row", "column", "catalog-section"],
     });
 
     const showControls = hovered || isSelected;

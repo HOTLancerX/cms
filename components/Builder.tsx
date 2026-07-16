@@ -26,10 +26,10 @@ function collectRegisteredElements(content: any[]): { id: string; type: string; 
     const results: { id: string; type: string; schema: any }[] = [];
     function walkElements(elements: any[]) {
         for (const el of elements ?? []) {
-            if (hasBuilderElement(el.type)) {
+            if (el && hasBuilderElement(el.type)) {
                 results.push({ id: el.id, type: el.type, schema: el.schema });
             }
-            if (el.type === "carousel" && el.schema?.content?.slides) {
+            if (el && el.type === "carousel" && el.schema?.content?.slides) {
                 for (const slide of el.schema.content.slides) {
                     walkElements(slide.elements ?? []);
                 }
@@ -38,12 +38,16 @@ function collectRegisteredElements(content: any[]): { id: string; type: string; 
     }
     function walkCols(cols: any[]) {
         for (const col of cols) {
-            walkElements(col.elements ?? []);
-            walkCols(col.columns ?? []);
+            if (col) {
+                walkElements(col.elements ?? []);
+                walkCols(col.columns ?? []);
+            }
         }
     }
     for (const row of content) {
-        walkCols(row.columns ?? []);
+        if (row) {
+            walkCols(row.columns ?? []);
+        }
     }
     return results;
 }

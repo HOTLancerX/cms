@@ -86,7 +86,7 @@ export default function ColumnControls({ column, device, onChange }: Props) {
                             <div className="flex items-center gap-1.5">
                                 <span className="text-[13px] font-medium text-neutral-700">Width</span>
                                 {/* Device indicator — always shown since width is always responsive */}
-                                <Icon icon="mdi:monitor" width="13" className="text-neutral-400" />
+                                <Icon icon={device === "mobile" ? "mdi:cellphone" : device === "tablet" ? "mdi:tablet" : "mdi:monitor"} width="13" className="text-neutral-400" />
                             </div>
                             <span className="text-[11px] font-semibold text-fuchsia-500">%</span>
                         </div>
@@ -124,13 +124,12 @@ export default function ColumnControls({ column, device, onChange }: Props) {
                             const isResponsive = ctrl.responsive === true;
                             return (
                                 <div key={ctrl.name} className="mb-3">
-                                    {/* Device indicator badge for responsive controls
+                                    {/* Device indicator badge for responsive controls */}
                                     {isResponsive && (
                                         <div className="flex items-center gap-1 mb-1">
-                                            <Icon icon="mdi:monitor" width="12" className="text-neutral-400" />
+                                            <Icon icon={device === "mobile" ? "mdi:cellphone" : device === "tablet" ? "mdi:tablet" : "mdi:monitor"} width="12" className="text-neutral-400" />
                                         </div>
                                     )}
-                                    */}
                                     {ctrl.render(value, (v: any) => updateValue(ctrl.name, v, isResponsive))}
                                 </div>
                             );

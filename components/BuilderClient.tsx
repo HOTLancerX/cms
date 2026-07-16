@@ -5,7 +5,7 @@ import { getElementDef } from "@/components/builder/helpers";
 import "@/components/builder/elements/index";
 import columnElement from "@/components/builder/elements/column";
 import { controlToCSS, controlToHoverCSS } from "@/components/builder/controls/css";
-import { getDeviceValue } from "@/components/builder/device";
+import { getDeviceValue, getColumnWidth } from "@/components/builder/device";
 import { useActivePluginsCtx } from "@/context/ActivePluginsContext";
 
 /**
@@ -100,6 +100,16 @@ function generateColumnCSS(col: any, device: "desktop" | "tablet" | "mobile" = "
     if (!schema) return "";
 
     const cls = `bcol-${col.id}`;
+    const wrapCls = `bcol-wrap-${col.id}`;
+    const w = getColumnWidth(col, device);
+
+    const wrapLines = [
+        "flex:0 0 auto",
+        `width:${w}%`,
+        `max-width:${w}%`,
+        "min-width:0",
+        "box-sizing:border-box",
+    ];
 
     const lines: string[] = [
         "display:flex",
@@ -156,8 +166,8 @@ function generateColumnCSS(col: any, device: "desktop" | "tablet" | "mobile" = "
         if (shadowHover) hoverLines.push(shadowHover);
     }
 
-    let css = `.${cls}{${lines.join(";")}}`;
-    if (hoverLines.length) css += `.${cls}:hover{${hoverLines.join(";")}}`;
+    let css = `.${wrapCls}{${wrapLines.join(";")}} .${cls}{${lines.join(";")}}`;
+    if (hoverLines.length) css += `\n.${cls}:hover{${hoverLines.join(";")}}`;
     return css;
 }
 
@@ -201,30 +211,38 @@ function generateElementCSS(element: any, device: "desktop" | "tablet" | "mobile
 }
 
 function collectAllCSS(content: any[]): string {
+    if (!content || !Array.isArray(content)) return "";
     const parts: string[] = [];
     const tabletParts: string[] = [];
     const mobileParts: string[] = [];
 
     function walkCarouselSlidesForCSS(el: any, device: "desktop" | "tablet" | "mobile", target: string[]) {
-        if (el.type === "carousel" && el.schema?.content?.slides) {
+        if (el && el.type === "carousel" && el.schema?.content?.slides) {
             for (const slide of el.schema.content.slides) {
-                for (const childEl of slide.elements ?? []) {
-                    const childCSS = generateElementCSSForDevice(childEl, device);
-                    if (childCSS) target.push(childCSS);
+                if (slide && slide.elements) {
+                    for (const childEl of slide.elements ?? []) {
+                        if (childEl) {
+                            const childCSS = generateElementCSSForDevice(childEl, device);
+                            if (childCSS) target.push(childCSS);
+                        }
+                    }
                 }
             }
         }
     }
 
     for (const row of content) {
+        if (!row) continue;
         parts.push(generateRowCSSForDevice(row, "desktop"));
 
         const walkCols = (cols: any[]) => {
             if (!cols) return;
             for (const col of cols) {
+                if (!col) continue;
                 parts.push(generateColumnCSSForDevice(col, "desktop"));
                 if (col.elements) {
                     for (const el of col.elements) {
+                        if (!el) continue;
                         const elCSS = generateElementCSSForDevice(el, "desktop");
                         if (elCSS) parts.push(elCSS);
                         walkCarouselSlidesForCSS(el, "desktop", parts);
@@ -242,10 +260,12 @@ function collectAllCSS(content: any[]): string {
         const walkColsTablet = (cols: any[]) => {
             if (!cols) return;
             for (const col of cols) {
+                if (!col) continue;
                 const colCSS = generateColumnCSSForDevice(col, "tablet");
                 if (colCSS) tabletParts.push(colCSS);
                 if (col.elements) {
                     for (const el of col.elements) {
+                        if (!el) continue;
                         const elCSS = generateElementCSSForDevice(el, "tablet");
                         if (elCSS) tabletParts.push(elCSS);
                         walkCarouselSlidesForCSS(el, "tablet", tabletParts);
@@ -263,10 +283,12 @@ function collectAllCSS(content: any[]): string {
         const walkColsMobile = (cols: any[]) => {
             if (!cols) return;
             for (const col of cols) {
+                if (!col) continue;
                 const colCSS = generateColumnCSSForDevice(col, "mobile");
                 if (colCSS) mobileParts.push(colCSS);
                 if (col.elements) {
                     for (const el of col.elements) {
+                        if (!el) continue;
                         const elCSS = generateElementCSSForDevice(el, "mobile");
                         if (elCSS) mobileParts.push(elCSS);
                         walkCarouselSlidesForCSS(el, "mobile", mobileParts);
@@ -305,6 +327,7 @@ function generateElementCSSForDevice(element: any, device: "desktop" | "tablet" 
 // ============================================================
 
 function RenderElement({ element, serverElements }: { element: any; serverElements: Record<string, React.ReactNode> }) {
+    if (!element) return null;
     // Server-rendered element — node already built by Builder.tsx
     if (serverElements[element.id] !== undefined) {
         return (
@@ -324,22 +347,17 @@ function RenderElement({ element, serverElements }: { element: any; serverElemen
     );
 }
 
-function RenderColumn({ column, device = "desktop", serverElements }: {
+function RenderColumn({ column, serverElements }: {
     column: any;
-    device?: "desktop" | "tablet" | "mobile";
     serverElements: Record<string, React.ReactNode>;
 }) {
-    const w = column.widths
-        ? (device === "mobile" && column.widths.mobile !== undefined ? column.widths.mobile
-            : device === "tablet" && column.widths.tablet !== undefined ? column.widths.tablet
-                : column.widths.desktop)
-        : column.width;
+    if (!column) return null;
     return (
-        <div style={{ flex: "0 0 auto", width: `${w}%`, maxWidth: `${w}%`, minWidth: 0, boxSizing: "border-box" }}>
+        <div className={`bcol-wrap-${column.id}`}>
             <div className={`bcol-${column.id}`}>
                 {/* Structure: columns[columns[], elements[]] — both can coexist, nest unlimited */}
                 {column.columns?.map((nested: any) => (
-                    <RenderColumn key={nested.id} column={nested} device={device} serverElements={serverElements} />
+                    <RenderColumn key={nested.id} column={nested} serverElements={serverElements} />
                 ))}
                 {column.elements?.map((el: any) => (
                     <RenderElement key={el.id} element={el} serverElements={serverElements} />
@@ -350,6 +368,7 @@ function RenderColumn({ column, device = "desktop", serverElements }: {
 }
 
 function RenderRow({ row, serverElements }: { row: any; serverElements: Record<string, React.ReactNode> }) {
+    if (!row) return null;
     const s = row.schema;
     const overlay = s?.style?.backgroundOverlay;
     const overlayNormal = overlay?.normal || overlay;
@@ -411,9 +430,10 @@ export default function BuilderClient({ content, serverElements = {} }: Props) {
     return (
         <>
             <style dangerouslySetInnerHTML={{ __html: css }} />
-            {content.map((row: any) => (
-                <RenderRow key={row.id} row={row} serverElements={serverElements} />
-            ))}
+            {content.map((row: any) => {
+                if (!row) return null;
+                return <RenderRow key={row.id} row={row} serverElements={serverElements} />;
+            })}
         </>
     );
 }
