@@ -7,12 +7,7 @@ import {
   Flex,
   Gaps,
   Wrap,
-  Background,
-  BackgroundOverlay,
-  Border,
   ShapeDivider,
-  Dimensions,
-  AlignSelf,
 } from "../controls";
 
 const rowElement = {
@@ -190,46 +185,6 @@ const rowElement = {
     // STYLE
     {
       tab: "Style",
-      section: "Background",
-      controls: [
-        {
-          name: "background",
-          responsive: false,
-          render: (value: any, onChange: any) => (
-            <Background value={value} onChange={onChange} />
-          ),
-        },
-        {
-          name: "backgroundOverlay",
-          responsive: false,
-          render: (value: any, onChange: any) => (
-            <BackgroundOverlay value={value} onChange={onChange} />
-          ),
-          condition: (values: any) => {
-            const bg = values.style.background;
-            const normal = bg?.normal || bg;
-            return normal?.type === "image";
-          },
-        },
-      ],
-    },
-
-    {
-      tab: "Style",
-      section: "Border",
-      controls: [
-        {
-          name: "border",
-          responsive: false,
-          render: (value: any, onChange: any) => (
-            <Border value={value} onChange={onChange} />
-          ),
-        },
-      ],
-    },
-
-    {
-      tab: "Style",
       section: "Shape Divider",
       controls: [
         {
@@ -237,42 +192,6 @@ const rowElement = {
           responsive: false,
           render: (value: any, onChange: any) => (
             <ShapeDivider value={value} onChange={onChange} />
-          ),
-        },
-      ],
-    },
-
-    // ADVANCED
-    {
-      tab: "Advanced",
-      section: "Spacing",
-      controls: [
-        {
-          name: "margin",
-          responsive: true,
-          render: (value: any, onChange: any) => (
-            <Dimensions type="margin" value={value} onChange={onChange} />
-          ),
-        },
-        {
-          name: "padding",
-          responsive: true,
-          render: (value: any, onChange: any) => (
-            <Dimensions type="padding" value={value} onChange={onChange} />
-          ),
-        },
-      ],
-    },
-
-    {
-      tab: "Advanced",
-      section: "Position",
-      controls: [
-        {
-          name: "alignSelf",
-          responsive: true,
-          render: (value: any, onChange: any) => (
-            <AlignSelf value={value} onChange={onChange} />
           ),
         },
       ],

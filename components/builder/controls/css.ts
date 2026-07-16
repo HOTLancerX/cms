@@ -281,6 +281,98 @@ export const cssRegistry: Record<string, CSSGeneratorFn> = {
         }
         return css;
     },
+
+    order: (value) => {
+        if (!value) return "";
+        const type = value.type || "default";
+        if (type === "default") return "";
+        if (type === "first") return "order: -1;";
+        if (type === "last") return "order: 9999;";
+        if (type === "custom") {
+            const val = value.customValue;
+            if (val !== undefined && val !== "") return `order: ${val};`;
+        }
+        return "";
+    },
+
+    size: (value) => {
+        if (!value || value === "default") return "";
+        if (value === "grow") return "flex-grow: 1; flex-shrink: 1; flex-basis: auto;";
+        if (value === "shrink") return "flex-grow: 0; flex-shrink: 1; flex-basis: auto;";
+        if (value === "none") return "flex: none;";
+        return "";
+    },
+
+    position: (value) => {
+        if (!value) return "";
+        const type = value.type || "default";
+        if (type === "default") return "";
+        let css = `position: ${type};`;
+        if (value.top !== undefined && value.top !== "") css += ` top: ${value.top}px;`;
+        if (value.right !== undefined && value.right !== "") css += ` right: ${value.right}px;`;
+        if (value.bottom !== undefined && value.bottom !== "") css += ` bottom: ${value.bottom}px;`;
+        if (value.left !== undefined && value.left !== "") css += ` left: ${value.left}px;`;
+        return css;
+    },
+
+    zIndex: (value) => {
+        if (value === undefined || value === null || value === "") return "";
+        return `z-index: ${value};`;
+    },
+
+    sticky: (value) => {
+        if (!value || value === "none") return "";
+        if (value === "top") return "position: sticky; top: 0; z-index: 100;";
+        if (value === "bottom") return "position: sticky; bottom: 0; z-index: 100;";
+        return "";
+    },
+
+    entranceAnimation: (value) => {
+        if (!value || value === "none") return "";
+        return `animation: ${value} 0.8s ease-out both;`;
+    },
+
+    transform: (value) => {
+        if (!value || !value.normal) return "";
+        const normal = value.normal;
+        const parts: string[] = [];
+        if (normal.rotate !== undefined && normal.rotate !== "") parts.push(`rotate(${normal.rotate}deg)`);
+        if ((normal.offsetX !== undefined && normal.offsetX !== "") || (normal.offsetY !== undefined && normal.offsetY !== "")) {
+            const ox = normal.offsetX || 0;
+            const oy = normal.offsetY || 0;
+            parts.push(`translate(${ox}px, ${oy}px)`);
+        }
+        if ((normal.scaleX !== undefined && normal.scaleX !== "") || (normal.scaleY !== undefined && normal.scaleY !== "")) {
+            const sx = normal.scaleX ?? 1;
+            const sy = normal.scaleY ?? 1;
+            parts.push(`scale(${sx}, ${sy})`);
+        }
+        if ((normal.skewX !== undefined && normal.skewX !== "") || (normal.skewY !== undefined && normal.skewY !== "")) {
+            const kx = normal.skewX || 0;
+            const ky = normal.skewY || 0;
+            parts.push(`skew(${kx}deg, ${ky}deg)`);
+        }
+        if (normal.flipH) parts.push(`scaleX(-1)`);
+        if (normal.flipV) parts.push(`scaleY(-1)`);
+
+        if (parts.length === 0) return "";
+        return `transform: ${parts.join(" ")}; transition: transform 0.3s ease;`;
+    },
+
+    hideDesktop: (value, schema) => {
+        if (value === true && schema?._device === "desktop") return "display: none !important;";
+        return "";
+    },
+
+    hideTablet: (value, schema) => {
+        if (value === true && schema?._device === "tablet") return "display: none !important;";
+        return "";
+    },
+
+    hideMobile: (value, schema) => {
+        if (value === true && schema?._device === "mobile") return "display: none !important;";
+        return "";
+    },
 };
 
 /**
@@ -338,7 +430,61 @@ export const hoverRegistry: Record<string, CSSGeneratorFn> = {
         if (blur === 0 && spread === 0 && x === 0 && y === 0) return "";
         return `box-shadow: ${inset ? "inset " : ""}${x}px ${y}px ${blur}px ${spread}px ${color};`;
     },
+
+    transform: (value) => {
+        if (!value || !value.hover) return "";
+        const hover = value.hover;
+        const parts: string[] = [];
+        if (hover.rotate !== undefined && hover.rotate !== "") parts.push(`rotate(${hover.rotate}deg)`);
+        if ((hover.offsetX !== undefined && hover.offsetX !== "") || (hover.offsetY !== undefined && hover.offsetY !== "")) {
+            const ox = hover.offsetX || 0;
+            const oy = hover.offsetY || 0;
+            parts.push(`translate(${ox}px, ${oy}px)`);
+        }
+        if ((hover.scaleX !== undefined && hover.scaleX !== "") || (hover.scaleY !== undefined && hover.scaleY !== "")) {
+            const sx = hover.scaleX ?? 1;
+            const sy = hover.scaleY ?? 1;
+            parts.push(`scale(${sx}, ${sy})`);
+        }
+        if ((hover.skewX !== undefined && hover.skewX !== "") || (hover.skewY !== undefined && hover.skewY !== "")) {
+            const kx = hover.skewX || 0;
+            const ky = hover.skewY || 0;
+            parts.push(`skew(${kx}deg, ${ky}deg)`);
+        }
+        if (hover.flipH) parts.push(`scaleX(-1)`);
+        if (hover.flipV) parts.push(`scaleY(-1)`);
+
+        if (parts.length === 0) return "";
+        return `transform: ${parts.join(" ")};`;
+    },
 };
+
+export const ANIMATION_KEYFRAMES = `
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes zoomIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes slideInDown {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+@keyframes slideInUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+`;
 
 /**
  * Generate hover CSS for a single control by name.

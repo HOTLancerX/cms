@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useId } from "react";
 import { Icon } from "@iconify/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { Row, Device } from "../types";
 import CanvasColumn from "./CanvasColumn";
+import { SHAPES } from "../controls/ShapeDivider";
 
 interface Props {
     row: Row;
@@ -119,7 +120,7 @@ export default function CanvasRow({
             )}
 
             {/* Row outer — full-width, background via .brow-{id} */}
-            <div className={`brow-${row.id}`}>
+            <div id={(row.schema.advanced as any)?.cssID || undefined} className={`brow-${row.id}${(row.schema.advanced as any)?.cssClasses ? " " + (row.schema.advanced as any).cssClasses : ""}`}>
                 {/* Background overlay */}
                 {s.style.backgroundOverlay.enabled && (
                     <div
@@ -162,7 +163,90 @@ export default function CanvasRow({
                         />
                     ))}
                 </div>
+
+                {/* Shape Divider */}
+                <RenderShapeDivider divider={s.style?.shapeDivider} />
             </div>
+        </div>
+    );
+}
+
+function RenderShapeDivider({ divider }: { divider: any }) {
+    if (!divider || !divider.enabled) return null;
+    const shapeKey = divider.shape || "wave";
+    const shape = SHAPES[shapeKey];
+    if (!shape) return null;
+
+    const pos = divider.position || "bottom";
+    const height = divider.height ?? 100;
+    const width = divider.width ?? 100;
+    
+    let scaleX = divider.flip ? -1 : 1;
+    let scaleY = divider.invert ? -1 : 1;
+    if (pos === "top") scaleY *= -1;
+
+    const gradId = useId().replace(/:/g, "-");
+    const isGradient = divider.colorType === "gradient";
+    const fill = isGradient ? `url(#${gradId})` : (divider.color || "#ffffff");
+
+    // CSS angle to SVG linearGradient coords mapping
+    let gradCoords = { x1: "0%", y1: "0%", x2: "0%", y2: "100%" };
+    if (isGradient && divider.gradient) {
+        const angle = divider.gradient.angle ?? 180;
+        const dx = Math.sin((angle * Math.PI) / 180);
+        const dy = -Math.cos((angle * Math.PI) / 180);
+        gradCoords = {
+            x1: `${Math.round(50 - dx * 50)}%`,
+            y1: `${Math.round(50 - dy * 50)}%`,
+            x2: `${Math.round(50 + dx * 50)}%`,
+            y2: `${Math.round(50 + dy * 50)}%`,
+        };
+    }
+
+    return (
+        <div
+            style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                [pos]: 0,
+                height: `${height}px`,
+                overflow: "hidden",
+                lineHeight: 0,
+                zIndex: divider.bringToFront ? 10 : 0,
+                pointerEvents: "none",
+                transform: "translate3d(0,0,0)",
+                opacity: divider.opacity ?? 1,
+            }}
+        >
+            <svg
+                viewBox={shape.viewBox}
+                preserveAspectRatio="none"
+                style={{
+                    width: `${width}%`,
+                    height: "100%",
+                    display: "block",
+                    position: "relative",
+                    left: "50%",
+                    transform: `translateX(-50%) scale(${scaleX}, ${scaleY})`,
+                }}
+            >
+                {isGradient && divider.gradient && (
+                    <defs>
+                        <linearGradient
+                            id={gradId}
+                            x1={gradCoords.x1}
+                            y1={gradCoords.y1}
+                            x2={gradCoords.x2}
+                            y2={gradCoords.y2}
+                        >
+                            <stop offset={`${divider.gradient.location1 ?? 0}%`} stopColor={divider.gradient.color1 || "#ffffff"} />
+                            <stop offset={`${divider.gradient.location2 ?? 100}%`} stopColor={divider.gradient.color2 || "#f5f5f5"} />
+                        </linearGradient>
+                    </defs>
+                )}
+                <path d={shape.path} fill={fill} />
+            </svg>
         </div>
     );
 }

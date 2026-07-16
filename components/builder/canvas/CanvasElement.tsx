@@ -65,7 +65,8 @@ export default function CanvasElement({
                 e.stopPropagation();
                 onContextMenu?.(e);
             }}
-            className={`b-element group relative cursor-pointer rounded transition-all duration-200 animate-[fadeSlideIn_0.3s_ease-out] bel-${element.id} ${isDragging ? "opacity-40 scale-[0.97]" : "opacity-100 scale-100"}`}
+            id={element.schema.advanced?.cssID || undefined}
+            className={`b-element group relative cursor-pointer rounded transition-all duration-200 animate-[fadeSlideIn_0.3s_ease-out] bel-${element.id} ${isDragging ? "opacity-40 scale-[0.97]" : "opacity-100 scale-100"}${element.schema.advanced?.cssClasses ? " " + element.schema.advanced.cssClasses : ""}`}
         >
             {/* Hover border */}
             <div className="absolute inset-0 rounded pointer-events-none border border-transparent group-hover:border-fuchsia-200 transition-[border-color]" />

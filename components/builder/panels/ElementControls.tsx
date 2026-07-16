@@ -4,6 +4,8 @@ import { useState } from "react";
 import { BuilderElement, Device } from "../types";
 import { getDeviceValue, setDeviceValue } from "../device";
 import { getElementDef } from "../helpers";
+import { commonAdvancedControls, mergeControls } from "../controls/common";
+import Section from "../controls/group/Section";
 
 interface Props {
     element: BuilderElement;
@@ -16,9 +18,11 @@ export default function ElementControls({ element, device, onChange }: Props) {
 
     if (!def) return <div className="p-4 text-red-500">Unknown element type</div>;
 
-    const tabs = [...new Set(def.controls.map((c) => c.tab))];
+    const allControls = mergeControls(def.controls);
+
+    const tabs = [...new Set(allControls.map((c) => c.tab))];
     const [activeTab, setActiveTab] = useState(tabs[0] || "Layout");
-    const sections = def.controls.filter((c) => c.tab === activeTab);
+    const sections = allControls.filter((c) => c.tab === activeTab);
 
     const updateValue = (controlName: string, value: any) => {
         const updated = JSON.parse(JSON.stringify(element.schema));
@@ -27,7 +31,7 @@ export default function ElementControls({ element, device, onChange }: Props) {
         const writeValue = (schema: any, key: string) => {
             // Check if the control is marked responsive in the element definition
             let isResponsive = false;
-            for (const section of def!.controls) {
+            for (const section of allControls) {
                 for (const ctrl of section.controls) {
                     if (ctrl.name === controlName) {
                         isResponsive = ctrl.responsive === true;
@@ -40,6 +44,30 @@ export default function ElementControls({ element, device, onChange }: Props) {
                 : value; // non-responsive: write flat, no device wrapper
             onChange(schema);
         };
+
+        // Fallback for common style controls to ensure they are always written under style group
+        const isStyleField = ["background", "backgroundOverlay", "border"].includes(controlName);
+        if (isStyleField) {
+            if (!updated.style) updated.style = {};
+            writeValue(updated, "style");
+            return;
+        }
+
+        // Fallback for common advanced controls to ensure they are always written under advanced group
+        let isAdvancedField = false;
+        for (const section of allControls) {
+            if (section.tab === "Advanced") {
+                if (section.controls.some((c) => c.name === controlName)) {
+                    isAdvancedField = true;
+                    break;
+                }
+            }
+        }
+        if (isAdvancedField) {
+            if (!updated.advanced) updated.advanced = {};
+            writeValue(updated, "advanced");
+            return;
+        }
 
         for (const key of Object.keys(updated)) {
             if (typeof updated[key] === "object" && updated[key] !== null && controlName in updated[key]) {
@@ -85,28 +113,33 @@ export default function ElementControls({ element, device, onChange }: Props) {
                 ))}
             </div>
 
-            {sections.map((section) => (
-                <div key={section.section} className="p-2">
-                    <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                        {section.section}
-                    </h4>
-                    {section.controls.map((ctrl) => {
-                        let value: any;
-                        for (const key of Object.keys(element.schema)) {
-                            const group = element.schema[key];
-                            if (typeof group === "object" && group !== null && ctrl.name in group) {
-                                value = getDeviceValue(group[ctrl.name], device);
-                                break;
+            <div className="p-2 space-y-1">
+                {sections.map((section) => (
+                    <Section key={section.section} label={section.section} defaultOpen={true}>
+                        {section.controls.map((ctrl) => {
+                            let value: any;
+                            if (element.schema.style && ctrl.name in element.schema.style) {
+                                value = getDeviceValue(element.schema.style[ctrl.name], device);
+                            } else if (element.schema.advanced && ctrl.name in element.schema.advanced) {
+                                value = getDeviceValue(element.schema.advanced[ctrl.name], device);
+                            } else {
+                                for (const key of Object.keys(element.schema)) {
+                                    const group = element.schema[key];
+                                    if (typeof group === "object" && group !== null && ctrl.name in group) {
+                                        value = getDeviceValue(group[ctrl.name], device);
+                                        break;
+                                    }
+                                }
                             }
-                        }
-                        return (
-                            <div key={ctrl.name} className="mb-3">
-                                {(ctrl.render as any)(value, (v: any) => updateValue(ctrl.name, v), { schema: element.schema, updateSchema })}
-                            </div>
-                        );
-                    })}
-                </div>
-            ))}
+                            return (
+                                <div key={ctrl.name} className="mb-3">
+                                    {(ctrl.render as any)(value, (v: any) => updateValue(ctrl.name, v), { schema: element.schema, updateSchema })}
+                                </div>
+                            );
+                        })}
+                    </Section>
+                ))}
+            </div>
         </div>
     );
 }

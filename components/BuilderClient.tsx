@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useMemo, useRef, useCallback, useEffect, useState } from "react";
+import React, { useMemo, useRef, useCallback, useEffect, useState, useId } from "react";
 import { getElementDef } from "@/components/builder/helpers";
 import "@/components/builder/elements/index";
 import columnElement from "@/components/builder/elements/column";
-import { controlToCSS, controlToHoverCSS } from "@/components/builder/controls/css";
+import { controlToCSS, controlToHoverCSS, ANIMATION_KEYFRAMES } from "@/components/builder/controls/css";
 import { getDeviceValue, getColumnWidth } from "@/components/builder/device";
+import { commonAdvancedControls, mergeControls } from "@/components/builder/controls/common";
+import { SHAPES } from "@/components/builder/controls/ShapeDivider";
 import { useActivePluginsCtx } from "@/context/ActivePluginsContext";
 
 /**
@@ -92,6 +94,36 @@ function generateRowCSS(row: any, device: "desktop" | "tablet" | "mobile" = "des
 
     css += `.${innerCls}{${inner.join(";")}}`;
 
+    // Process all commonAdvancedControls for Row outer
+    for (const section of commonAdvancedControls) {
+        for (const ctrl of section.controls) {
+            if (ctrl.name === "margin" || ctrl.name === "padding" || ctrl.name === "alignSelf" || ctrl.name === "customCSS") continue;
+
+            let value: any = undefined;
+            if (s.advanced && ctrl.name in s.advanced) {
+                value = getDeviceValue(s.advanced[ctrl.name], device);
+            }
+            if (value === undefined) continue;
+
+            const cssStr = controlToCSS(ctrl.name, value, { ...s, _device: device });
+            if (cssStr) outer.push(cssStr);
+
+            const hover = controlToHoverCSS(ctrl.name, value, { ...s, _device: device });
+            if (hover) hoverParts.push(hover);
+        }
+    }
+
+    // Refresh outer CSS with new properties
+    css = `.${cls}{${outer.join(";")}}`;
+    if (hoverParts.length) css += `\n.${cls}:hover{${hoverParts.join(";")}}`;
+    css += `\n.${innerCls}{${inner.join(";")}}`;
+
+    if (s.advanced?.customCSS) {
+        const rawCSS = s.advanced.customCSS;
+        const processedCSS = rawCSS.replaceAll("selector", `.${cls}`);
+        css += `\n${processedCSS}`;
+    }
+
     return css;
 }
 
@@ -134,7 +166,9 @@ function generateColumnCSS(col: any, device: "desktop" | "tablet" | "mobile" = "
 
     const hoverLines: string[] = [];
 
-    for (const section of columnElement.controls) {
+    const allControls = mergeControls(columnElement.controls);
+
+    for (const section of allControls) {
         for (const ctrl of section.controls) {
             let value: any = undefined;
             for (const groupKey of Object.keys(schema)) {
@@ -149,10 +183,10 @@ function generateColumnCSS(col: any, device: "desktop" | "tablet" | "mobile" = "
             // Skip flex and wrap for nested containers — already handled above
             if (hasNestedCols && (ctrl.name === "flex" || ctrl.name === "wrap")) continue;
 
-            const css = controlToCSS(ctrl.name, value, schema);
+            const css = controlToCSS(ctrl.name, value, { ...schema, _device: device });
             if (css) lines.push(css);
 
-            const hover = controlToHoverCSS(ctrl.name, value, schema);
+            const hover = controlToHoverCSS(ctrl.name, value, { ...schema, _device: device });
             if (hover) hoverLines.push(hover);
         }
     }
@@ -160,14 +194,21 @@ function generateColumnCSS(col: any, device: "desktop" | "tablet" | "mobile" = "
     // boxShadow is nested inside border.boxShadow — emit it separately
     const borderVal = getDeviceValue(schema.style?.border, device);
     if (borderVal?.boxShadow) {
-        const shadowCSS = controlToCSS("boxShadow", borderVal.boxShadow, schema);
+        const shadowCSS = controlToCSS("boxShadow", borderVal.boxShadow, { ...schema, _device: device });
         if (shadowCSS) lines.push(shadowCSS);
-        const shadowHover = controlToHoverCSS("boxShadow", borderVal.boxShadow, schema);
+        const shadowHover = controlToHoverCSS("boxShadow", borderVal.boxShadow, { ...schema, _device: device });
         if (shadowHover) hoverLines.push(shadowHover);
     }
 
     let css = `.${wrapCls}{${wrapLines.join(";")}} .${cls}{${lines.join(";")}}`;
     if (hoverLines.length) css += `\n.${cls}:hover{${hoverLines.join(";")}}`;
+
+    if (schema.advanced?.customCSS) {
+        const rawCSS = schema.advanced.customCSS;
+        const processedCSS = rawCSS.replaceAll("selector", `.${cls}`);
+        css += `\n${processedCSS}`;
+    }
+
     return css;
 }
 
@@ -180,7 +221,9 @@ function generateElementCSS(element: any, device: "desktop" | "tablet" | "mobile
     const lines: string[] = [];
     const hoverLines: string[] = [];
 
-    for (const section of def.controls) {
+    const allControls = mergeControls(def.controls);
+
+    for (const section of allControls) {
         for (const ctrl of section.controls) {
             let value: any = undefined;
             for (const groupKey of Object.keys(schema)) {
@@ -192,21 +235,26 @@ function generateElementCSS(element: any, device: "desktop" | "tablet" | "mobile
             }
             if (value === undefined) continue;
 
-            const css = controlToCSS(ctrl.name, value, schema);
+            const css = controlToCSS(ctrl.name, value, { ...schema, _device: device });
             if (css) lines.push(css);
 
-            const hover = controlToHoverCSS(ctrl.name, value, schema);
+            const hover = controlToHoverCSS(ctrl.name, value, { ...schema, _device: device });
             if (hover) hoverLines.push(hover);
         }
     }
-
-    if (lines.length === 0 && hoverLines.length === 0) return "";
 
     let css = `.${cls}{${lines.join(";")}}`;
     if (hoverLines.length) css += `.${cls}:hover{${hoverLines.join(";")}}`;
     if (schema.style?.hoverColor) {
         css += `.${cls}:hover{color:${schema.style.hoverColor};transition:color 0.3s}`;
     }
+
+    if (schema.advanced?.customCSS) {
+        const rawCSS = schema.advanced.customCSS;
+        const processedCSS = rawCSS.replaceAll("selector", `.${cls}`);
+        css += `\n${processedCSS}`;
+    }
+
     return css;
 }
 
@@ -300,7 +348,7 @@ function collectAllCSS(content: any[]): string {
         walkColsMobile(row.columns);
     }
 
-    let css = parts.join("\n");
+    let css = ANIMATION_KEYFRAMES + "\n" + parts.join("\n");
     if (tabletParts.length) css += `\n@media(max-width:${TABLET_MAX}px){${tabletParts.join("\n")}}`;
     if (mobileParts.length) css += `\n@media(max-width:${MOBILE_MAX}px){${mobileParts.join("\n")}}`;
 
@@ -326,12 +374,44 @@ function generateElementCSSForDevice(element: any, device: "desktop" | "tablet" 
 // RENDER COMPONENTS
 // ============================================================
 
+function shouldDisplay(schema: any): boolean {
+    const cond = schema?.advanced?.displayConditions;
+    if (!cond || cond.type === "always" || !cond.type) return true;
+
+    if (cond.type === "query") {
+        if (typeof window === "undefined") return true;
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasKey = urlParams.has(cond.key);
+        if (!hasKey) return false;
+        if (cond.val && urlParams.get(cond.key) !== cond.val) return false;
+        return true;
+    }
+
+    if (cond.type === "loggedin") {
+        if (typeof window === "undefined") return true;
+        const hasSession = document.cookie.includes("session") || document.cookie.includes("token") || localStorage.getItem("user") !== null;
+        return !!hasSession;
+    }
+
+    if (cond.type === "loggedout") {
+        if (typeof window === "undefined") return true;
+        const hasSession = document.cookie.includes("session") || document.cookie.includes("token") || localStorage.getItem("user") !== null;
+        return !hasSession;
+    }
+
+    return true;
+}
+
 function RenderElement({ element, serverElements }: { element: any; serverElements: Record<string, React.ReactNode> }) {
-    if (!element) return null;
+    if (!element || !shouldDisplay(element.schema)) return null;
+    const adv = element.schema?.advanced;
+    const idAttr = adv?.cssID || undefined;
+    const classAttr = adv?.cssClasses ? ` ${adv.cssClasses}` : "";
+
     // Server-rendered element — node already built by Builder.tsx
     if (serverElements[element.id] !== undefined) {
         return (
-            <div className={`bel-${element.id}`}>
+            <div id={idAttr} className={`bel-${element.id}${classAttr}`}>
                 {serverElements[element.id]}
             </div>
         );
@@ -341,7 +421,7 @@ function RenderElement({ element, serverElements }: { element: any; serverElemen
     if (!def || !def.render) return null;
 
     return (
-        <div className={`bel-${element.id}`}>
+        <div id={idAttr} className={`bel-${element.id}${classAttr}`}>
             {def.render(element)}
         </div>
     );
@@ -351,9 +431,13 @@ function RenderColumn({ column, serverElements }: {
     column: any;
     serverElements: Record<string, React.ReactNode>;
 }) {
-    if (!column) return null;
+    if (!column || !shouldDisplay(column.schema)) return null;
+    const adv = column.schema?.advanced;
+    const idAttr = adv?.cssID || undefined;
+    const classAttr = adv?.cssClasses ? ` ${adv.cssClasses}` : "";
+
     return (
-        <div className={`bcol-wrap-${column.id}`}>
+        <div id={idAttr} className={`bcol-wrap-${column.id}${classAttr}`}>
             <div className={`bcol-${column.id}`}>
                 {/* Structure: columns[columns[], elements[]] — both can coexist, nest unlimited */}
                 {column.columns?.map((nested: any) => (
@@ -368,14 +452,17 @@ function RenderColumn({ column, serverElements }: {
 }
 
 function RenderRow({ row, serverElements }: { row: any; serverElements: Record<string, React.ReactNode> }) {
-    if (!row) return null;
+    if (!row || !shouldDisplay(row.schema)) return null;
     const s = row.schema;
+    const adv = s?.advanced;
+    const idAttr = adv?.cssID || undefined;
+    const classAttr = adv?.cssClasses ? ` ${adv.cssClasses}` : "";
     const overlay = s?.style?.backgroundOverlay;
     const overlayNormal = overlay?.normal || overlay;
     const overlayEnabled = overlay?.enabled;
 
     return (
-        <section className={`brow-${row.id}`}>
+        <section id={idAttr} className={`brow-${row.id}${classAttr}`}>
             {overlayEnabled && (
                 <div
                     style={{
@@ -392,19 +479,89 @@ function RenderRow({ row, serverElements }: { row: any; serverElements: Record<s
                     <RenderColumn key={col.id} column={col} serverElements={serverElements} />
                 ))}
             </div>
-            {s?.style?.shapeDivider?.enabled && (
-                <div
-                    style={{
-                        position: "absolute",
-                        left: 0,
-                        right: 0,
-                        [s.style.shapeDivider.position || "bottom"]: 0,
-                        height: "60px",
-                        background: "linear-gradient(to right, transparent, #000, transparent)",
-                    }}
-                />
-            )}
+            {/* Shape Divider */}
+            <RenderShapeDivider divider={s?.style?.shapeDivider} />
         </section>
+    );
+}
+
+function RenderShapeDivider({ divider }: { divider: any }) {
+    if (!divider || !divider.enabled) return null;
+    const shapeKey = divider.shape || "wave";
+    const shape = SHAPES[shapeKey];
+    if (!shape) return null;
+
+    const pos = divider.position || "bottom";
+    const height = divider.height ?? 100;
+    const width = divider.width ?? 100;
+    
+    let scaleX = divider.flip ? -1 : 1;
+    let scaleY = divider.invert ? -1 : 1;
+    if (pos === "top") scaleY *= -1;
+
+    const gradId = useId().replace(/:/g, "-");
+    const isGradient = divider.colorType === "gradient";
+    const fill = isGradient ? `url(#${gradId})` : (divider.color || "#ffffff");
+
+    // CSS angle to SVG linearGradient coords mapping
+    let gradCoords = { x1: "0%", y1: "0%", x2: "0%", y2: "100%" };
+    if (isGradient && divider.gradient) {
+        const angle = divider.gradient.angle ?? 180;
+        const dx = Math.sin((angle * Math.PI) / 180);
+        const dy = -Math.cos((angle * Math.PI) / 180);
+        gradCoords = {
+            x1: `${Math.round(50 - dx * 50)}%`,
+            y1: `${Math.round(50 - dy * 50)}%`,
+            x2: `${Math.round(50 + dx * 50)}%`,
+            y2: `${Math.round(50 + dy * 50)}%`,
+        };
+    }
+
+    return (
+        <div
+            style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                [pos]: 0,
+                height: `${height}px`,
+                overflow: "hidden",
+                lineHeight: 0,
+                zIndex: divider.bringToFront ? 10 : 0,
+                pointerEvents: "none",
+                transform: "translate3d(0,0,0)",
+                opacity: divider.opacity ?? 1,
+            }}
+        >
+            <svg
+                viewBox={shape.viewBox}
+                preserveAspectRatio="none"
+                style={{
+                    width: `${width}%`,
+                    height: "100%",
+                    display: "block",
+                    position: "relative",
+                    left: "50%",
+                    transform: `translateX(-50%) scale(${scaleX}, ${scaleY})`,
+                }}
+            >
+                {isGradient && divider.gradient && (
+                    <defs>
+                        <linearGradient
+                            id={gradId}
+                            x1={gradCoords.x1}
+                            y1={gradCoords.y1}
+                            x2={gradCoords.x2}
+                            y2={gradCoords.y2}
+                        >
+                            <stop offset={`${divider.gradient.location1 ?? 0}%`} stopColor={divider.gradient.color1 || "#ffffff"} />
+                            <stop offset={`${divider.gradient.location2 ?? 100}%`} stopColor={divider.gradient.color2 || "#f5f5f5"} />
+                        </linearGradient>
+                    </defs>
+                )}
+                <path d={shape.path} fill={fill} />
+            </svg>
+        </div>
     );
 }
 

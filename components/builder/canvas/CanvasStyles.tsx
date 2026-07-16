@@ -4,8 +4,9 @@ import { useMemo } from "react";
 import { Row, Column, BuilderElement, Device } from "../types";
 import { getElementDef } from "../helpers";
 import columnElement from "../elements/column";
-import { controlToCSS, controlToHoverCSS } from "../controls/css";
+import { controlToCSS, controlToHoverCSS, ANIMATION_KEYFRAMES } from "../controls/css";
 import { getDeviceValue, getColumnWidth } from "../device";
+import { commonAdvancedControls, mergeControls } from "../controls/common";
 
 /**
  * Unified DYNAMIC CSS generation for all builder entities.
@@ -86,6 +87,36 @@ function generateRowCSS(row: Row, device: Device): string {
 
     css += `.${innerCls}{${inner.join(";")}}`;
 
+    // Process all commonAdvancedControls for Row outer
+    for (const section of commonAdvancedControls) {
+        for (const ctrl of section.controls) {
+            if (ctrl.name === "margin" || ctrl.name === "padding" || ctrl.name === "alignSelf" || ctrl.name === "customCSS") continue;
+
+            let value: any = undefined;
+            if (s.advanced && ctrl.name in s.advanced) {
+                value = getDeviceValue(s.advanced[ctrl.name], device);
+            }
+            if (value === undefined) continue;
+
+            const cssStr = controlToCSS(ctrl.name, value, { ...s, _device: device });
+            if (cssStr) outer.push(cssStr);
+
+            const hover = controlToHoverCSS(ctrl.name, value, { ...s, _device: device });
+            if (hover) hoverParts.push(hover);
+        }
+    }
+
+    // Refresh the outer CSS selector with the new styles
+    css = `.${cls}{${outer.join(";")}}`;
+    if (hoverParts.length) css += `\n.${cls}:hover{${hoverParts.join(";")}}`;
+    css += `\n.${innerCls}{${inner.join(";")}}`;
+
+    if ((s.advanced as any)?.customCSS) {
+        const rawCSS = (s.advanced as any).customCSS;
+        const processedCSS = rawCSS.replaceAll("selector", `.${cls}`);
+        css += `\n${processedCSS}`;
+    }
+
     return css;
 }
 
@@ -121,7 +152,9 @@ function generateColumnCSS(col: Column, device: Device): string {
 
     const hoverLines: string[] = [];
 
-    for (const section of columnElement.controls) {
+    const allControls = mergeControls(columnElement.controls);
+
+    for (const section of allControls) {
         for (const ctrl of section.controls) {
             let value: any = undefined;
             for (const groupKey of Object.keys(schema)) {
@@ -136,10 +169,10 @@ function generateColumnCSS(col: Column, device: Device): string {
             // Skip flex and wrap for nested containers — already handled above
             if (hasNestedCols && (ctrl.name === "flex" || ctrl.name === "wrap")) continue;
 
-            const css = controlToCSS(ctrl.name, value, schema);
+            const css = controlToCSS(ctrl.name, value, { ...schema, _device: device });
             if (css) lines.push(css);
 
-            const hover = controlToHoverCSS(ctrl.name, value, schema);
+            const hover = controlToHoverCSS(ctrl.name, value, { ...schema, _device: device });
             if (hover) hoverLines.push(hover);
         }
     }
@@ -147,14 +180,21 @@ function generateColumnCSS(col: Column, device: Device): string {
     // boxShadow is nested inside border.boxShadow — emit it separately
     const borderVal = getDeviceValue((schema as any).style?.border, device);
     if (borderVal?.boxShadow) {
-        const shadowCSS = controlToCSS("boxShadow", borderVal.boxShadow, schema);
+        const shadowCSS = controlToCSS("boxShadow", borderVal.boxShadow, { ...schema, _device: device });
         if (shadowCSS) lines.push(shadowCSS);
-        const shadowHover = controlToHoverCSS("boxShadow", borderVal.boxShadow, schema);
+        const shadowHover = controlToHoverCSS("boxShadow", borderVal.boxShadow, { ...schema, _device: device });
         if (shadowHover) hoverLines.push(shadowHover);
     }
 
     let css = `.${cls}{${lines.join(";")}}`;
     if (hoverLines.length) css += `.${cls}:hover{${hoverLines.join(";")}}`;
+
+    if ((schema as any).advanced?.customCSS) {
+        const rawCSS = (schema as any).advanced.customCSS;
+        const processedCSS = rawCSS.replaceAll("selector", `.${cls}`);
+        css += `\n${processedCSS}`;
+    }
+
     return css;
 }
 
@@ -171,7 +211,9 @@ function generateElementCSS(element: BuilderElement, device: Device): string {
     const lines: string[] = [];
     const hoverLines: string[] = [];
 
-    for (const section of def.controls) {
+    const allControls = mergeControls(def.controls);
+
+    for (const section of allControls) {
         for (const ctrl of section.controls) {
             let value: any = undefined;
             for (const groupKey of Object.keys(schema)) {
@@ -183,21 +225,26 @@ function generateElementCSS(element: BuilderElement, device: Device): string {
             }
             if (value === undefined) continue;
 
-            const css = controlToCSS(ctrl.name, value, schema);
+            const css = controlToCSS(ctrl.name, value, { ...schema, _device: device });
             if (css) lines.push(css);
 
-            const hover = controlToHoverCSS(ctrl.name, value, schema);
+            const hover = controlToHoverCSS(ctrl.name, value, { ...schema, _device: device });
             if (hover) hoverLines.push(hover);
         }
     }
-
-    if (lines.length === 0 && hoverLines.length === 0) return "";
 
     let css = `.${cls}{${lines.join(";")}}`;
     if (hoverLines.length) css += `.${cls}:hover{${hoverLines.join(";")}}`;
     if (schema.style?.hoverColor) {
         css += `.${cls}:hover{color:${schema.style.hoverColor};transition:color 0.3s}`;
     }
+
+    if (schema.advanced?.customCSS) {
+        const rawCSS = schema.advanced.customCSS;
+        const processedCSS = rawCSS.replaceAll("selector", `.${cls}`);
+        css += `\n${processedCSS}`;
+    }
+
     return css;
 }
 
@@ -240,7 +287,7 @@ interface Props {
 
 export default function CanvasStyles({ rows, device }: Props) {
     const css = useMemo(() => {
-        const parts: string[] = [];
+        const parts: string[] = [ANIMATION_KEYFRAMES];
 
         for (const row of rows) {
             parts.push(generateRowCSS(row, device));

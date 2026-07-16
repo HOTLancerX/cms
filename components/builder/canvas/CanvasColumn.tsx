@@ -107,8 +107,9 @@ export default function CanvasColumn({
                 }
             }}
             onContextMenu={(e) => { e.stopPropagation(); onContextMenu(e, { type: "column", rowId, colPath: path }); }}
+            id={(column.schema.advanced as any)?.cssID || undefined}
             className={`relative min-w-0 rounded transition-all duration-200 ${isDropTarget ? "bg-blue-500/5 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.3)]" : "bg-transparent"
-                } ${isDragging ? "opacity-35 scale-[0.98]" : "opacity-100 scale-100"}`}
+                } ${isDragging ? "opacity-35 scale-[0.98]" : "opacity-100 scale-100"}${(column.schema.advanced as any)?.cssClasses ? " " + (column.schema.advanced as any).cssClasses : ""}`}
             style={{
                 flex: `0 0 auto`,
                 width: `${w}%`,

@@ -5,10 +5,6 @@ import {
     Flex,
     Gaps,
     Wrap,
-    Background,
-    Border,
-    Dimensions,
-    AlignSelf,
 } from "../controls";
 
 /**
@@ -130,68 +126,6 @@ const columnElement = {
             ],
         },
 
-        // STYLE
-        {
-            tab: "Style",
-            section: "Background",
-            controls: [
-                {
-                    name: "background",
-                    responsive: false,
-                    render: (value: any, onChange: any) => (
-                        <Background value={value} onChange={onChange} />
-                    ),
-                },
-            ],
-        },
-        {
-            tab: "Style",
-            section: "Border",
-            controls: [
-                {
-                    name: "border",
-                    responsive: false,
-                    render: (value: any, onChange: any) => (
-                        <Border value={value} onChange={onChange} />
-                    ),
-                },
-            ],
-        },
-
-        // ADVANCED
-        {
-            tab: "Advanced",
-            section: "Spacing",
-            controls: [
-                {
-                    name: "margin",
-                    responsive: true,
-                    render: (value: any, onChange: any) => (
-                        <Dimensions type="margin" value={value} onChange={onChange} />
-                    ),
-                },
-                {
-                    name: "padding",
-                    responsive: true,
-                    render: (value: any, onChange: any) => (
-                        <Dimensions type="padding" value={value} onChange={onChange} />
-                    ),
-                },
-            ],
-        },
-        {
-            tab: "Advanced",
-            section: "Position",
-            controls: [
-                {
-                    name: "alignSelf",
-                    responsive: true,
-                    render: (value: any, onChange: any) => (
-                        <AlignSelf value={value} onChange={onChange} />
-                    ),
-                },
-            ],
-        },
     ],
 
     // =========================

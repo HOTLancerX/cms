@@ -34,3 +34,4 @@ export { default as Tabs } from "./group/Tabs";
 
 // CSS registry — add toCSS entries here for new controls
 export { cssRegistry, controlToCSS, hoverRegistry, controlToHoverCSS } from "./css";
+export { commonAdvancedControls, commonStyleControls, mergeControls } from "./common";

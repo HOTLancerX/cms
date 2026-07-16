@@ -165,7 +165,7 @@ export default function Dimensions({ type, label: labelProp, units: unitsProp, v
 
             {/* ── Inputs row (hidden when unit is "auto") ── */}
             {!isAuto ? (
-                <div className="grid grid-cols-2 gap-1">
+                <div className="grid grid-cols-4 gap-1">
                     {SIDES.map(({ key, label: sideLabel }) => (
                         <div key={key} className="flex-1 min-w-0">
                             <input

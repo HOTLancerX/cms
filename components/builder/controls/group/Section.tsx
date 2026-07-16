@@ -30,21 +30,21 @@ export default function Section({ label, defaultOpen = false, children }: Props)
     const [open, setOpen] = useState(defaultOpen);
 
     return (
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="border border-gray-100 bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-200 hover:border-gray-200/80 mb-3">
             <button
                 type="button"
                 onClick={() => setOpen(!open)}
-                className="flex items-center gap-2 w-full px-3 py-2.5 bg-gray-50 hover:bg-gray-100 border-none cursor-pointer transition-colors"
+                className="flex items-center justify-between w-full px-4 py-3 bg-linear-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50/50 border-none cursor-pointer transition-all duration-200 select-none text-left"
             >
+                <span className="text-[12px] font-semibold text-gray-700 tracking-wide uppercase">{label}</span>
                 <Icon
-                    icon="mdi:chevron-right"
-                    width="16"
-                    className={`text-gray-500 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+                    icon="mdi:chevron-down"
+                    width="18"
+                    className={`text-gray-400 transition-transform duration-300 ${open ? "rotate-180 text-fuchsia-500" : ""}`}
                 />
-                <span className="text-[13px] font-medium text-gray-700">{label}</span>
             </button>
             {open && (
-                <div className="p-3 space-y-3 border-t border-gray-200">
+                <div className="p-4 space-y-4 border-t border-gray-100 bg-white animate-[fadeSlideIn_0.2s_ease-out]">
                     {children}
                 </div>
             )}
