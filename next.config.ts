@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "path";
 import fs from "fs";
+import { spawn } from "child_process";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Optional-plugin stub system
@@ -21,6 +22,18 @@ import fs from "fs";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ROOT = __dirname;
+
+// Spawn plugin-runner in development mode to sync/watch assets and dependencies
+if (process.env.NODE_ENV === "development") {
+    console.log("[next.config] Starting plugin-runner in watch mode...");
+    const runnerPath = path.join(ROOT, "lib", "plugin-runner.mjs");
+    const watcher = spawn("node", [runnerPath, "--watch"], {
+        stdio: "inherit",
+    });
+    process.on("exit", () => {
+        watcher.kill();
+    });
+}
 
 const STUB = "@/lib/optional-plugin-stub";
 

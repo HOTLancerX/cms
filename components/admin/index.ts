@@ -162,6 +162,14 @@ export function register(): void {
             parent: "builder",
             position: 120,
         },
+        {
+            key: "builder-placeholder",
+            label: "Placeholder",
+            icon: "boxicons:layout",
+            slug: "builder/placeholder",
+            parent: "builder",
+            position: 121,
+        },
         // ── Location ──
         {
             key: "location",
