@@ -15,7 +15,8 @@ import {
   FiMaximize2,
   FiSliders,
   FiX,
-  FiLayers
+  FiLayers,
+  FiCompass
 } from "react-icons/fi";
 
 type Box = {
@@ -27,6 +28,12 @@ type Box = {
   radius: number;
   background: string;
   label?: string;
+};
+
+type Guide = {
+  id: string;
+  type: "horizontal" | "vertical";
+  position: number;
 };
 
 const COLOR_PRESETS = [
@@ -74,6 +81,10 @@ export default function PlaceholderBuilder() {
   const [canvasImage, setCanvasImage] = useState<string | null>(null);
   const [canvasBgColor, setCanvasBgColor] = useState<string>("#ffffff");
   const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [showRulers, setShowRulers] = useState<boolean>(true);
+  const [guides, setGuides] = useState<Guide[]>([]);
+  const [snappedGuideIds, setSnappedGuideIds] = useState<string[]>([]);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [zoom, setZoom] = useState<number>(1);
   const [contextMenu, setContextMenu] = useState<{
@@ -81,6 +92,81 @@ export default function PlaceholderBuilder() {
     y: number;
     boxId: string;
   } | null>(null);
+
+  // Drag to create a custom guide line from top or left ruler
+  const startGuideDrag = (type: "horizontal" | "vertical", e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!canvasRef.current) return;
+    const guideId = crypto.randomUUID();
+    const rect = canvasRef.current.getBoundingClientRect();
+
+    const getPos = (ev: MouseEvent) => {
+      if (type === "horizontal") {
+        return Math.round((ev.clientY - rect.top) / zoom);
+      } else {
+        return Math.round((ev.clientX - rect.left) / zoom);
+      }
+    };
+
+    const initialPos = getPos(e.nativeEvent);
+    const newGuide: Guide = { id: guideId, type, position: initialPos };
+    setGuides((prev) => [...prev, newGuide]);
+
+    const move = (ev: MouseEvent) => {
+      const pos = getPos(ev);
+      setGuides((prev) =>
+        prev.map((g) => (g.id === guideId ? { ...g, position: pos } : g))
+      );
+    };
+
+    const stop = (ev: MouseEvent) => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", stop);
+      const finalPos = getPos(ev);
+      const maxBound = type === "horizontal" ? CANVAS_HEIGHT : CANVAS_WIDTH;
+      if (finalPos < 0 || finalPos > maxBound) {
+        setGuides((prev) => prev.filter((g) => g.id !== guideId));
+      }
+    };
+
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", stop);
+  };
+
+  const startGuideMove = (guide: Guide, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+
+    const getPos = (ev: MouseEvent) => {
+      if (guide.type === "horizontal") {
+        return Math.round((ev.clientY - rect.top) / zoom);
+      } else {
+        return Math.round((ev.clientX - rect.left) / zoom);
+      }
+    };
+
+    const move = (ev: MouseEvent) => {
+      const pos = getPos(ev);
+      setGuides((prev) =>
+        prev.map((g) => (g.id === guide.id ? { ...g, position: pos } : g))
+      );
+    };
+
+    const stop = (ev: MouseEvent) => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", stop);
+      const finalPos = getPos(ev);
+      const maxBound = guide.type === "horizontal" ? CANVAS_HEIGHT : CANVAS_WIDTH;
+      if (finalPos < 0 || finalPos > maxBound) {
+        setGuides((prev) => prev.filter((g) => g.id !== guide.id));
+      }
+    };
+
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", stop);
+  };
 
   const activeBox = boxes.find((b) => b.id === activeId) || null;
 
@@ -214,7 +300,9 @@ export default function PlaceholderBuilder() {
     };
   }, [activeId, boxes, deleteBox, updateBox]);
 
-  // Dragging logic - ensures box remains active and repeatedly draggable
+  const SNAP_THRESHOLD = 8; // Pixel threshold for magnetic snap
+
+  // Dragging logic - with magnetic guideline snapping & barrier highlight
   const dragStart = (e: React.MouseEvent, box: Box) => {
     e.preventDefault();
     e.stopPropagation();
@@ -229,22 +317,57 @@ export default function PlaceholderBuilder() {
       const deltaX = (ev.clientX - startX) / zoom;
       const deltaY = (ev.clientY - startY) / zoom;
 
+      let rawX = Math.round(initialX + deltaX);
+      let rawY = Math.round(initialY + deltaY);
+
+      const activeSnapped: string[] = [];
+
+      // Check horizontal guides snapping (Y axis alignment)
+      guides.forEach((g) => {
+        if (g.type === "horizontal") {
+          if (Math.abs(rawY - g.position) <= SNAP_THRESHOLD) {
+            rawY = g.position;
+            activeSnapped.push(g.id);
+          } else if (Math.abs(rawY + box.height - g.position) <= SNAP_THRESHOLD) {
+            rawY = g.position - box.height;
+            activeSnapped.push(g.id);
+          } else if (Math.abs(rawY + box.height / 2 - g.position) <= SNAP_THRESHOLD) {
+            rawY = g.position - Math.round(box.height / 2);
+            activeSnapped.push(g.id);
+          }
+        } else if (g.type === "vertical") {
+          if (Math.abs(rawX - g.position) <= SNAP_THRESHOLD) {
+            rawX = g.position;
+            activeSnapped.push(g.id);
+          } else if (Math.abs(rawX + box.width - g.position) <= SNAP_THRESHOLD) {
+            rawX = g.position - box.width;
+            activeSnapped.push(g.id);
+          } else if (Math.abs(rawX + box.width / 2 - g.position) <= SNAP_THRESHOLD) {
+            rawX = g.position - Math.round(box.width / 2);
+            activeSnapped.push(g.id);
+          }
+        }
+      });
+
+      setSnappedGuideIds(activeSnapped);
+
       updateBox(box.id, {
-        x: Math.round(initialX + deltaX),
-        y: Math.round(initialY + deltaY)
+        x: rawX,
+        y: rawY
       });
     };
 
     const stop = () => {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", stop);
+      setSnappedGuideIds([]);
     };
 
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", stop);
   };
 
-  // Resizing logic - ensures box remains active and repeatedly resizable
+  // Resizing logic - with magnetic guideline snapping & barrier highlight
   const resizeStart = (
     e: React.MouseEvent,
     box: Box,
@@ -288,6 +411,34 @@ export default function PlaceholderBuilder() {
         }
       }
 
+      const activeSnapped: string[] = [];
+
+      guides.forEach((g) => {
+        if (g.type === "horizontal") {
+          if (direction.includes("s") && Math.abs(newY + newH - g.position) <= SNAP_THRESHOLD) {
+            newH = Math.max(MIN_BOX_SIZE, g.position - newY);
+            activeSnapped.push(g.id);
+          } else if (direction.includes("n") && Math.abs(newY - g.position) <= SNAP_THRESHOLD) {
+            const diff = newY - g.position;
+            newY = g.position;
+            newH = Math.max(MIN_BOX_SIZE, newH + diff);
+            activeSnapped.push(g.id);
+          }
+        } else if (g.type === "vertical") {
+          if (direction.includes("e") && Math.abs(newX + newW - g.position) <= SNAP_THRESHOLD) {
+            newW = Math.max(MIN_BOX_SIZE, g.position - newX);
+            activeSnapped.push(g.id);
+          } else if (direction.includes("w") && Math.abs(newX - g.position) <= SNAP_THRESHOLD) {
+            const diff = newX - g.position;
+            newX = g.position;
+            newW = Math.max(MIN_BOX_SIZE, newW + diff);
+            activeSnapped.push(g.id);
+          }
+        }
+      });
+
+      setSnappedGuideIds(activeSnapped);
+
       updateBox(box.id, {
         x: newX,
         y: newY,
@@ -299,6 +450,7 @@ export default function PlaceholderBuilder() {
     const stop = () => {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", stop);
+      setSnappedGuideIds([]);
     };
 
     window.addEventListener("mousemove", move);
@@ -407,6 +559,19 @@ export default function PlaceholderBuilder() {
           >
             <FiGrid className="w-4 h-4" />
             Grid
+          </button>
+
+          <button
+            onClick={() => setShowRulers(!showRulers)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              showRulers
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200"
+            }`}
+            title="Toggle Photoshop Rulers & Guides"
+          >
+            <FiCompass className="w-4 h-4" />
+            Rulers
           </button>
 
           <button
@@ -774,32 +939,234 @@ export default function PlaceholderBuilder() {
             </button>
           </div>
 
-          {/* 16:9 Canvas Frame */}
+          {/* 16:9 Canvas Frame with Photoshop Rulers & Guides */}
           <div
-            className="transition-transform duration-100 ease-out"
+            className="flex flex-col items-center transition-transform duration-100 ease-out"
             style={{ transform: `scale(${zoom})` }}
           >
-            <div
-              ref={canvasRef}
-              onClick={(e) => {
-                if (e.target === canvasRef.current) {
-                  setActiveId(null);
-                }
-              }}
-              className="relative shadow-xl border border-slate-300 overflow-hidden select-none bg-white transition-colors"
-              style={{
-                width: `${CANVAS_WIDTH}px`,
-                height: `${CANVAS_HEIGHT}px`,
-                backgroundColor: canvasBgColor,
-                backgroundImage: canvasImage
-                  ? `url(${canvasImage})`
-                  : showGrid
-                  ? `radial-gradient(circle, rgba(0,0,0,0.12) 1px, transparent 1px)`
-                  : undefined,
-                backgroundSize: canvasImage ? "cover" : "20px 20px",
-                backgroundPosition: "center"
-              }}
-            >
+            {/* Top Horizontal Photoshop Ruler ("Inch Tape") */}
+            {showRulers && (
+              <div
+                onMouseDown={(e) => startGuideDrag("horizontal", e)}
+                className="flex items-end border-b border-slate-300 bg-slate-200 text-[9px] font-mono text-slate-600 select-none relative overflow-hidden shadow-xs cursor-ns-resize group"
+                title="Drag down to pull a horizontal guide line"
+                style={{
+                  width: `${CANVAS_WIDTH}px`,
+                  height: "22px",
+                  marginLeft: "22px"
+                }}
+              >
+                {Array.from({ length: Math.floor(CANVAS_WIDTH / 10) + 1 }).map(
+                  (_, i) => {
+                    const x = i * 10;
+                    const isMajor = x % 50 === 0;
+                    return (
+                      <div
+                        key={i}
+                        className="absolute bottom-0 border-l border-slate-400"
+                        style={{
+                          left: `${x}px`,
+                          height: isMajor ? "14px" : "6px"
+                        }}
+                      >
+                        {isMajor && (
+                          <span className="absolute -top-3.5 left-1 text-[8px] font-medium text-slate-700">
+                            {x}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }
+                )}
+                {/* Dynamic Red Mouse Tracker Line on Top Ruler */}
+                {mousePos && (
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-20 shadow-xs"
+                    style={{ left: `${mousePos.x}px` }}
+                  />
+                )}
+              </div>
+            )}
+
+            <div className="flex">
+              {/* Left Vertical Photoshop Ruler ("Inch Tape") */}
+              {showRulers && (
+                <div
+                  onMouseDown={(e) => startGuideDrag("vertical", e)}
+                  className="flex flex-col items-end border-r border-slate-300 bg-slate-200 text-[9px] font-mono text-slate-600 select-none relative overflow-hidden shadow-xs shrink-0 cursor-ew-resize group"
+                  title="Drag right to pull a vertical guide line"
+                  style={{
+                    height: `${CANVAS_HEIGHT}px`,
+                    width: "22px"
+                  }}
+                >
+                  {Array.from({
+                    length: Math.floor(CANVAS_HEIGHT / 10) + 1
+                  }).map((_, i) => {
+                    const y = i * 10;
+                    const isMajor = y % 50 === 0;
+                    return (
+                      <div
+                        key={i}
+                        className="absolute right-0 border-t border-slate-400"
+                        style={{
+                          top: `${y}px`,
+                          width: isMajor ? "14px" : "6px"
+                        }}
+                      >
+                        {isMajor && (
+                          <span className="absolute right-3.5 -top-1.5 text-[8px] font-medium text-slate-700">
+                            {y}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {/* Dynamic Red Mouse Tracker Line on Left Ruler */}
+                  {mousePos && (
+                    <div
+                      className="absolute left-0 right-0 h-0.5 bg-red-500 z-20 shadow-xs"
+                      style={{ top: `${mousePos.y}px` }}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Main Canvas Frame */}
+              <div
+                ref={canvasRef}
+                onMouseMove={(e) => {
+                  if (!canvasRef.current) return;
+                  const rect = canvasRef.current.getBoundingClientRect();
+                  const x = Math.max(
+                    0,
+                    Math.min(
+                      CANVAS_WIDTH,
+                      Math.round((e.clientX - rect.left) / zoom)
+                    )
+                  );
+                  const y = Math.max(
+                    0,
+                    Math.min(
+                      CANVAS_HEIGHT,
+                      Math.round((e.clientY - rect.top) / zoom)
+                    )
+                  );
+                  setMousePos({ x, y });
+                }}
+                onMouseLeave={() => setMousePos(null)}
+                onClick={(e) => {
+                  if (e.target === canvasRef.current) {
+                    setActiveId(null);
+                  }
+                }}
+                className="relative shadow-xl border border-slate-300 overflow-hidden select-none bg-white transition-colors"
+                style={{
+                  width: `${CANVAS_WIDTH}px`,
+                  height: `${CANVAS_HEIGHT}px`,
+                  backgroundColor: canvasBgColor,
+                  backgroundImage: canvasImage
+                    ? `url(${canvasImage})`
+                    : showGrid
+                    ? `radial-gradient(circle, rgba(0,0,0,0.12) 1px, transparent 1px)`
+                    : undefined,
+                  backgroundSize: canvasImage ? "cover" : "20px 20px",
+                  backgroundPosition: "center"
+                }}
+              >
+                {/* Dynamic Photoshop Crosshair Alignment Guidelines */}
+                {mousePos && showRulers && (
+                  <>
+                    {/* Vertical guideline */}
+                    <div
+                      className="absolute top-0 bottom-0 border-l border-dashed border-cyan-500/60 pointer-events-none z-30"
+                      style={{ left: `${mousePos.x}px` }}
+                    />
+                    {/* Horizontal guideline */}
+                    <div
+                      className="absolute left-0 right-0 border-t border-dashed border-cyan-500/60 pointer-events-none z-30"
+                      style={{ top: `${mousePos.y}px` }}
+                    />
+                    {/* Position Tooltip Badge */}
+                    <div
+                      className="absolute bg-slate-900/90 text-white text-[9px] font-mono px-1.5 py-0.5 rounded shadow pointer-events-none z-40"
+                      style={{
+                        left: `${Math.min(mousePos.x + 10, CANVAS_WIDTH - 80)}px`,
+                        top: `${Math.min(mousePos.y + 10, CANVAS_HEIGHT - 25)}px`
+                      }}
+                    >
+                      X: {mousePos.x}px | Y: {mousePos.y}px
+                    </div>
+                  </>
+                )}
+
+                {/* Center Snap Lines */}
+                <div className="absolute left-1/2 top-0 bottom-0 border-l border-dashed border-red-400/20 pointer-events-none z-10" />
+                <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-red-400/20 pointer-events-none z-10" />
+
+                {/* Pulled Custom Photoshop Guidelines (Red Spot & Red Line Overlay) */}
+                {guides.map((guide) => {
+                  const isSnapped = snappedGuideIds.includes(guide.id);
+                  return (
+                    <div
+                      key={guide.id}
+                      onMouseDown={(e) => startGuideMove(guide, e)}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setGuides((prev) =>
+                          prev.filter((g) => g.id !== guide.id)
+                        );
+                      }}
+                      className={`absolute z-35 group transition-all ${
+                        guide.type === "horizontal"
+                          ? `left-0 right-0 h-2 -top-1 cursor-ns-resize border-t-2 ${
+                              isSnapped
+                                ? "border-red-600 shadow-[0_0_12px_rgba(239,68,68,0.9)] bg-red-500/20"
+                                : "border-red-500 hover:border-red-600"
+                            }`
+                          : `top-0 bottom-0 w-2 -left-1 cursor-ew-resize border-l-2 ${
+                              isSnapped
+                                ? "border-red-600 shadow-[0_0_12px_rgba(239,68,68,0.9)] bg-red-500/20"
+                                : "border-red-500 hover:border-red-600"
+                            }`
+                      }`}
+                      style={
+                        guide.type === "horizontal"
+                          ? { top: `${guide.position}px` }
+                          : { left: `${guide.position}px` }
+                      }
+                      title="Drag to move, double-click to remove"
+                    >
+                      {/* Red Spot Handle Indicator */}
+                      <div
+                        className={`absolute w-3 h-3 rounded-full border-2 border-white shadow-md transition-transform ${
+                          isSnapped
+                            ? "bg-red-600 scale-125 ring-4 ring-red-400/50 animate-pulse"
+                            : "bg-red-600 group-hover:scale-125"
+                        } ${
+                          guide.type === "horizontal"
+                            ? "left-2 -top-1.5"
+                            : "top-2 -left-1.5"
+                        }`}
+                      />
+
+                      {/* Hover Tooltip or Snapped Alignment Barrier Badge */}
+                      <div
+                        className={`${
+                          isSnapped ? "block" : "hidden group-hover:block"
+                        } absolute bg-red-600 text-white text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap left-5 top-1 z-40`}
+                      >
+                        {isSnapped
+                          ? `SNAPPED STRAIGHT (Aligned: ${guide.position}px)`
+                          : `${
+                              guide.type === "horizontal"
+                                ? `Y: ${guide.position}px`
+                                : `X: ${guide.position}px`
+                            } (Double click to delete)`}
+                      </div>
+                    </div>
+                  );
+                })}
               {/* Render Placeholder Boxes */}
               {boxes.map((box) => {
                 const isActive = box.id === activeId;
@@ -873,6 +1240,7 @@ export default function PlaceholderBuilder() {
               })}
             </div>
           </div>
+        </div>
         </main>
       </div>
 
