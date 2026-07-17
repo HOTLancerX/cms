@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import ColorPickerPopup from "./ColorPickerPopup";
 import NumberControl from "./Number";
 import Tabs from "./group/Tabs";
+import ImageGallery from "./ImageGallery";
 
 /**
  * Background control — Elementor-style
@@ -111,7 +112,7 @@ export default function Background({ value, onChange }: any) {
         {current.type === "color" && (
           <div>
             <ColorPickerPopup label="Color" value={current.color} onChange={(c) => update("color", c)} />
-            <ImageUpload label="Image" value={current.image} onChange={(v) => update("image", v)} />
+            <ImageGallery label="Image" value={current.image} onChange={(v) => update("image", v)} />
             <ToggleRow label="Scrolling Effects" value={current.scrollingEffects} onChange={(v) => update("scrollingEffects", v)} />
             <ToggleRow label="Mouse Effects" value={current.mouseEffects} onChange={(v) => update("mouseEffects", v)} />
           </div>
@@ -174,7 +175,7 @@ export default function Background({ value, onChange }: any) {
             <ToggleRow label="Play Once" value={current.video.playOnce} onChange={(v) => updateVideo("playOnce", v)} />
             <ToggleRow label="Play On Mobile" value={current.video.playOnMobile} onChange={(v) => updateVideo("playOnMobile", v)} />
             <ToggleRow label="Privacy Mode" value={current.video.privacyMode} onChange={(v) => updateVideo("privacyMode", v)} />
-            <ImageUpload label="Background Fallback" value={current.video.fallbackImage} onChange={(v) => updateVideo("fallbackImage", v)} />
+            <ImageGallery label="Background Fallback" value={current.video.fallbackImage} onChange={(v) => updateVideo("fallbackImage", v)} />
           </div>
         )}
 
@@ -182,7 +183,7 @@ export default function Background({ value, onChange }: any) {
         {current.type === "image" && (
           <div>
             <ColorPickerPopup label="Color" value={current.color} onChange={(c) => update("color", c)} />
-            <ImageUpload label="Image" value={current.image} onChange={(v) => update("image", v)} />
+            <ImageGallery label="Image" value={current.image} onChange={(v) => update("image", v)} />
             <ToggleRow label="Scrolling Effects" value={current.scrollingEffects} onChange={(v) => update("scrollingEffects", v)} />
             <ToggleRow label="Mouse Effects" value={current.mouseEffects} onChange={(v) => update("mouseEffects", v)} />
           </div>

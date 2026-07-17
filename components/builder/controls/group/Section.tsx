@@ -13,7 +13,7 @@ export default function Section({ label, defaultOpen = false, children }: Props)
     const [open, setOpen] = useState(defaultOpen);
 
     return (
-        <div>
+        <div className="mb-4 block">
             <button
                 type="button"
                 onClick={() => setOpen(!open)}

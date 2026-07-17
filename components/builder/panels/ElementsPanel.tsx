@@ -90,13 +90,21 @@ function DraggableCatalogItem({
             ref={ref}
             type="button"
             onClick={onClickAdd}
-            className={`flex flex-col items-center gap-1.5 py-3 px-1.5 rounded border border-gray-200 cursor-grab transition-all duration-200 ${isDragging
+            className={`flex flex-col items-center gap-1.5 p-2 rounded border border-gray-200 cursor-grab transition-all duration-200 ${isDragging
                     ? "bg-blue-50 border-blue-300 scale-95 opacity-60 shadow-lg shadow-blue-200/50"
                     : "bg-white hover:border-blue-300 hover:bg-blue-50/30 hover:shadow-sm active:scale-95"
                 }`}
         >
-            <Icon icon={item.icon} width="22" className={`transition-colors duration-200 ${isDragging ? "text-blue-500" : "text-gray-600"}`} />
-            <span className={`text-sm transition-colors duration-200 ${isDragging ? "text-blue-600" : "text-gray-700"}`}>{item.label}</span>
+            {typeof item.icon === "string" && (item.icon.startsWith("/") || item.icon.includes(".") || item.icon.startsWith("http")) ? (
+                <img
+                    src={item.icon}
+                    alt={item.label}
+                    className="w-full h-14 object-contain"
+                />
+            ) : (
+                <Icon icon={item.icon} width="35" className={`transition-colors duration-200 ${isDragging ? "text-blue-500" : "text-gray-600"}`} />
+            )}
+            <span className={`text-sm transition-colors duration-200 line-clamp-2 ${isDragging ? "text-blue-600" : "text-gray-700"}`}>{item.label}</span>
         </button>
     );
 }

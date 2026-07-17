@@ -222,6 +222,12 @@ function ContactUsFrontend({ element }: { element: any }) {
   
   const fields: FormField[] = s.content?.fields || [];
 
+  const successMessage: string = s.content?.successMessage || "Your submission has been received successfully. We will get back to you shortly.";
+  const errorMessage: string = s.content?.errorMessage || "Submission failed. Please try again.";
+  const submitButtonText: string = s.content?.submitButtonText || "Submit Message";
+  const redirectUrl: string = s.content?.redirectUrl || "";
+  const webhookUrl: string = s.content?.webhookUrl || "";
+
   // Theme settings
   const formBg: string = s.style?.formBg || "#ffffff";
   const submitButtonBg: string = s.style?.submitButtonBg || "#4f46e5";
@@ -285,6 +291,7 @@ function ContactUsFrontend({ element }: { element: any }) {
         body: JSON.stringify({
           fields: formData,
           files: allFiles,
+          webhookUrl,
         }),
       });
 
@@ -292,9 +299,14 @@ function ContactUsFrontend({ element }: { element: any }) {
         setSuccess(true);
         setFormData({});
         setFormFiles({});
+        if (redirectUrl) {
+          setTimeout(() => {
+            window.location.href = redirectUrl;
+          }, 1200);
+        }
       } else {
         const data = await res.json();
-        setErrorMsg(data.error || "Submission failed. Please try again.");
+        setErrorMsg(data.error || errorMessage);
       }
     } catch (err: any) {
       setErrorMsg("An unexpected error occurred. Please try again later.");
@@ -312,7 +324,7 @@ function ContactUsFrontend({ element }: { element: any }) {
           </div>
           <h3 className="text-lg font-bold text-gray-900 m-0">Thank You!</h3>
           <p className="text-sm text-gray-500 max-w-sm m-0">
-            Your submission has been received successfully. We will get back to you shortly.
+            {successMessage}
           </p>
           <button
             onClick={() => setSuccess(false)}
@@ -395,7 +407,7 @@ function ContactUsFrontend({ element }: { element: any }) {
                     </select>
                   ) : field.type === "radio" ? (
                     <div className="flex flex-wrap gap-3 py-1">
-                      {optionsList.map((opt, i) => (
+                       {optionsList.map((opt, i) => (
                         <label key={i} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
                           <input
                             type="radio"
@@ -478,7 +490,7 @@ function ContactUsFrontend({ element }: { element: any }) {
                 {submitting && (
                   <Icon icon="svg-spinners:ring-resize" width="16" className="text-white" />
                 )}
-                {submitting ? "Sending..." : "Submit Message"}
+                {submitting ? "Sending..." : submitButtonText}
               </button>
             </div>
 
@@ -523,6 +535,192 @@ function ContactUsFrontend({ element }: { element: any }) {
   );
 }
 
+/* ── Drag & Drop Custom Fields Manager Component ── */
+function FieldsManager({ value, onChange }: { value: any[]; onChange: (val: any[]) => void }) {
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIdx(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", index.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === targetIdx) return;
+    const next = [...value];
+    const temp = next[draggedIdx];
+    next.splice(draggedIdx, 1);
+    next.splice(targetIdx, 0, temp);
+    onChange(next);
+    setDraggedIdx(null);
+  };
+
+  const moveUp = (index: number) => {
+    if (index === 0) return;
+    const next = [...value];
+    const temp = next[index];
+    next[index] = next[index - 1];
+    next[index - 1] = temp;
+    onChange(next);
+  };
+
+  const moveDown = (index: number) => {
+    if (index === value.length - 1) return;
+    const next = [...value];
+    const temp = next[index];
+    next[index] = next[index + 1];
+    next[index + 1] = temp;
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-4">
+      {(value || []).map((item: any, idx: number) => (
+        <div
+          key={idx}
+          draggable
+          onDragStart={(e) => handleDragStart(e, idx)}
+          onDragOver={(e) => handleDragOver(e, idx)}
+          onDrop={(e) => handleDrop(e, idx)}
+          className="border border-gray-200 rounded-xl p-3 bg-gray-50/30 hover:bg-gray-50/80 transition-colors"
+        >
+          {/* Header Row with Drag Handle, Label and Reordering Controls */}
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100 mb-3 select-none">
+            <div className="flex items-center gap-2 cursor-grab active:cursor-grabbing">
+              <Icon icon="solar:hamburger-menu-bold" className="text-gray-400 shrink-0" width="18" />
+              <span className="text-xs font-bold text-gray-700 truncate max-w-[120px]">
+                {item.label || `Field #${idx + 1}`}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => moveUp(idx)}
+                disabled={idx === 0}
+                className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 border-none bg-transparent cursor-pointer"
+                title="Move Up"
+              >
+                <Icon icon="solar:arrow-up-bold" width="14" />
+              </button>
+              <button
+                type="button"
+                onClick={() => moveDown(idx)}
+                disabled={idx === value.length - 1}
+                className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 border-none bg-transparent cursor-pointer"
+                title="Move Down"
+              >
+                <Icon icon="solar:arrow-down-bold" width="14" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((_: any, i: number) => i !== idx))}
+                className="p-1 text-red-400 hover:text-red-600 border-none bg-transparent cursor-pointer ml-1"
+                title="Remove Field"
+              >
+                <Icon icon="solar:trash-bin-trash-bold" width="16" />
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Select
+              label="Field Type"
+              value={item.type || "text"}
+              onChange={(v: string) => {
+                const u = [...value]; u[idx] = { ...u[idx], type: v }; onChange(u);
+              }}
+              options={FIELD_TYPE_OPTIONS}
+            />
+
+            <Text
+              label="Label text"
+              value={item.label || ""}
+              onChange={(v: string) => {
+                const u = [...value]; u[idx] = { ...u[idx], label: v }; onChange(u);
+              }}
+            />
+
+            <Text
+              label="Placeholder text"
+              value={item.placeholder || ""}
+              onChange={(v: string) => {
+                const u = [...value]; u[idx] = { ...u[idx], placeholder: v }; onChange(u);
+              }}
+            />
+
+            <Select
+              label="Is Required"
+              value={item.required ?? "false"}
+              onChange={(v: string) => {
+                const u = [...value]; u[idx] = { ...u[idx], required: v }; onChange(u);
+              }}
+              options={[
+                { value: "false", label: "No" },
+                { value: "true", label: "Yes" },
+              ]}
+            />
+
+            <Select
+              label="Column Width (Desktop)"
+              value={item.columnWidth || "100"}
+              onChange={(v: string) => {
+                const u = [...value]; u[idx] = { ...u[idx], columnWidth: v }; onChange(u);
+              }}
+              options={COLUMN_WIDTH_OPTIONS}
+            />
+
+            {(item.type === "radio" || item.type === "select" || item.type === "checkbox") && (
+              <Textarea
+                label="Options (New line separated. Label|Value)"
+                value={item.options || ""}
+                placeholder="Option 1|val1&#10;Option 2|val2"
+                onChange={(v: string) => {
+                  const u = [...value]; u[idx] = { ...u[idx], options: v }; onChange(u);
+                }}
+                rows={3}
+              />
+            )}
+
+            {item.type === "upload" && (
+              <NumberControl
+                label="Max files allowed"
+                value={item.maxFiles ?? 1}
+                onChange={(v: number) => {
+                  const u = [...value]; u[idx] = { ...u[idx], maxFiles: v }; onChange(u);
+                }}
+                min={1}
+                max={10}
+              />
+            )}
+          </div>
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={() => {
+          const newItem: FormField = {
+            type: "text",
+            label: "New Field",
+            placeholder: "Enter value",
+            required: "false",
+            columnWidth: "100",
+          };
+          onChange([...(value || []), newItem]);
+        }}
+        className="w-full flex items-center justify-center gap-1 py-2.5 bg-gray-700 hover:bg-gray-800 text-white rounded text-[13px] font-semibold cursor-pointer transition-colors border-none"
+      >
+        + Add Custom Field
+      </button>
+    </div>
+  );
+}
+
 /* ── Element Registry Definition ── */
 const contactUsElement = {
   type: "contact-us-form",
@@ -534,6 +732,11 @@ const contactUsElement = {
     content: {
       labelToggle: "true",
       requiredMarkToggle: "true",
+      submitButtonText: "Submit Message",
+      successMessage: "Your submission has been received successfully. We will get back to you shortly.",
+      errorMessage: "Submission failed. Please try again.",
+      redirectUrl: "",
+      webhookUrl: "",
       fields: [
         {
           type: "text",
@@ -557,9 +760,9 @@ const contactUsElement = {
           columnWidth: "100",
         },
       ],
-      whatsappNumber: "+8801700000000",
-      telegramUsername: "@colorexperts",
-      facebookPage: "colorexperts",
+      whatsappNumber: "8801700000000",
+      telegramUsername: "",
+      facebookPage: "",
     },
 
     style: {
@@ -580,8 +783,57 @@ const contactUsElement = {
     // ═══════════════════ CONTENT TAB ════════════════
     {
       tab: "Content",
+      section: "Form Fields List",
+      controls: [
+        {
+          name: "fields",
+          responsive: false,
+          render: (value: any, onChange: any) => (
+            <FieldsManager value={value} onChange={onChange} />
+          ),
+        },
+      ],
+    },
+
+    {
+      tab: "Content",
       section: "Form Settings",
       controls: [
+        {
+          name: "submitButtonText",
+          responsive: false,
+          render: (value: any, onChange: any) => (
+            <Text label="Submit Button Text" value={value ?? "Submit Message"} onChange={onChange} />
+          ),
+        },
+        {
+          name: "successMessage",
+          responsive: false,
+          render: (value: any, onChange: any) => (
+            <Textarea label="Custom Success Message" value={value ?? "Your submission has been received successfully."} onChange={onChange} rows={2} />
+          ),
+        },
+        {
+          name: "errorMessage",
+          responsive: false,
+          render: (value: any, onChange: any) => (
+            <Textarea label="Custom Error Message" value={value ?? "Submission failed. Please try again."} onChange={onChange} rows={2} />
+          ),
+        },
+        {
+          name: "redirectUrl",
+          responsive: false,
+          render: (value: any, onChange: any) => (
+            <Text label="Redirect URL after submit (optional)" value={value ?? ""} onChange={onChange} />
+          ),
+        },
+        {
+          name: "webhookUrl",
+          responsive: false,
+          render: (value: any, onChange: any) => (
+            <Text label="Webhook URL (optional)" value={value ?? ""} onChange={onChange} />
+          ),
+        },
         {
           name: "labelToggle",
           responsive: false,
@@ -615,122 +867,7 @@ const contactUsElement = {
       ],
     },
 
-    {
-      tab: "Content",
-      section: "Form Fields List",
-      controls: [
-        {
-          name: "fields",
-          responsive: false,
-          render: (value: any, onChange: any) => (
-            <div className="space-y-4">
-              {(value || []).map((item: any, idx: number) => (
-                <Section key={idx} label={`Field #${idx + 1}: ${item.label || ""}`}>
-                  <div className="space-y-3 pt-2">
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => onChange((value || []).filter((_: any, i: number) => i !== idx))}
-                        className="text-[11px] text-red-400 hover:text-red-600 cursor-pointer"
-                      >
-                        Remove Field
-                      </button>
-                    </div>
-
-                    <Select
-                      label="Field Type"
-                      value={item.type || "text"}
-                      onChange={(v: string) => {
-                        const u = [...value]; u[idx] = { ...u[idx], type: v }; onChange(u);
-                      }}
-                      options={FIELD_TYPE_OPTIONS}
-                    />
-
-                    <Text
-                      label="Label text"
-                      value={item.label || ""}
-                      onChange={(v: string) => {
-                        const u = [...value]; u[idx] = { ...u[idx], label: v }; onChange(u);
-                      }}
-                    />
-
-                    <Text
-                      label="Placeholder text"
-                      value={item.placeholder || ""}
-                      onChange={(v: string) => {
-                        const u = [...value]; u[idx] = { ...u[idx], placeholder: v }; onChange(u);
-                      }}
-                    />
-
-                    <Select
-                      label="Is Required"
-                      value={item.required ?? "false"}
-                      onChange={(v: string) => {
-                        const u = [...value]; u[idx] = { ...u[idx], required: v }; onChange(u);
-                      }}
-                      options={[
-                        { value: "false", label: "No" },
-                        { value: "true", label: "Yes" },
-                      ]}
-                    />
-
-                    <Select
-                      label="Column Width (Desktop)"
-                      value={item.columnWidth || "100"}
-                      onChange={(v: string) => {
-                        const u = [...value]; u[idx] = { ...u[idx], columnWidth: v }; onChange(u);
-                      }}
-                      options={COLUMN_WIDTH_OPTIONS}
-                    />
-
-                    {(item.type === "radio" || item.type === "select" || item.type === "checkbox") && (
-                      <Textarea
-                        label="Options (New line separated. Label|Value)"
-                        value={item.options || ""}
-                        placeholder="Option 1|val1&#10;Option 2|val2"
-                        onChange={(v: string) => {
-                          const u = [...value]; u[idx] = { ...u[idx], options: v }; onChange(u);
-                        }}
-                        rows={3}
-                      />
-                    )}
-
-                    {item.type === "upload" && (
-                      <NumberControl
-                        label="Max files allowed"
-                        value={item.maxFiles ?? 1}
-                        onChange={(v: number) => {
-                          const u = [...value]; u[idx] = { ...u[idx], maxFiles: v }; onChange(u);
-                        }}
-                        min={1}
-                        max={10}
-                      />
-                    )}
-                  </div>
-                </Section>
-              ))}
-
-              <button
-                type="button"
-                onClick={() => {
-                  const newItem: FormField = {
-                    type: "text",
-                    label: "New Field",
-                    placeholder: "Enter value",
-                    required: "false",
-                    columnWidth: "100",
-                  };
-                  onChange([...(value || []), newItem]);
-                }}
-                className="w-full flex items-center justify-center gap-1 py-2.5 bg-gray-700 hover:bg-gray-800 text-white rounded text-[13px] font-semibold cursor-pointer transition-colors"
-              >
-                + Add Custom Field
-              </button>
-            </div>
-          ),
-        },
-      ],
-    },
+    
 
     {
       tab: "Content",
@@ -830,3 +967,4 @@ const contactUsElement = {
 };
 
 export default contactUsElement;
+

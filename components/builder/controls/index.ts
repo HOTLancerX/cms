@@ -8,7 +8,6 @@ export { default as CheckboxGroup } from "./CheckboxGroup";
 export { default as Toggle } from "./Toggle";
 export { default as ButtonGroup } from "./ButtonGroup";
 export { default as Slider } from "./Slider";
-export { default as ImageUpload } from "./ImageUpload";
 export { default as Divider } from "./Divider";
 export { default as ColorPickerPopup } from "./ColorPickerPopup";
 export { default as Width } from "./Width";

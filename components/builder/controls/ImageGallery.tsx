@@ -1,6 +1,4 @@
 "use client";
-
-import { Icon } from "@iconify/react";
 import Gallery from "@/components/Gallery";
 
 interface Props {

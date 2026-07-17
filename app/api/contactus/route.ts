@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     try {
         await connectDB();
         const body = await request.json();
-        const { fields = {}, files = [] } = body;
+        const { fields = {}, files = [], webhookUrl } = body;
 
         // Gather IP
         const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "127.0.0.1";
@@ -105,6 +105,31 @@ export async function POST(request: NextRequest) {
             device,
             status: "unread",
         });
+
+        // Trigger optional webhook (Elementor form feature)
+        if (webhookUrl) {
+            try {
+                // Fire and forget or quick fetch with 2s timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000);
+                fetch(webhookUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        fields,
+                        files,
+                        ip,
+                        location,
+                        device,
+                        createdAt: new Date(),
+                    }),
+                    signal: controller.signal,
+                }).then(() => clearTimeout(timeoutId))
+                  .catch((e) => console.error("Webhook fetch failed:", e));
+            } catch (e) {
+                console.error("Webhook trigger failed:", e);
+            }
+        }
 
         return NextResponse.json({ success: true, data: newSubmission }, { status: 201 });
     } catch (error: any) {
