@@ -208,7 +208,11 @@ function AppearanceTab({
                     {/* Mock header */}
                     <div className="flex items-center gap-3 px-4 py-2.5"
                         style={{ backgroundColor: colorMain }}>
-                        <span className="font-bold text-white text-sm">Logo</span>
+                        {live.logo ? (
+                            <img src={live.logo} alt="Logo" className="h-5 w-auto object-contain shrink-0" />
+                        ) : (
+                            <span className="font-bold text-white text-sm shrink-0">{live.siteName || "Logo"}</span>
+                        )}
                         <div className="flex gap-3 ml-4">
                             {["Home", "Shop", "Blog"].map(l => (
                                 <span key={l} className="text-white/80">{l}</span>
@@ -352,10 +356,16 @@ function HeaderTab({
                     <div className="flex items-center justify-between px-6 py-4 border-b">
                         {/* Logo */}
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded bg-indigo-100 flex items-center justify-center">
-                                <Icon icon="solar:star-bold" width={14} className="text-indigo-500" />
-                            </div>
-                            <span className="text-sm font-bold text-gray-700">Logo</span>
+                            {initialValues.logo ? (
+                                <img src={initialValues.logo} alt="Logo" className="h-6 w-auto object-contain shrink-0" />
+                            ) : (
+                                <>
+                                    <div className="w-8 h-8 rounded bg-indigo-100 flex items-center justify-center shrink-0">
+                                        <Icon icon="solar:star-bold" width={14} className="text-indigo-500" />
+                                    </div>
+                                    <span className="text-sm font-bold text-gray-700">{initialValues.siteName || "Logo"}</span>
+                                </>
+                            )}
                         </div>
                         {/* Main menu */}
                         <SlotPreviewPill value={initialValues.header_main_menu} fallback="header_main_menu" color="blue" />

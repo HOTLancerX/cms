@@ -39,20 +39,20 @@ export default function MobileDrawer({ items, siteName = 'MySite', iconColor = '
                 aria-label="Open mobile menu"
                 className="md:hidden p-2 rounded-lg hover:bg-black/10 transition"
             >
-                <Icon icon="solar:hamburger-menu-bold" width={22} style={{ color: iconColor }} />
+                <Icon icon="boxicons:list-filled" width={22} style={{ color: iconColor }} />
             </button>
 
             {/* Backdrop */}
             {open && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-[9998] md:hidden"
+                    className="fixed inset-0 bg-black/50 z-9998 md:hidden"
                     onClick={() => setOpen(false)}
                 />
             )}
 
             {/* Drawer */}
             <div
-                className={`fixed inset-y-0 left-0 z-[9999] w-[85vw] max-w-sm bg-white shadow-2xl flex flex-col transition-transform duration-300 md:hidden ${
+                className={`fixed inset-y-0 left-0 z-9999 w-[85vw] max-w-sm bg-white shadow-2xl flex flex-col transition-transform duration-300 md:hidden ${
                     open ? 'translate-x-0' : '-translate-x-full'
                 }`}
             >

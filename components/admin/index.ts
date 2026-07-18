@@ -567,7 +567,7 @@ export function register(): void {
             type: "settings",
             style: "left",
             position: 30,
-            component: Text,
+            fieldType: "gallery",
         },
         {
             key: "favicon",
@@ -575,7 +575,7 @@ export function register(): void {
             type: "settings",
             style: "left",
             position: 40,
-            component: Text,
+            fieldType: "gallery",
         },
         {
             key: "homepage",

@@ -240,6 +240,26 @@ export const cssRegistry: Record<string, CSSGeneratorFn> = {
         return `text-align: ${value};`;
     },
 
+    imageLeftOffset: (value) => {
+        if (value === undefined || value === null) return "";
+        return `--image-left-offset: ${value}%;`;
+    },
+
+    imageHeight: (value) => {
+        if (value === undefined || value === null) return "";
+        return `--image-height: ${value}px;`;
+    },
+
+    marginLeft: (value) => {
+        if (value === undefined || value === null) return "";
+        return `--margin-left: ${value}px;`;
+    },
+
+    columnGap: (value) => {
+        if (value === undefined || value === null) return "";
+        return `--column-gap: ${value}px;`;
+    },
+
     // --- CONTENT (non-CSS controls) ---
     text: () => "",
     tag: () => "",

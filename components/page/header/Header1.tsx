@@ -34,8 +34,12 @@ export default function Header1({
                 </div>
             )}
             <div className="container h-16 flex items-center justify-between w-full gap-6">
-                <Link href="/" className="text-xl font-extrabold text-gray-900 tracking-tight shrink-0">
-                    {settings.siteName || 'MySite'}
+                <Link href="/" className="text-xl font-extrabold text-gray-900 tracking-tight shrink-0 flex items-center">
+                    {settings.logo ? (
+                        <img src={settings.logo} alt={settings.siteName || 'MySite'} className="h-8 w-auto object-contain" />
+                    ) : (
+                        settings.siteName || 'MySite'
+                    )}
                 </Link>
                 <MobileDrawer items={mobileItems} siteName={settings.siteName} iconColor="#374151" />
                 {mainItems.length > 0 ? (

@@ -4,7 +4,11 @@ import Link from "next/link";
  * Site Footer — Layout 1
  * Light minimal style: white background, four-column grid, bottom copyright bar.
  */
-export default function Footer1() {
+interface Footer1Props {
+    settings?: Record<string, any>;
+}
+
+export default function Footer1({ settings = {} }: Footer1Props) {
     const year = new Date().getFullYear();
 
     return (
@@ -13,8 +17,12 @@ export default function Footer1() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
                     {/* Brand column */}
                     <div className="space-y-3">
-                        <Link href="/" className="text-xl font-extrabold text-gray-900 tracking-tight">
-                            MySite
+                        <Link href="/" className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center">
+                            {settings.logo ? (
+                                <img src={settings.logo} alt={settings.siteName || 'MySite'} className="h-8 w-auto object-contain" />
+                            ) : (
+                                settings.siteName || 'MySite'
+                            )}
                         </Link>
                         <p className="text-sm text-gray-500 leading-relaxed">
                             Building great digital experiences, one page at a time.
@@ -69,7 +77,7 @@ export default function Footer1() {
             {/* Bottom bar */}
             <div className="border-t border-gray-100">
                 <div className="container py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <p className="text-xs text-gray-400">© {year} MySite. All rights reserved.</p>
+                    <p className="text-xs text-gray-400">© {year} {settings.siteName || 'MySite'}. All rights reserved.</p>
                     <div className="flex items-center gap-4">
                         <Link href="#" className="text-xs text-gray-400 hover:text-gray-600 transition">Privacy</Link>
                         <Link href="#" className="text-xs text-gray-400 hover:text-gray-600 transition">Terms</Link>
