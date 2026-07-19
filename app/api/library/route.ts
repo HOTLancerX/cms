@@ -4,6 +4,7 @@ import { serializeDocs, serializeDoc } from '@/lib/mongodb'
 
 export async function GET() {
     try {
+        console.log("=== GET /api/library requested ===");
         await initializeLibrariesCollection();
         const collection = await getLibrariesCollection();
 
@@ -12,11 +13,12 @@ export async function GET() {
             .sort({ createdAt: -1 })
             .toArray();
 
+        console.log("=== GET /api/library returned:", libraries.length, "items ===");
         const serializedLibraries = serializeDocs(libraries);
 
         return NextResponse.json(serializedLibraries || [])
     } catch (error) {
-        console.error('Server error:', error)
+        console.error('Server error GET /api/library:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

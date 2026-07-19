@@ -34,40 +34,53 @@ export async function convertToWebP(buffer: Buffer, quality: number = 80): Promi
         .toBuffer()
 }
 
+const isVideoFilename = (filename: string): boolean => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    return ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'].includes(ext || '');
+};
+
 export async function uploadToCloudinary(
     buffer: Buffer,
     filename: string,
     folder: string = 'library'
 ): Promise<UploadResult> {
     try {
-        // Convert to WebP
-        const webpBuffer = await convertToWebP(buffer)
+        const isVideo = isVideoFilename(filename);
+        let finalBuffer = buffer;
+        let options: any = {
+            folder,
+            public_id: `${folder}/${Date.now()}_${filename.split('.')[0]}`,
+            timeout: 30000 // 30 seconds timeout
+        };
+
+        if (isVideo) {
+            options.resource_type = 'video';
+        } else {
+            // Convert to WebP for images
+            finalBuffer = await convertToWebP(buffer);
+            options.resource_type = 'image';
+            options.format = 'webp';
+            options.transformation = [
+                { quality: 'auto:good' },
+                { fetch_format: 'auto' }
+            ];
+        }
 
         // Upload to Cloudinary with timeout
         const result = await Promise.race([
             new Promise<any>((resolve, reject) => {
                 cloudinary.uploader.upload_stream(
-                    {
-                        resource_type: 'image',
-                        folder,
-                        public_id: `${folder}/${Date.now()}_${filename.split('.')[0]}`,
-                        format: 'webp',
-                        transformation: [
-                            { quality: 'auto:good' },
-                            { fetch_format: 'auto' }
-                        ],
-                        timeout: 30000 // 30 seconds timeout
-                    },
+                    options,
                     (error, result) => {
-                        if (error) reject(error)
-                        else resolve(result)
+                        if (error) reject(error);
+                        else resolve(result);
                     }
-                ).end(webpBuffer)
+                ).end(finalBuffer);
             }),
             new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Upload timeout after 30 seconds')), 30000)
             )
-        ])
+        ]);
 
         return {
             url: result.secure_url,
@@ -76,10 +89,10 @@ export async function uploadToCloudinary(
             height: result.height,
             format: result.format,
             size: result.bytes
-        }
+        };
     } catch (error) {
-        console.error('Cloudinary upload error:', error)
-        throw new Error(`Failed to upload to Cloudinary: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        console.error('Cloudinary upload error:', error);
+        throw new Error(`Failed to upload to Cloudinary: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
@@ -89,41 +102,61 @@ export async function uploadToCloudflareR2(
     folder: string = 'library'
 ): Promise<UploadResult> {
     try {
-        // Convert to WebP
-        const webpBuffer = await convertToWebP(buffer)
+        const isVideo = isVideoFilename(filename);
+        const timestamp = Date.now();
+        const cleanFilename = filename.split('.')[0].replace(/[^a-zA-Z0-9]/g, '_');
+        
+        let finalBuffer = buffer;
+        let key = '';
+        let contentType = '';
+        let format = '';
+        let width = undefined;
+        let height = undefined;
 
-        // Generate unique filename
-        const timestamp = Date.now()
-        const cleanFilename = filename.split('.')[0].replace(/[^a-zA-Z0-9]/g, '_')
-        const key = `${folder}/${timestamp}_${cleanFilename}.webp`
+        if (isVideo) {
+            const ext = filename.split('.').pop()?.toLowerCase() || 'mp4';
+            key = `${folder}/${timestamp}_${cleanFilename}.${ext}`;
+            contentType = `video/${ext === 'mov' ? 'quicktime' : ext}`;
+            format = ext;
+        } else {
+            finalBuffer = await convertToWebP(buffer);
+            key = `${folder}/${timestamp}_${cleanFilename}.webp`;
+            contentType = 'image/webp';
+            format = 'webp';
+            
+            try {
+                const metadata = await sharp(finalBuffer).metadata();
+                width = metadata.width;
+                height = metadata.height;
+            } catch (err) {
+                console.error('Sharp metadata error:', err);
+            }
+        }
 
         // Upload to Cloudflare R2
         const command = new PutObjectCommand({
             Bucket: process.env.R2_BUCKET!,
             Key: key,
-            Body: webpBuffer,
-            ContentType: 'image/webp',
+            Body: finalBuffer,
+            ContentType: contentType,
             CacheControl: 'public, max-age=31536000', // 1 year cache
-        })
+        });
 
-        await r2Client.send(command)
+        await r2Client.send(command);
 
-        // Get image metadata
-        const metadata = await sharp(webpBuffer).metadata()
-
-        const publicUrl = `${process.env.NEXT_PUBLIC_IMAGE_CDN}/${key}`
+        const publicUrl = `${process.env.NEXT_PUBLIC_IMAGE_CDN}/${key}`;
 
         return {
             url: publicUrl,
             publicId: key,
-            width: metadata.width,
-            height: metadata.height,
-            format: 'webp',
-            size: webpBuffer.length
-        }
+            width,
+            height,
+            format,
+            size: finalBuffer.length
+        };
     } catch (error) {
-        console.error('Cloudflare R2 upload error:', error)
-        throw new Error('Failed to upload to Cloudflare R2')
+        console.error('Cloudflare R2 upload error:', error);
+        throw new Error('Failed to upload to Cloudflare R2');
     }
 }
 

@@ -138,11 +138,13 @@ function validateFile(file: File): { valid: boolean; error?: string } {
         }
     }
 
-    // Check file type
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    // Check file type (allow all images and videos)
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    if (!isImage && !isVideo) {
         return {
             valid: false,
-            error: `File type ${file.type} not allowed. Allowed types: ${ALLOWED_TYPES.join(', ')}`
+            error: `File type ${file.type} not allowed. Please upload an image or video file.`
         }
     }
 
