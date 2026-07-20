@@ -32,6 +32,26 @@ export interface PostFormProps {
     onSuccess?: (postId: string) => void;
 }
 
+const normalizeText = (text: string): string => {
+    return text
+        .replace(/[\u2018\u2019]/g, "'") // curly single quotes
+        .replace(/[\u201C\u201D]/g, '"') // curly double quotes
+        .replace(/[\u2013\u2014]/g, "-") // em/en dashes
+        .trim();
+};
+
+const isEnglishString = (str: string): boolean => {
+    const normalized = normalizeText(str);
+    return /^[\x00-\x7F]*$/.test(normalized);
+};
+
+const slugify = (text: string): string => {
+    return normalizeText(text)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+};
+
 export default function PostForm({ type, activePlugins, postId, userId, defaultStatus, onSuccess }: PostFormProps) {
     const router = useRouter();
     const isEdit = Boolean(postId);
@@ -75,6 +95,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
 
     const checkSlug = useCallback((value: string) => {
         if (!value) { setSlugStatus("idle"); return; }
+        if (value === "pending-id") { setSlugStatus("available"); return; }
         if (isEdit && value === originalSlug.current) { setSlugStatus("idle"); return; }
         setSlugStatus("checking");
         if (slugDebounceRef.current) clearTimeout(slugDebounceRef.current);
@@ -149,9 +170,14 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
     const handleTitleChange = (val: string) => {
         setTitle(val);
         if (!isEdit) {
-            const g = val.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-            setSlug(g);
-            checkSlug(g);
+            if (isEnglishString(val)) {
+                const g = slugify(val);
+                setSlug(g);
+                checkSlug(g);
+            } else {
+                setSlug("pending-id");
+                setSlugStatus("available");
+            }
         }
     };
 
@@ -160,6 +186,19 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
         if (slugStatus === "taken") return;
         setSaving(true);
         setMessage("");
+
+        // Check if slug needs to be set to the created ID
+        const needsIdSlug = !slug || slug === "pending-id" || !isEnglishString(slug) || !isEnglishString(title);
+        let finalSlug = slug;
+        if (needsIdSlug) {
+            if (isEdit && postId) {
+                finalSlug = postId;
+            } else {
+                // Generate a temporary unique slug for the initial post creation
+                finalSlug = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+            }
+        }
+
         try {
             // Merge the optional userId into info so it's persisted as PostInfo
             // and can be used to filter posts by seller/author later.
@@ -174,7 +213,11 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
             const saveStatus = defaultStatus ?? status;
 
             const payload = {
-                title, slug, status: saveStatus, type, info: mergedInfo,
+                title,
+                slug: finalSlug,
+                status: saveStatus,
+                type,
+                info: mergedInfo,
                 ...(userId ? { userId } : {}),
                 ...(category ? { category } : {}),
                 ...(isEdit ? { _id: postId } : {}),
@@ -187,6 +230,30 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
             if (!res.ok) {
                 setMessage(`Error: ${data.error}`);
             } else {
+                const newPostId = data.post?._id ?? postId ?? "";
+
+                // If in add mode and we need the slug to be the database ID:
+                if (!isEdit && needsIdSlug && newPostId) {
+                    try {
+                        const updatePayload = {
+                            _id: newPostId,
+                            title,
+                            slug: newPostId,
+                            status: saveStatus,
+                            type,
+                            info: mergedInfo,
+                            ...(userId ? { userId } : {}),
+                            ...(category ? { category } : {}),
+                        };
+                        await xFetch("/post", {
+                            method: "PUT",
+                            body: JSON.stringify(updatePayload),
+                        });
+                    } catch (err) {
+                        console.error("Failed to update slug to post ID:", err);
+                    }
+                }
+
                 setMessage("Saved successfully!");
                 if (!isEdit) {
                     setTitle(""); setSlug(""); setStatus(defaultStatus ?? "published");
@@ -195,7 +262,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                     // Reflect the status that was actually saved
                     setStatus(saveStatus);
                 }
-                onSuccess?.(data.post?._id ?? postId ?? "");
+                onSuccess?.(newPostId);
             }
         } catch {
             setMessage("Network error");
@@ -299,7 +366,25 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                         <label htmlFor="slug" className="text-xs font-semibold">Slug</label>
                         <input
                             id="slug" type="text" value={slug} required
-                            onChange={(e) => { setSlug(e.target.value); checkSlug(e.target.value); }}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setSlug(val);
+                                checkSlug(val);
+                            }}
+                            onPaste={(e: React.ClipboardEvent<HTMLInputElement>) => {
+                                const pastedText = e.clipboardData.getData("text");
+                                if (isEnglishString(pastedText)) {
+                                    const cleaned = slugify(pastedText);
+                                    e.preventDefault();
+                                    setSlug(cleaned);
+                                    checkSlug(cleaned);
+                                } else {
+                                    e.preventDefault();
+                                    const targetSlug = isEdit && postId ? postId : "pending-id";
+                                    setSlug(targetSlug);
+                                    setSlugStatus("available");
+                                }
+                            }}
                             className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition ${
                                 slugStatus === "taken"      ? "border-red-400 focus:border-red-400"
                                 : slugStatus === "available" ? "border-emerald-400 focus:border-emerald-400"
@@ -307,9 +392,12 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                             }`}
                             placeholder="auto-generated-slug"
                         />
-                        {slugStatus === "checking"  && <p className="text-xs text-gray-400">Checking availability…</p>}
-                        {slugStatus === "available" && <p className="text-xs text-emerald-500">✓ Slug is available</p>}
-                        {slugStatus === "taken"     && <p className="text-xs text-red-500">✗ This slug is already taken</p>}
+                        {slug === "pending-id" && (
+                            <p className="text-xs text-indigo-500">ℹ Post ID will be used as slug on publish</p>
+                        )}
+                        {slug !== "pending-id" && slugStatus === "checking"  && <p className="text-xs text-gray-400">Checking availability…</p>}
+                        {slug !== "pending-id" && slugStatus === "available" && <p className="text-xs text-emerald-500">✓ Slug is available</p>}
+                        {slug !== "pending-id" && slugStatus === "taken"     && <p className="text-xs text-red-500">✗ This slug is already taken</p>}
                     </div>
 
                     
@@ -345,20 +433,28 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                         Hidden in add mode when defaultStatus is provided (caller
                         controls the status via admin preference). Always shown in
                         edit mode so the user can see/change the current status. */}
-                    {(defaultStatus === undefined) && (
-                        <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
-                            <label htmlFor="status" className="text-xs font-semibold">Status</label>
-                            <select
-                                id="status" value={status}
-                                onChange={(e) => setStatus(e.target.value)}
-                                className="appearance-none w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500"
-                            >
-                                <option value="draft">Draft</option>
-                                <option value="published">Published</option>
-                            </select>
-                        </div>
-                    )}
-                    
+                    <div className="flex items-end gap-2 bg-white p-2 rounded md:relative fixed bottom-0 left-0 right-0 z-50">
+                        {(defaultStatus === undefined) && (
+                            <div className="flex-1">
+                                <label htmlFor="status" className="text-xs font-semibold">Status</label>
+                                <select
+                                    id="status" value={status}
+                                    onChange={(e) => setStatus(e.target.value)}
+                                    className="appearance-none w-full rounded border p-2 text-sm outline-none transition focus:border-indigo-500"
+                                >
+                                    <option value="draft">Draft</option>
+                                    <option value="published">Published</option>
+                                </select>
+                            </div>
+                        )}
+                        <button
+                            type="submit"
+                            disabled={saving || slugStatus === "taken"}
+                            className="p-2 flex-1 rounded bg-indigo-500 text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed"
+                        >
+                            {saving ? "Saving…" : isEdit ? "Save Changes" : "Publish"}
+                        </button>
+                    </div>
                     {/* ── Default image field ── */}
                     <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
                         <label className="text-xs font-semibold">Featured Image</label>
@@ -410,22 +506,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
 
                     {renderFields(rightFields)}
 
-                    <button
-                        type="submit"
-                        disabled={saving || slugStatus === "taken"}
-                        className="p-2 w-full rounded-lg bg-indigo-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed"
-                    >
-                        {saving ? "Saving…" : isEdit ? "Save Changes" : "Publish"}
-                    </button>
-
-                    {isEdit && (
-                        <button
-                            type="button" onClick={handleDelete} disabled={deleting}
-                            className="w-full rounded-lg bg-red-50 px-6 py-3 text-sm font-semibold text-red-500 transition hover:bg-red-100 disabled:opacity-55 disabled:cursor-not-allowed"
-                        >
-                            {deleting ? "Deleting…" : "Delete Post"}
-                        </button>
-                    )}
+                    
                 </div>
 
             </div>

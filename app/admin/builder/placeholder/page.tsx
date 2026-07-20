@@ -1,23 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import {
-  FiPlus,
-  FiTrash2,
-  FiCopy,
-  FiUpload,
-  FiDownload,
-  FiArrowUp,
-  FiArrowDown,
-  FiGrid,
-  FiRotateCcw,
-  FiImage,
-  FiMaximize2,
-  FiSliders,
-  FiX,
-  FiLayers,
-  FiCompass
-} from "react-icons/fi";
+import { Icon } from "@iconify/react";
 
 type Box = {
   id: string;
@@ -531,7 +515,7 @@ export default function PlaceholderBuilder() {
       <header className="h-16 border-b border-slate-200 bg-white/90 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-linear-to-tr from-blue-600 to-indigo-600 rounded-lg shadow-md shadow-blue-500/20 text-white">
-            <FiMaximize2 className="w-5 h-5" />
+            <Icon icon="feather:maximize-2" className="w-5 h-5" />
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
@@ -557,7 +541,7 @@ export default function PlaceholderBuilder() {
             }`}
             title="Toggle Grid Lines"
           >
-            <FiGrid className="w-4 h-4" />
+            <Icon icon="feather:grid" className="w-4 h-4" />
             Grid
           </button>
 
@@ -570,7 +554,7 @@ export default function PlaceholderBuilder() {
             }`}
             title="Toggle Photoshop Rulers & Guides"
           >
-            <FiCompass className="w-4 h-4" />
+            <Icon icon="feather:compass" className="w-4 h-4" />
             Rulers
           </button>
 
@@ -579,7 +563,7 @@ export default function PlaceholderBuilder() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-slate-600 hover:text-red-600 border border-slate-200 hover:border-red-200 transition"
             title="Clear All Boxes"
           >
-            <FiRotateCcw className="w-3.5 h-3.5" />
+            <Icon icon="feather:rotate-ccw" className="w-3.5 h-3.5" />
             Clear
           </button>
 
@@ -590,7 +574,7 @@ export default function PlaceholderBuilder() {
             disabled={isExporting}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-500/20 active:scale-95 transition disabled:opacity-50"
           >
-            <FiDownload className="w-4 h-4" />
+            <Icon icon="feather:download" className="w-4 h-4" />
             {isExporting ? "Rendering PNG..." : "Export PNG"}
           </button>
         </div>
@@ -599,7 +583,7 @@ export default function PlaceholderBuilder() {
       {/* Top Placeholders Item Bar */}
       <div className="bg-white border-b border-slate-200 px-6 py-2.5 flex items-center gap-3 overflow-x-auto z-20 shadow-xs">
         <div className="flex items-center gap-1.5 shrink-0 text-xs font-semibold text-slate-700 mr-1">
-          <FiLayers className="w-4 h-4 text-blue-600" />
+          <Icon icon="feather:layers" className="w-4 h-4 text-blue-600" />
           <span>Created Items ({boxes.length}):</span>
         </div>
 
@@ -651,7 +635,7 @@ export default function PlaceholderBuilder() {
                 onClick={addBox}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium bg-slate-900 hover:bg-slate-800 text-white shadow-md active:scale-[0.98] transition"
               >
-                <FiPlus className="w-5 h-5" />
+                <Icon icon="feather:plus" className="w-5 h-5" />
                 Add Placeholder
               </button>
               <p className="text-[11px] text-slate-400 mt-1.5 text-center">
@@ -664,7 +648,7 @@ export default function PlaceholderBuilder() {
               <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-4 shadow-sm">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
                   <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                    <FiSliders className="w-3.5 h-3.5 text-blue-600" />
+                    <Icon icon="feather:sliders" className="w-3.5 h-3.5 text-blue-600" />
                     Selected Item
                   </span>
                   <div className="flex items-center gap-1">
@@ -673,28 +657,28 @@ export default function PlaceholderBuilder() {
                       className="p-1 text-slate-500 hover:text-slate-900 rounded hover:bg-slate-200 transition"
                       title="Move Up Layer"
                     >
-                      <FiArrowUp className="w-3.5 h-3.5" />
+                      <Icon icon="feather:arrow-up" className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => moveLayer(activeBox.id, "down")}
                       className="p-1 text-slate-500 hover:text-slate-900 rounded hover:bg-slate-200 transition"
                       title="Move Down Layer"
                     >
-                      <FiArrowDown className="w-3.5 h-3.5" />
+                      <Icon icon="feather:arrow-down" className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => duplicateBox(activeBox.id)}
                       className="p-1 text-slate-500 hover:text-blue-600 rounded hover:bg-slate-200 transition"
                       title="Duplicate"
                     >
-                      <FiCopy className="w-3.5 h-3.5" />
+                      <Icon icon="feather:copy" className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => deleteBox(activeBox.id)}
                       className="p-1 text-slate-500 hover:text-red-600 rounded hover:bg-slate-200 transition"
                       title="Delete"
                     >
-                      <FiTrash2 className="w-3.5 h-3.5" />
+                      <Icon icon="feather:trash-2" className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -840,7 +824,7 @@ export default function PlaceholderBuilder() {
             {/* Canvas Image Settings */}
             <div className="space-y-3 pt-2 border-t border-slate-200">
               <h3 className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                <FiImage className="w-3.5 h-3.5 text-slate-500" />
+                <Icon icon="feather:image" className="w-3.5 h-3.5 text-slate-500" />
                 Canvas Background
               </h3>
 
@@ -857,7 +841,7 @@ export default function PlaceholderBuilder() {
                   onClick={() => imageInputRef.current?.click()}
                   className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition"
                 >
-                  <FiUpload className="w-3.5 h-3.5" />
+                  <Icon icon="feather:upload" className="w-3.5 h-3.5" />
                   Upload Image
                 </button>
 
@@ -866,7 +850,7 @@ export default function PlaceholderBuilder() {
                     onClick={removeCanvasImage}
                     className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition"
                   >
-                    <FiX className="w-3.5 h-3.5" />
+                    <Icon icon="feather:x" className="w-3.5 h-3.5" />
                     Remove
                   </button>
                 ) : (
@@ -1211,22 +1195,22 @@ export default function PlaceholderBuilder() {
                         {/* SE Handle */}
                         <div
                           onMouseDown={(e) => resizeStart(e, box, "se")}
-                          className="absolute right-[-6px] bottom-[-6px] w-4 h-4 bg-blue-600 border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition z-30"
+                          className="absolute -right-1.5 -bottom-1.5 w-4 h-4 bg-blue-600 border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition z-30"
                         />
                         {/* SW Handle */}
                         <div
                           onMouseDown={(e) => resizeStart(e, box, "sw")}
-                          className="absolute left-[-6px] bottom-[-6px] w-4 h-4 bg-blue-600 border-2 border-white rounded-full cursor-sw-resize shadow-md hover:scale-125 transition z-30"
+                          className="absolute -left-1.5 -bottom-1.5 w-4 h-4 bg-blue-600 border-2 border-white rounded-full cursor-sw-resize shadow-md hover:scale-125 transition z-30"
                         />
                         {/* NE Handle */}
                         <div
                           onMouseDown={(e) => resizeStart(e, box, "ne")}
-                          className="absolute right-[-6px] top-[-6px] w-4 h-4 bg-blue-600 border-2 border-white rounded-full cursor-ne-resize shadow-md hover:scale-125 transition z-30"
+                          className="absolute -right-1.5 -top-1.5 w-4 h-4 bg-blue-600 border-2 border-white rounded-full cursor-ne-resize shadow-md hover:scale-125 transition z-30"
                         />
                         {/* NW Handle */}
                         <div
                           onMouseDown={(e) => resizeStart(e, box, "nw")}
-                          className="absolute left-[-6px] top-[-6px] w-4 h-4 bg-blue-600 border-2 border-white rounded-full cursor-nw-resize shadow-md hover:scale-125 transition z-30"
+                          className="absolute -left-1.5 -top-1.5 w-4 h-4 bg-blue-600 border-2 border-white rounded-full cursor-nw-resize shadow-md hover:scale-125 transition z-30"
                         />
 
                         {/* Live Dimension Badge */}
@@ -1258,7 +1242,7 @@ export default function PlaceholderBuilder() {
             }}
             className="w-full text-left px-3 py-2 hover:bg-slate-100 flex items-center gap-2 text-slate-800 transition"
           >
-            <FiCopy className="w-3.5 h-3.5 text-blue-600" />
+            <Icon icon="feather:copy" className="w-3.5 h-3.5 text-blue-600" />
             <span>Duplicate</span>
           </button>
           <button
@@ -1268,7 +1252,7 @@ export default function PlaceholderBuilder() {
             }}
             className="w-full text-left px-3 py-2 hover:bg-slate-100 flex items-center gap-2 text-slate-800 transition"
           >
-            <FiArrowUp className="w-3.5 h-3.5 text-slate-500" />
+            <Icon icon="feather:arrow-up" className="w-3.5 h-3.5 text-slate-500" />
             <span>Bring Forward</span>
           </button>
           <button
@@ -1278,7 +1262,7 @@ export default function PlaceholderBuilder() {
             }}
             className="w-full text-left px-3 py-2 hover:bg-slate-100 flex items-center gap-2 text-slate-800 transition"
           >
-            <FiArrowDown className="w-3.5 h-3.5 text-slate-500" />
+            <Icon icon="feather:arrow-down" className="w-3.5 h-3.5 text-slate-500" />
             <span>Send Backward</span>
           </button>
           <div className="my-1 border-t border-slate-100" />
@@ -1289,7 +1273,7 @@ export default function PlaceholderBuilder() {
             }}
             className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2 transition"
           >
-            <FiTrash2 className="w-3.5 h-3.5 text-red-600" />
+            <Icon icon="feather:trash-2" className="w-3.5 h-3.5 text-red-600" />
             <span>Delete</span>
           </button>
         </div>

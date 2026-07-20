@@ -710,18 +710,7 @@ export default function Gallery({ multiple = false, value, onChange, placeholder
                         <span className="text-xs font-bold">{placeholder}</span>
                     </button>
                 ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                        {/* 1. Small box appears first */}
-                        <button
-                            type="button"
-                            onClick={() => setIsModalOpen(true)}
-                            className="w-full h-24 border-2 bg-white border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50/10 transition flex flex-col items-center justify-center gap-1 shrink-0"
-                            title="Add more images"
-                        >
-                            <Icon icon="solar:add-circle-bold" width={20} className="text-blue-500" />
-                            <span className="text-[10px] font-bold">Add Images</span>
-                        </button>
-
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                         {/* 2. List of all the images */}
                         {selectedImages.map((url, index) => (
                             <div key={index} className="relative group rounded-xl border border-gray-100 p-1 bg-gray-50 flex items-center justify-center h-24 overflow-hidden shadow-xs">
@@ -743,7 +732,7 @@ export default function Gallery({ multiple = false, value, onChange, placeholder
                                 <button
                                     type="button"
                                     onClick={() => removeImage(url)}
-                                    className="absolute -top-1 -right-1 text-red-500 hover:text-red-600 transition duration-150 hover:scale-110 active:scale-95 bg-white rounded-full shadow"
+                                    className="absolute top-2 right-2 text-red-500 hover:text-red-600 transition duration-150 hover:scale-110 active:scale-95 bg-white rounded-full shadow"
                                     title="Remove image"
                                 >
                                     <Icon icon="solar:close-circle-bold" width={18} />
