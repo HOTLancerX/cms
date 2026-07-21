@@ -24,16 +24,16 @@ import { spawn } from "child_process";
 const ROOT = __dirname;
 
 // Spawn plugin-runner in development mode to sync/watch assets and dependencies
-if (process.env.NODE_ENV === "development") {
-    console.log("[next.config] Starting plugin-runner in watch mode...");
-    const runnerPath = path.join(ROOT, "lib", "plugin-runner.mjs");
-    const watcher = spawn("node", [runnerPath, "--watch"], {
-        stdio: "inherit",
-    });
-    process.on("exit", () => {
-        watcher.kill();
-    });
-}
+// if (process.env.NODE_ENV === "development") {
+//     console.log("[next.config] Starting plugin-runner in watch mode...");
+//     const runnerPath = path.join(ROOT, "lib", "plugin-runner.mjs");
+//     const watcher = spawn("node", [runnerPath, "--watch"], {
+//         stdio: "inherit",
+//     });
+//     process.on("exit", () => {
+//         watcher.kill();
+//     });
+// }
 
 const STUB = "@/lib/optional-plugin-stub";
 
