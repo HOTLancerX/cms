@@ -42,7 +42,6 @@ const OPTIONAL_MODULES: string[] = [
     "@/plugin/seller/models/Wallet",
     "@/plugin/product/models/Order",
     "@/plugin/product/lib/cart",
-    "@/plugin/compare/ui/Compare",
 ];
 
 const EXTS = ["ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs"];
