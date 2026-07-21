@@ -36,6 +36,7 @@ import blogCategoryElement from "./BlogCategory";
 import blogDescriptionElement from "./BlogDescription";
 import blogMetaElement from "./BlogMeta";
 import relatedElement from "./Related";
+import sliderElement from "./Slider";
 
 // Core elements are registered with no pluginNx — they are always visible.
 addBuilderElement(headingElement);
@@ -57,3 +58,5 @@ addBuilderElement(blogCategoryElement);
 addBuilderElement(blogDescriptionElement);
 addBuilderElement(blogMetaElement);
 addBuilderElement(relatedElement);
+addBuilderElement(sliderElement);
+

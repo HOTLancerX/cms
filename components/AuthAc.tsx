@@ -24,6 +24,9 @@ const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
 import AuthForm from "@/components/Auth";
 
 type ModalMode = "login" | "signup" | null;
+interface AuthAcProps {
+    style?: number;
+}
 
 const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
     admin: { label: "Admin", cls: "bg-violet-100 text-violet-700" },
@@ -33,7 +36,7 @@ const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
     user: { label: "User", cls: "bg-gray-100 text-gray-600" },
 };
 
-export default function AuthAc() {
+export default function AuthAc({ style = 0 }: AuthAcProps) {
     const { user, loading, refresh } = useUser();
     const router = useRouter();
     const [modal, setModal] = useState<ModalMode>(null);
@@ -74,20 +77,46 @@ export default function AuthAc() {
     if (!user) {
         return (
             <>
-                <div className="flex items-center gap-2">
+                {style === 1 ? (
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-inherit tracking-wide opacity-95">
+                        <button
+                            onClick={() => setModal("login")}
+                            className="hover:underline uppercase transition-opacity cursor-pointer"
+                        >
+                            LOGIN
+                        </button>
+                        <span className="opacity-50">/</span>
+                        <button
+                            onClick={() => setModal("signup")}
+                            className="hover:underline uppercase transition-opacity cursor-pointer"
+                        >
+                            SIGN UP
+                        </button>
+                    </div>
+                ) : style === 2 ? (
                     <button
                         onClick={() => setModal("login")}
-                        className="px-4 py-2 rounded-xl text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50 transition"
+                        className="p-2 rounded-xl hover:bg-gray-100 text-gray-700 hover:text-indigo-600 transition cursor-pointer"
+                        title="Sign in"
                     >
-                        Sign in
+                        <Icon icon="solar:user-bold" width={22} />
                     </button>
-                    <button
-                        onClick={() => setModal("signup")}
-                        className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition"
-                    >
-                        Sign up
-                    </button>
-                </div>
+                ) : (
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setModal("login")}
+                            className="px-4 py-2 rounded-xl text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50 transition cursor-pointer"
+                        >
+                            Sign in
+                        </button>
+                        <button
+                            onClick={() => setModal("signup")}
+                            className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition cursor-pointer"
+                        >
+                            Sign up
+                        </button>
+                    </div>
+                )}
 
                 {/* Modal overlay */}
                 {modal && (
@@ -101,7 +130,7 @@ export default function AuthAc() {
                             {/* Close button */}
                             <button
                                 onClick={() => setModal(null)}
-                                className="absolute -top-3 -right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-md text-gray-500 hover:text-gray-800 transition"
+                                className="absolute -top-3 -right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-md text-gray-500 hover:text-gray-800 transition cursor-pointer"
                             >
                                 <Icon icon="solar:close-bold" width={16} />
                             </button>
@@ -115,7 +144,7 @@ export default function AuthAc() {
                                         No account?{" "}
                                         <button
                                             onClick={() => setModal("signup")}
-                                            className="font-semibold text-white underline"
+                                            className="font-semibold text-white underline cursor-pointer"
                                         >
                                             Sign up
                                         </button>
@@ -125,7 +154,7 @@ export default function AuthAc() {
                                         Have an account?{" "}
                                         <button
                                             onClick={() => setModal("login")}
-                                            className="font-semibold text-white underline"
+                                            className="font-semibold text-white underline cursor-pointer"
                                         >
                                             Sign in
                                         </button>
@@ -145,30 +174,61 @@ export default function AuthAc() {
     return (
         <div className="relative" ref={popupRef}>
             {/* Avatar trigger */}
-            <button
-                onClick={() => setPopupOpen((v) => !v)}
-                className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-gray-100 transition"
-            >
-                {user.image ? (
-                    <img
-                        src={user.image}
-                        alt={user.name}
-                        className="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-200"
+            {style === 1 ? (
+                <button
+                    onClick={() => setPopupOpen((v) => !v)}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-inherit tracking-wide uppercase hover:underline transition-opacity cursor-pointer"
+                >
+                    MY ACCOUNT
+                    <Icon
+                        icon="solar:alt-arrow-down-bold"
+                        width={10}
+                        className={`opacity-70 transition-transform ${popupOpen ? "rotate-180" : ""}`}
                     />
-                ) : (
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm ring-2 ring-indigo-200">
-                        {user.name.charAt(0).toUpperCase()}
-                    </div>
-                )}
-                <span className="hidden sm:block text-sm font-medium text-gray-700 max-w-30 truncate">
-                    {user.name}
-                </span>
-                <Icon
-                    icon="solar:alt-arrow-down-bold"
-                    width={14}
-                    className={`text-gray-400 transition-transform ${popupOpen ? "rotate-180" : ""}`}
-                />
-            </button>
+                </button>
+            ) : style === 2 ? (
+                <button
+                    onClick={() => setPopupOpen((v) => !v)}
+                    className="flex items-center rounded-full hover:ring-2 hover:ring-indigo-300 transition cursor-pointer"
+                >
+                    {user.image ? (
+                        <img
+                            src={user.image}
+                            alt={user.name}
+                            className="w-8 h-8 rounded-full object-cover"
+                        />
+                    ) : (
+                        <div className="w-8 h-8 rounded-full bg-indigo-150 flex items-center justify-center text-indigo-750 font-bold text-xs">
+                            {user.name.charAt(0).toUpperCase()}
+                        </div>
+                    )}
+                </button>
+            ) : (
+                <button
+                    onClick={() => setPopupOpen((v) => !v)}
+                    className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-gray-100 transition cursor-pointer"
+                >
+                    {user.image ? (
+                        <img
+                            src={user.image}
+                            alt={user.name}
+                            className="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-200"
+                        />
+                    ) : (
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm ring-2 ring-indigo-200">
+                            {user.name.charAt(0).toUpperCase()}
+                        </div>
+                    )}
+                    <span className="hidden sm:block text-sm font-medium text-gray-700 max-w-30 truncate">
+                        {user.name}
+                    </span>
+                    <Icon
+                        icon="solar:alt-arrow-down-bold"
+                        width={14}
+                        className={`text-gray-400 transition-transform ${popupOpen ? "rotate-180" : ""}`}
+                    />
+                </button>
+            )}
 
             {/* Popup */}
             {popupOpen && (
@@ -195,10 +255,8 @@ export default function AuthAc() {
                                     </span>
                                 </p>
                                 <p className="text-xs text-gray-500 truncate">{user.email}</p>
-
                             </div>
                         </div>
-                        
                     </div>
 
                     {/* Menu items */}
@@ -271,7 +329,7 @@ export default function AuthAc() {
                                 await signOut({ redirect: false });
                                 router.replace("/");
                             }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition cursor-pointer"
                         >
                             <Icon icon="solar:logout-bold" width={16} />
                             Sign out

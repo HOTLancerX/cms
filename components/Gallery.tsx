@@ -37,6 +37,7 @@ interface GalleryModalProps {
 }
 
 export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSelect }: GalleryModalProps) {
+    const [mounted, setMounted] = useState(false)
     const [activeTab, setActiveTab] = useState<'library' | 'cloudinary' | 'cloudflare' | 'url' | 'bg-removal'>('library')
     const [libraryImages, setLibraryImages] = useState<Library[]>([])
     const [loading, setLoading] = useState(false)
@@ -48,6 +49,10 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
     const [uploadProgress, setUploadProgress] = useState(0)
     const [mediaFilter, setMediaFilter] = useState<'all' | 'image' | 'video'>('all')
     const [bgRemovalImage, setBgRemovalImage] = useState<string | null>(null)
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     useEffect(() => {
         if (isOpen && activeTab === 'library') {
@@ -269,7 +274,7 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
     }
 
     const modalContent = (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
             <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
                 <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                     <h2 className="text-lg font-bold text-gray-800">Media Library</h2>
@@ -648,9 +653,9 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
         </div>
     )
 
-    if (!isOpen) return null
+    if (!isOpen || !mounted) return null
 
-    return typeof window !== 'undefined' ? createPortal(modalContent, document.body) : null
+    return createPortal(modalContent, document.body)
 }
 
 export default function Gallery({ multiple = false, value, onChange, placeholder = 'Select images' }: GalleryProps) {

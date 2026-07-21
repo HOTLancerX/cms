@@ -18,7 +18,7 @@ export { default as Gaps } from "./Gaps";
 export { default as Wrap } from "./Wrap";
 export { default as Background } from "./Background";
 export { default as BackgroundOverlay } from "./BackgroundOverlay";
-export { default as Border } from "./Border";
+export { default as Border } from "./Border"; //border or Radius
 export { default as Dimensions } from "./Dimensions";
 export { default as AlignSelf } from "./AlignSelf";
 export { default as ShapeDivider } from "./ShapeDivider";
