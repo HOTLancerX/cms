@@ -1,6 +1,8 @@
 import { v2 as cloudinary } from 'cloudinary'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import sharp from 'sharp'
+import fs from 'fs/promises'
+import path from 'path'
 
 // Configure Cloudinary
 cloudinary.config({
@@ -14,8 +16,8 @@ const r2Client = new S3Client({
     region: 'auto',
     endpoint: process.env.R2_ENDPOINT,
     credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+        accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
     },
 })
 
@@ -39,12 +41,69 @@ const isVideoFilename = (filename: string): boolean => {
     return ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'].includes(ext || '');
 };
 
+export async function uploadToLocal(
+    buffer: Buffer,
+    filename: string,
+    folder: string = 'uploads'
+): Promise<UploadResult> {
+    try {
+        const timestamp = Date.now();
+        const cleanFilename = filename.split('.')[0].replace(/[^a-zA-Z0-9]/g, '_');
+        const isVideo = isVideoFilename(filename);
+        const ext = isVideo ? (filename.split('.').pop()?.toLowerCase() || 'mp4') : 'webp';
+
+        let finalBuffer = buffer;
+        if (!isVideo) {
+            try {
+                finalBuffer = await convertToWebP(buffer);
+            } catch {
+                finalBuffer = buffer;
+            }
+        }
+
+        const targetDir = path.join(process.cwd(), 'public', folder);
+        await fs.mkdir(targetDir, { recursive: true });
+
+        const saveName = `${timestamp}_${cleanFilename}.${ext}`;
+        const filePath = path.join(targetDir, saveName);
+        await fs.writeFile(filePath, finalBuffer);
+
+        const publicUrl = `/${folder}/${saveName}`;
+
+        let width = undefined;
+        let height = undefined;
+        if (!isVideo) {
+            try {
+                const metadata = await sharp(finalBuffer).metadata();
+                width = metadata.width;
+                height = metadata.height;
+            } catch { /* silent */ }
+        }
+
+        return {
+            url: publicUrl,
+            publicId: `${folder}/${saveName}`,
+            width,
+            height,
+            format: ext,
+            size: finalBuffer.length
+        };
+    } catch (error) {
+        console.error('Local upload error:', error);
+        throw new Error('Failed to save file locally');
+    }
+}
+
 export async function uploadToCloudinary(
     buffer: Buffer,
     filename: string,
     folder: string = 'library'
 ): Promise<UploadResult> {
     try {
+        if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY) {
+            throw new Error('Cloudinary credentials missing');
+        }
+
         const isVideo = isVideoFilename(filename);
         let finalBuffer = buffer;
         let options: any = {
@@ -56,7 +115,6 @@ export async function uploadToCloudinary(
         if (isVideo) {
             options.resource_type = 'video';
         } else {
-            // Convert to WebP for images
             finalBuffer = await convertToWebP(buffer);
             options.resource_type = 'image';
             options.format = 'webp';
@@ -66,7 +124,6 @@ export async function uploadToCloudinary(
             ];
         }
 
-        // Upload to Cloudinary with timeout
         const result = await Promise.race([
             new Promise<any>((resolve, reject) => {
                 cloudinary.uploader.upload_stream(
@@ -102,6 +159,10 @@ export async function uploadToCloudflareR2(
     folder: string = 'library'
 ): Promise<UploadResult> {
     try {
+        if (!process.env.R2_BUCKET || !process.env.R2_ENDPOINT) {
+            throw new Error('Cloudflare R2 credentials missing');
+        }
+
         const isVideo = isVideoFilename(filename);
         const timestamp = Date.now();
         const cleanFilename = filename.split('.')[0].replace(/[^a-zA-Z0-9]/g, '_');
@@ -133,18 +194,18 @@ export async function uploadToCloudflareR2(
             }
         }
 
-        // Upload to Cloudflare R2
         const command = new PutObjectCommand({
             Bucket: process.env.R2_BUCKET!,
             Key: key,
             Body: finalBuffer,
             ContentType: contentType,
-            CacheControl: 'public, max-age=31536000', // 1 year cache
+            CacheControl: 'public, max-age=31536000',
         });
 
         await r2Client.send(command);
 
-        const publicUrl = `${process.env.NEXT_PUBLIC_IMAGE_CDN}/${key}`;
+        const cdnBase = process.env.NEXT_PUBLIC_IMAGE_CDN || 'https://pub-r2.r2.dev';
+        const publicUrl = `${cdnBase}/${key}`;
 
         return {
             url: publicUrl,

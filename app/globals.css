@@ -89,7 +89,7 @@ body {
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
-.nober::-webkit-scrollbar {
+.nobar::-webkit-scrollbar {
   display: none;
 }
 

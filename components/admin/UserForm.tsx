@@ -14,6 +14,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Icon } from "@iconify/react";
 import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
@@ -104,6 +105,8 @@ const inputCls = "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function UserForm({ mode, initialData, activePlugins, onSuccess, showAdminFields }: UserFormProps) {
+    const { data: session, update: updateSession } = useSession();
+
     const [pluginFields, setPluginFields] = useState<FormHooks>([]);
     useEffect(() => {
         setPluginFields(getHooks("User.form"));
@@ -130,6 +133,24 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
     const [info,     setInfo]     = useState<Record<string, string>>(initialData?.info ?? {});
     const [saving,   setSaving]   = useState(false);
     const [message,  setMessage]  = useState("");
+
+    // Sync state when initialData finishes loading
+    useEffect(() => {
+        if (initialData) {
+            if (initialData.name     !== undefined && initialData.name !== name)         setName(initialData.name);
+            if (initialData.slug     !== undefined && initialData.slug !== slug)         setSlug(initialData.slug);
+            if (initialData.email    !== undefined && initialData.email !== email)       setEmail(initialData.email);
+            if (initialData.phone    !== undefined && initialData.phone !== phone)       setPhone(initialData.phone);
+            if (initialData.type     !== undefined && initialData.type !== type)         setType(initialData.type);
+            if (initialData.image    !== undefined && initialData.image !== image)       setImage(initialData.image);
+            if (initialData.status   !== undefined && initialData.status !== status)     setStatus(initialData.status);
+            if (initialData.address  !== undefined && initialData.address !== address)   setAddress(initialData.address);
+            if (initialData.state    !== undefined && initialData.state !== state)       setState(initialData.state);
+            if (initialData.city     !== undefined && initialData.city !== city)         setCity(initialData.city);
+            if (initialData.zipCode  !== undefined && initialData.zipCode !== zipCode)   setZipCode(initialData.zipCode);
+            if (initialData.info     !== undefined)                                      setInfo(initialData.info);
+        }
+    }, [initialData?._id, initialData?.image, initialData?.name, initialData?.email]);
 
     // ── Location data ─────────────────────────────────────────────────────
     const [allLocations, setAllLocations] = useState<Location[]>([]);
@@ -195,7 +216,15 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
 
         const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
         const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
-        const headers = { "Content-Type": "application/json", "x-license-key": LICENSE_KEY };
+        const expressToken = (session?.user as any)?.expressToken;
+
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+            "x-license-key": LICENSE_KEY,
+        };
+        if (expressToken) {
+            headers["Authorization"] = `Bearer ${expressToken}`;
+        }
 
         try {
             let res: Response;
@@ -206,9 +235,27 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
             }
             const data = await res.json();
             if (!res.ok) {
-                setMessage(`Error: ${data.error}`);
+                setMessage(`Error: ${data.error || res.statusText}`);
             } else {
                 setMessage("Saved successfully!");
+
+                const updatedUser = data.user ?? data;
+                if (mode === "edit" && updateSession) {
+                    updateSession({
+                        name:     updatedUser.name     ?? name,
+                        email:    updatedUser.email    ?? email,
+                        image:    updatedUser.image    ?? image,
+                        phone:    updatedUser.phone    ?? phone,
+                        type:     updatedUser.type     ?? type,
+                        slug:     updatedUser.slug     ?? slug,
+                        status:   updatedUser.status   ?? status,
+                        address:  updatedUser.address  ?? address,
+                        state:    updatedUser.state    ?? state,
+                        city:     updatedUser.city     ?? city,
+                        zipCode:  updatedUser.zipCode  ?? zipCode,
+                    });
+                }
+
                 if (mode === "add") {
                     setName(""); setSlug(""); setEmail(""); setPhone("");
                     setPassword(""); setType("user"); setImage("");

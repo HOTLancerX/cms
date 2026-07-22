@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getLibrariesCollection, initializeLibrariesCollection } from '@/models/Library'
-import { uploadToCloudinary, uploadToCloudflareR2, extractNameFromFile } from '@/lib/imageUpload'
+import { uploadToCloudinary, uploadToCloudflareR2, uploadToLocal, extractNameFromFile } from '@/lib/imageUpload'
 
 const MAX_FILE_SIZE = parseInt(process.env.NEXT_PUBLIC_MAX_FILE_SIZE || '10485760') // 10MB
-const ALLOWED_TYPES = (process.env.NEXT_PUBLIC_ALLOWED_IMAGE_TYPES || 'image/jpeg,image/png,image/webp,image/gif').split(',')
 
 export async function POST(request: NextRequest) {
     try {
@@ -11,7 +10,7 @@ export async function POST(request: NextRequest) {
         const collection = await getLibrariesCollection();
         const formData = await request.formData()
         const files = formData.getAll('files') as File[]
-        const uploadType = formData.get('type') as string || 'cloudflare' // Default to Cloudflare R2
+        const requestedType = (formData.get('type') as string) || 'cloudinary'
 
         if (!files || files.length === 0) {
             return NextResponse.json({ error: 'No files provided' }, { status: 400 })
@@ -32,35 +31,40 @@ export async function POST(request: NextRequest) {
                 // Convert file to buffer
                 const buffer = Buffer.from(await file.arrayBuffer())
 
-                // Upload based on type with fallback
+                // Upload based on type with cascade fallbacks
                 let uploadResult
-                let finalUploadType = uploadType
-                try {
-                    if (uploadType === 'cloudinary') {
-                        uploadResult = await uploadToCloudinary(buffer, file.name)
-                    } else {
-                        uploadResult = await uploadToCloudflareR2(buffer, file.name)
-                    }
-                } catch (uploadError) {
-                    console.error(`${uploadType} upload failed for ${file.name}:`, uploadError)
+                let finalUploadType = requestedType
 
-                    // Fallback: if Cloudinary fails, try Cloudflare R2
-                    if (uploadType === 'cloudinary') {
-                        try {
-                            uploadResult = await uploadToCloudflareR2(buffer, file.name)
-                            finalUploadType = 'cloudflare' // Update type for database
-                        } catch (fallbackError) {
-                            console.error(`Fallback upload also failed for ${file.name}:`, fallbackError)
-                            errors.push({
-                                filename: file.name,
-                                error: `Upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`
-                            })
-                            continue
-                        }
-                    } else {
+                // 1. Try Cloudinary if requested or if Cloudinary is configured
+                if (requestedType === 'cloudinary' || process.env.CLOUDINARY_CLOUD_NAME) {
+                    try {
+                        uploadResult = await uploadToCloudinary(buffer, file.name)
+                        finalUploadType = 'cloudinary'
+                    } catch (err) {
+                        console.warn(`Cloudinary upload failed for ${file.name}:`, err)
+                    }
+                }
+
+                // 2. Try Cloudflare R2 if not yet uploaded and R2 is configured
+                if (!uploadResult && process.env.R2_BUCKET) {
+                    try {
+                        uploadResult = await uploadToCloudflareR2(buffer, file.name)
+                        finalUploadType = 'cloudflare'
+                    } catch (err) {
+                        console.warn(`Cloudflare R2 upload failed for ${file.name}:`, err)
+                    }
+                }
+
+                // 3. Fallback to Local upload if cloud providers failed/unconfigured
+                if (!uploadResult) {
+                    try {
+                        uploadResult = await uploadToLocal(buffer, file.name)
+                        finalUploadType = 'url'
+                    } catch (err) {
+                        console.error(`Local upload failed for ${file.name}:`, err)
                         errors.push({
                             filename: file.name,
-                            error: `Upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`
+                            error: `Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`
                         })
                         continue
                     }
@@ -130,7 +134,6 @@ export async function POST(request: NextRequest) {
 }
 
 function validateFile(file: File): { valid: boolean; error?: string } {
-    // Check file size
     if (file.size > MAX_FILE_SIZE) {
         return {
             valid: false,
@@ -138,7 +141,6 @@ function validateFile(file: File): { valid: boolean; error?: string } {
         }
     }
 
-    // Check file type (allow all images and videos)
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
     if (!isImage && !isVideo) {
@@ -148,7 +150,6 @@ function validateFile(file: File): { valid: boolean; error?: string } {
         }
     }
 
-    // Check if file has content
     if (file.size === 0) {
         return {
             valid: false,

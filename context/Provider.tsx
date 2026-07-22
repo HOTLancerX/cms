@@ -63,9 +63,14 @@ function UserProvider({ children }: { children: ReactNode }) {
     // refresh() re-fetches Express /auth/me and syncs the NextAuth JWT with
     // the latest user data — picks up name, image, address, etc. after saves.
     const refresh = useCallback(() => {
+        const expressToken = (session?.user as any)?.expressToken;
+        const headers: Record<string, string> = { "x-license-key": LICENSE_KEY };
+        if (expressToken) {
+            headers["Authorization"] = `Bearer ${expressToken}`;
+        }
         fetch(`${EXPRESS_API}/auth/me`, {
             credentials: "include",
-            headers: { "x-license-key": LICENSE_KEY },
+            headers,
             cache: "no-store",
         })
             .then((r) => (r.ok ? r.json() : null))
@@ -93,7 +98,7 @@ function UserProvider({ children }: { children: ReactNode }) {
             })
             .catch(() => { update(); });
         setTick((t) => t + 1);
-    }, [update]);
+    }, [update, session]);
 
     return (
         <UserContext.Provider value={{ user, loading, refresh }}>
