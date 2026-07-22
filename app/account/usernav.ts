@@ -29,6 +29,13 @@ export const DEFAULT_USER_NAV: UserNavItem[] = [
         position: 2,
     },
     {
+        key:      "account-messages",
+        label:    "Messages",
+        icon:     "solar:chat-round-dots-bold",
+        href:     "/account/messages",
+        position: 3,
+    },
+    {
         key:      "account-settings",
         label:    "Settings",
         icon:     "solar:settings-bold",
