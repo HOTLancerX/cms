@@ -331,8 +331,17 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
             }
 
             if (!Component) return null;
+            const ResolvedComponent =
+                typeof Component === "object" && Component !== null && "default" in (Component as any)
+                    ? (Component as any).default
+                    : Component;
+
+            if (!ResolvedComponent || (typeof ResolvedComponent !== "function" && typeof ResolvedComponent !== "string")) {
+                return null;
+            }
+
             return (
-                <Component
+                <ResolvedComponent
                     key={`${key}-${field.position}`}
                     name={key}
                     label={label}
