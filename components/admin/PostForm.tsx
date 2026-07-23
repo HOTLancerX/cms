@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
+import { reregisterHooks } from "@/hook/PluginList";
 import { xFetch } from "@/lib/express";
 import Gallery from "@/components/Gallery";
 import Content from "@/components/Content";
@@ -60,6 +61,9 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
     const [fields, setFields] = useState<FormHooks>([]);
 
     useEffect(() => {
+        if (activePlugins) {
+            reregisterHooks(activePlugins);
+        }
         setFields(getHooks("post.form", type));
     }, [type, activePlugins]);
 
@@ -271,19 +275,6 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
         }
     };
 
-    const handleDelete = async () => {
-        if (!postId) return;
-        if (!confirm("Delete this post? This cannot be undone.")) return;
-        setDeleting(true);
-        try {
-            await xFetch(`/post?id=${postId}`, { method: "DELETE" });
-            router.push(`/admin/posts/${type}`);
-        } catch {
-            setMessage("Delete failed");
-            setDeleting(false);
-        }
-    };
-
     // ctx: ambient context passed to every field component — memoised to
     // prevent unnecessary re-renders of plugin-injected field components.
     const ctx = useMemo(
@@ -295,7 +286,50 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
     // ── Uniform field renderer — no special cases ───────────────────────────
     const renderFields = (fieldList: FormHooks) =>
         fieldList.map((field) => {
-            const { key, label, component: Component, options, hierarchicalCatType } = field;
+            const { key, label, fieldType, component: Component, options, hierarchicalCatType } = field;
+
+            if (fieldType === "content") {
+                return (
+                    <div key={`${key}-${field.position}`} className="bg-white p-2 rounded">
+                        <Content
+                            label={label}
+                            content={info[key] ?? ""}
+                            onChange={(v) => handleInfoChange(key, v)}
+                            title={title}
+                        />
+                    </div>
+                );
+            }
+
+            if (fieldType === "gallery") {
+                return (
+                    <div key={`${key}-${field.position}`} className="flex flex-col gap-1.5 bg-white p-2 rounded">
+                        <label className="text-xs font-semibold">{label}</label>
+                        <Gallery
+                            value={info[key] ?? ""}
+                            onChange={(v) => handleInfoChange(key, typeof v === "string" ? v : (v[0] ?? ""))}
+                            placeholder={`Select ${label}`}
+                        />
+                    </div>
+                );
+            }
+
+            if (fieldType === "gallery-multiple") {
+                let arr: string[] = [];
+                try { arr = JSON.parse(info[key] ?? "[]"); } catch { arr = []; }
+                return (
+                    <div key={`${key}-${field.position}`} className="flex flex-col gap-1.5 bg-white p-2 rounded">
+                        <label className="text-xs font-semibold">{label}</label>
+                        <Gallery
+                            multiple
+                            value={arr}
+                            onChange={(v) => handleInfoChange(key, JSON.stringify(Array.isArray(v) ? v : [v]))}
+                            placeholder={`Select ${label}`}
+                        />
+                    </div>
+                );
+            }
+
             if (!Component) return null;
             return (
                 <Component
@@ -402,27 +436,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
 
                     
 
-                    {/* ── Default short description field ── */}
-                    <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
-                        <label className="text-xs font-semibold">Short Description</label>
-                        <textarea
-                            value={info["shortDescription"] ?? ""}
-                            onChange={(e) => handleInfoChange("shortDescription", e.target.value)}
-                            rows={3}
-                            className="w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500 resize-none"
-                            placeholder="Brief summary…"
-                        />
-                    </div>
 
-                    {/* ── Default description (rich-text) field ── */}
-                    <div className="bg-white p-2 rounded">
-                        <Content
-                            label="Description"
-                            content={info["description"] ?? ""}
-                            onChange={(v) => handleInfoChange("description", v)}
-                            title={title}
-                        />
-                    </div>
 
                     {renderFields(leftFields)}
                 </div>

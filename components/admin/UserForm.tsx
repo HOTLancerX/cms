@@ -18,6 +18,7 @@ import { useSession } from "next-auth/react";
 import { Icon } from "@iconify/react";
 import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
+import { reregisterHooks } from "@/hook/PluginList";
 import Gallery from "@/components/Gallery";
 
 interface Location {
@@ -109,6 +110,9 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
 
     const [pluginFields, setPluginFields] = useState<FormHooks>([]);
     useEffect(() => {
+        if (activePlugins) {
+            reregisterHooks(activePlugins);
+        }
         setPluginFields(getHooks("User.form"));
     }, [activePlugins]);
 

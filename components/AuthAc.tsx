@@ -132,7 +132,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                                 onClick={() => setModal(null)}
                                 className="absolute -top-3 -right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-md text-gray-500 hover:text-gray-800 transition cursor-pointer"
                             >
-                                <Icon icon="solar:close-bold" width={16} />
+                                <Icon icon="material-symbols:close" width={16} />
                             </button>
 
                             <AuthForm mode={modal} />

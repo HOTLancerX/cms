@@ -267,7 +267,7 @@ export function addHook(
     // the same key (e.g. "header", "footer", "blog") are all preserved.
     stamped.forEach((f) => {
         const exists = hooks[hookName].some(
-            (h) => h.pluginNx === f.pluginNx && h.label === f.label
+            (h) => h.pluginNx === f.pluginNx && h.label === f.label && (h.type ?? "") === (f.type ?? "")
         );
         if (!exists) hooks[hookName].push(f);
     });

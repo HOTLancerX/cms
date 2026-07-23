@@ -276,6 +276,22 @@ export function register(): void {
     // ─── Post form fields ───────────────────────────────────────────────────
     addHook("post.form", [
         {
+            key: "description",
+            label: "Description",
+            type: "blog",
+            style: "left",
+            position: 10,
+            fieldType: "content",
+        },
+        {
+            key: "description",
+            label: "Description",
+            type: "page",
+            style: "left",
+            position: 10,
+            fieldType: "content",
+        },
+        {
             key: "category",
             label: "Category",
             type: "blog",
@@ -289,7 +305,7 @@ export function register(): void {
             label: "Select Builder",
             type: "page",
             style: "left",
-            position: 10,
+            position: 20,
             component: BuilderSelect,
         },
     ], CORE_NX);

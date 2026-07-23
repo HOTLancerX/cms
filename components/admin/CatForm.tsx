@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
+import { reregisterHooks } from "@/hook/PluginList";
 import { xFetch } from "@/lib/express";
 import { useToast } from "@/components/ui/Toast";
 import Gallery from "@/components/Gallery";
@@ -24,7 +25,12 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
 
     // ── Hook fields ─────────────────────────────────────────────────────────
     const [fields, setFields] = useState<FormHooks>([]);
-    useEffect(() => { setFields(getHooks("cat.form", type)); }, [type, activePlugins]);
+    useEffect(() => {
+        if (activePlugins) {
+            reregisterHooks(activePlugins);
+        }
+        setFields(getHooks("cat.form", type));
+    }, [type, activePlugins]);
 
     const leftFields = fields.filter((f) => f.style === "left");
     const rightFields = fields.filter((f) => f.style === "right");

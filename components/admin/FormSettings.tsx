@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
+import { reregisterHooks } from "@/hook/PluginList";
 import { xFetch } from "@/lib/express";
 import Gallery from "@/components/Gallery";
 
@@ -28,6 +29,9 @@ export default function FormSettings({
     const [fields, setFields] = useState<FormHooks>([]);
 
     useEffect(() => {
+        if (activePlugins) {
+            reregisterHooks(activePlugins);
+        }
         setFields(getHooks("setting.form", type));
     }, [type, activePlugins]);
 
