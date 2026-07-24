@@ -613,8 +613,9 @@ export const commonStyleControls: { tab: string; section: string; controls: Cont
 ];
 
 export function mergeControls(controls: any[]): { tab: string; section: string; controls: ControlDef[]; condition?: (values: any) => boolean }[] {
+    const list = Array.isArray(controls) ? controls : [];
     // 1. Filter out static background/border controls from existing Style sections
-    const filtered = controls.map((section) => {
+    const filtered = list.map((section) => {
         if (section.tab === "Style") {
             return {
                 ...section,
