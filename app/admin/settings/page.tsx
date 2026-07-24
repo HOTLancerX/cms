@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import FormSettings from "@/components/admin/FormSettings";
+import IconifyPicker from "@/components/ui/Iconify";
 import { useActivePlugins } from "@/hook/useActivePlugins";
 import useSettings from "@/lib/useSettings";
+import { xFetch } from "@/lib/express";
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
@@ -40,6 +42,13 @@ const CORE_TABS: Tab[] = [
         description: "Assign menus to header slots and configure header behaviour.",
     },
     {
+        key:         "footer",
+        label:       "Footer",
+        icon:        "solar:footer-bold",
+        settingType: "footer",
+        description: "Configure 5 separate footer sections with default titles & dynamic fields (icon, name, link).",
+    },
+    {
         key:         "nav",
         label:       "Navigation",
         icon:        "solar:menu-dots-bold",
@@ -51,9 +60,9 @@ const CORE_TABS: Tab[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminSettingsPage() {
-    const activePlugins             = useActivePlugins();
+    const activePlugins                  = useActivePlugins();
     const { settings, loading, refresh } = useSettings();
-    const [activeTab, setActiveTab] = useState("general");
+    const [activeTab, setActiveTab]      = useState("general");
 
     if (activePlugins === null || loading) {
         return (
@@ -71,7 +80,7 @@ export default function AdminSettingsPage() {
             <div>
                 <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
                 <p className="text-sm text-gray-500 mt-1">
-                    Configure your site's general options, navigation menus and header appearance.
+                    Configure your site's general options, navigation menus, footer sections and header appearance.
                 </p>
             </div>
 
@@ -102,7 +111,7 @@ export default function AdminSettingsPage() {
             {/* Tab description */}
             <p className="text-sm text-gray-500">{currentTab.description}</p>
 
-            {/* Tab content — each tab gets its own FormSettings instance */}
+            {/* Tab content */}
             {activeTab === "general" && (
                 <FormSettings
                     type="settings"
@@ -128,6 +137,14 @@ export default function AdminSettingsPage() {
                 />
             )}
 
+            {activeTab === "footer" && (
+                <FooterTab
+                    activePlugins={activePlugins}
+                    initialValues={settings}
+                    onSaved={refresh}
+                />
+            )}
+
             {activeTab === "nav" && (
                 <FormSettings
                     type="nav"
@@ -140,17 +157,299 @@ export default function AdminSettingsPage() {
     );
 }
 
+// ─── Footer tab ───────────────────────────────────────────────────────────────
+
+interface FooterSectionItem {
+    id: string;
+    icon: string;
+    name: string;
+    link: string;
+}
+
+interface FooterSection {
+    id: string;
+    title: string;
+    items: FooterSectionItem[];
+}
+
+function parseFooterSections(initialValues: Record<string, any>): FooterSection[] {
+    const defaultTitles = [
+        "Quick Links",
+        "Customer Care",
+        "Follow Us",
+        "Categories",
+        "Legal & Policy",
+    ];
+    const result: FooterSection[] = [];
+
+    for (let s = 1; s <= 5; s++) {
+        const secTitle = initialValues[`footer_section_${s}_title`] ?? defaultTitles[s - 1];
+        let secItems: FooterSectionItem[] = [];
+
+        if (typeof initialValues[`footer_section_${s}_items`] === "string") {
+            try {
+                const parsed = JSON.parse(initialValues[`footer_section_${s}_items`]);
+                if (Array.isArray(parsed)) secItems = parsed;
+            } catch {}
+        } else {
+            const flatIcon = initialValues[`footer_item_${s}_icon`];
+            const flatName = initialValues[`footer_item_${s}_name`];
+            const flatLink = initialValues[`footer_item_${s}_link`];
+            if (flatIcon || flatName || flatLink) {
+                secItems = [
+                    {
+                        id: `item-${s}-1`,
+                        icon: flatIcon || "",
+                        name: flatName || "",
+                        link: flatLink || "",
+                    },
+                ];
+            }
+        }
+
+        result.push({
+            id: `sec-${s}`,
+            title: secTitle,
+            items: secItems,
+        });
+    }
+    return result;
+}
+
+function FooterTab({
+    activePlugins,
+    initialValues,
+    onSaved,
+}: {
+    activePlugins: string[];
+    initialValues: Record<string, any>;
+    onSaved?: () => void;
+}) {
+    const [sections, setSections] = useState<FooterSection[]>(() => parseFooterSections(initialValues));
+
+    const [saving, setSaving]   = useState(false);
+    const [message, setMessage] = useState("");
+
+    useEffect(() => {
+        setSections(parseFooterSections(initialValues));
+    }, [initialValues]);
+
+    const updateSectionTitle = (secIndex: number, title: string) => {
+        setSections((prev) => {
+            const next = [...prev];
+            next[secIndex] = { ...next[secIndex], title };
+            return next;
+        });
+    };
+
+    const updateItem = (secIndex: number, itemIndex: number, field: keyof FooterSectionItem, value: string) => {
+        setSections((prev) => {
+            const next = [...prev];
+            const sec = next[secIndex];
+            const newItems = [...sec.items];
+            newItems[itemIndex] = { ...newItems[itemIndex], [field]: value };
+            next[secIndex] = { ...sec, items: newItems };
+            return next;
+        });
+    };
+
+    const addItemToSection = (secIndex: number) => {
+        setSections((prev) => {
+            const next = [...prev];
+            const sec = next[secIndex];
+            const newItems = [
+                ...sec.items,
+                { id: `item-${secIndex}-${Date.now()}`, icon: "", name: "", link: "" },
+            ];
+            next[secIndex] = { ...sec, items: newItems };
+            return next;
+        });
+    };
+
+    const removeItemFromSection = (secIndex: number, itemIndex: number) => {
+        setSections((prev) => {
+            const next = [...prev];
+            const sec = next[secIndex];
+            const newItems = sec.items.filter((_, i) => i !== itemIndex);
+            next[secIndex] = { ...sec, items: newItems };
+            return next;
+        });
+    };
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSaving(true);
+        setMessage("");
+
+        const payload: Record<string, any> = {
+            ...initialValues,
+        };
+
+        sections.forEach((sec, idx) => {
+            const num = idx + 1;
+            payload[`footer_section_${num}_title`] = sec.title;
+            payload[`footer_section_${num}_items`] = JSON.stringify(sec.items);
+
+            if (sec.items[0]) {
+                payload[`footer_item_${num}_icon`] = sec.items[0].icon;
+                payload[`footer_item_${num}_name`] = sec.items[0].name;
+                payload[`footer_item_${num}_link`] = sec.items[0].link;
+            } else {
+                payload[`footer_item_${num}_icon`] = "";
+                payload[`footer_item_${num}_name`] = "";
+                payload[`footer_item_${num}_link`] = "";
+            }
+        });
+
+        try {
+            const res = await xFetch("/settings", {
+                method: "PUT",
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setMessage(`Error: ${data.error ?? "Failed to save"}`);
+            } else {
+                setMessage("Settings saved!");
+                try {
+                    localStorage.setItem("cms_settings_updated", Date.now().toString());
+                    window.dispatchEvent(new Event("cms_settings_updated"));
+                } catch {}
+                onSaved?.();
+                setTimeout(() => setMessage(""), 3000);
+            }
+        } catch {
+            setMessage("Network error");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const mergedInitialValues = { ...initialValues };
+    sections.forEach((sec, idx) => {
+        const num = idx + 1;
+        mergedInitialValues[`footer_section_${num}_title`] = sec.title;
+        mergedInitialValues[`footer_section_${num}_items`] = JSON.stringify(sec.items);
+        if (sec.items[0]) {
+            mergedInitialValues[`footer_item_${num}_icon`] = sec.items[0].icon;
+            mergedInitialValues[`footer_item_${num}_name`] = sec.items[0].name;
+            mergedInitialValues[`footer_item_${num}_link`] = sec.items[0].link;
+        } else {
+            mergedInitialValues[`footer_item_${num}_icon`] = "";
+            mergedInitialValues[`footer_item_${num}_name`] = "";
+            mergedInitialValues[`footer_item_${num}_link`] = "";
+        }
+    });
+
+    return (
+        <div className="space-y-8">
+            <form onSubmit={handleSave}>
+                <div className="space-y-8">
+                    {sections.map((sec, secIdx) => (
+                        <div key={sec.id || secIdx} className="bg-gray-50/70 border border-gray-200 rounded-2xl p-5 space-y-5 hover:border-indigo-200 transition">
+                            <div className="flex items-center justify-between border-b border-gray-200/80 pb-3 flex-wrap gap-3">
+                                <div className="flex items-center gap-3 flex-1 min-w-60">
+                                    <span className="px-2.5 py-1 rounded-md bg-indigo-100 text-indigo-700 text-xs font-bold font-mono shrink-0">
+                                        Section #{secIdx + 1}
+                                    </span>
+                                    <input
+                                        type="text"
+                                        value={sec.title}
+                                        onChange={(e) => updateSectionTitle(secIdx, e.target.value)}
+                                        placeholder="Section Title (e.g. Quick Links)"
+                                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white flex-1 max-w-md"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => addItemToSection(secIdx)}
+                                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-gray-200 hover:border-indigo-300 text-indigo-600 transition flex items-center gap-1.5 shadow-sm"
+                                >
+                                    <Icon icon="solar:add-circle-bold" width={14} />
+                                    Add Field
+                                </button>
+                            </div>
+
+                            {sec.items.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {sec.items.map((item, itemIdx) => (
+                                        <div key={item.id || itemIdx} className="bg-white border border-gray-200 rounded-xl p-4 space-y-3.5 shadow-sm relative group">
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                                                <span className="text-[11px] font-bold text-gray-700 font-mono flex items-center gap-1.5">
+                                                    <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
+                                                    Field #{itemIdx + 1}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeItemFromSection(secIdx, itemIdx)}
+                                                    className="px-2 py-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200/60 rounded-md transition flex items-center gap-1 shrink-0"
+                                                    title="Remove Field"
+                                                >
+                                                    <Icon icon="solar:trash-bin-trash-bold" width={12} />
+                                                    Remove
+                                                </button>
+                                            </div>
+
+                                            {/* Icon */}
+                                            <div className="space-y-1">
+                                                <label className="text-[11px] font-semibold text-gray-600">Icon</label>
+                                                <IconifyPicker
+                                                    value={item.icon}
+                                                    onChange={(val) => updateItem(secIdx, itemIdx, "icon", val)}
+                                                    placeholder="Select Icon"
+                                                />
+                                            </div>
+
+                                            {/* Name */}
+                                            <div className="space-y-1">
+                                                <label className="text-[11px] font-semibold text-gray-600">Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={item.name}
+                                                    onChange={(e) => updateItem(secIdx, itemIdx, "name", e.target.value)}
+                                                    placeholder="e.g. Facebook, Terms, Support"
+                                                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                                />
+                                            </div>
+
+                                            {/* Link */}
+                                            <div className="space-y-1">
+                                                <label className="text-[11px] font-semibold text-gray-600">Link</label>
+                                                <input
+                                                    type="text"
+                                                    value={item.link}
+                                                    onChange={(e) => updateItem(secIdx, itemIdx, "link", e.target.value)}
+                                                    placeholder="e.g. https://... or /privacy"
+                                                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : null}
+                        </div>
+                    ))}
+                </div>
+
+                {message && (
+                    <div className={`p-3 rounded-lg text-xs font-semibold ${message.startsWith("Error") ? "bg-red-50 text-red-600 border border-red-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
+                        {message}
+                    </div>
+                )}
+            </form>
+
+            <FormSettings
+                type="footer"
+                activePlugins={activePlugins}
+                initialValues={mergedInitialValues}
+                onSuccess={onSaved}
+            />
+        </div>
+    );
+}
+
 // ─── Appearance tab ───────────────────────────────────────────────────────────
 
-/**
- * AppearanceTab
- *
- * - Live preview swatches update as the user edits colour / width / font fields
- *   (no save needed to see the preview change).
- * - On save, the parent's useSettings().refresh() is called so the page-level
- *   settings map stays in sync. AppearanceVars (mounted in the root layout)
- *   is separately notified via the localStorage signal fired by FormSettings.
- */
 function AppearanceTab({
     activePlugins,
     initialValues,
@@ -160,10 +459,8 @@ function AppearanceTab({
     initialValues: Record<string, any>;
     onSaved: () => void;
 }) {
-    // Mirror the field values locally so the preview updates as the user types
     const [live, setLive] = useState<Record<string, any>>(initialValues);
 
-    // Keep in sync if the parent refreshes settings (e.g. after save)
     useEffect(() => { setLive(initialValues); }, [initialValues]);
 
     const colorMain      = (live.color_main      as string) || "#00aaa6";
@@ -182,11 +479,9 @@ function AppearanceTab({
 
     return (
         <div className="space-y-8">
-            {/* ── Live preview ── */}
             <div className="rounded-xl border border-gray-100 bg-gray-50 p-5 space-y-4">
                 <h2 className="text-sm font-semibold text-gray-700">Live Preview</h2>
 
-                {/* Colour swatches */}
                 <div className="flex flex-wrap gap-3">
                     {swatches.map(({ label, color }) => (
                         <div key={label}
@@ -203,9 +498,7 @@ function AppearanceTab({
                     ))}
                 </div>
 
-                {/* Mini site mockup using current colours */}
                 <div className="rounded-lg overflow-hidden border border-gray-200 shadow-sm text-xs">
-                    {/* Mock header */}
                     <div className="flex items-center gap-3 px-4 py-2.5"
                         style={{ backgroundColor: colorMain }}>
                         {live.logo ? (
@@ -219,7 +512,6 @@ function AppearanceTab({
                             ))}
                         </div>
                     </div>
-                    {/* Mock hero */}
                     <div className="px-6 py-5 flex items-center gap-4"
                         style={{ backgroundColor: colorFf }}>
                         <div className="flex-1 space-y-2">
@@ -237,7 +529,6 @@ function AppearanceTab({
                     </div>
                 </div>
 
-                {/* Container & font info */}
                 <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                     <span>
                         <span className="font-semibold text-gray-700">Container:</span>{" "}
@@ -255,7 +546,6 @@ function AppearanceTab({
                 </div>
             </div>
 
-            {/* ── CSS variables reference ── */}
             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4
                             text-xs text-gray-500 font-mono space-y-0.5">
                 <p className="text-gray-400 font-sans font-semibold text-xs mb-2">
@@ -272,16 +562,15 @@ function AppearanceTab({
                         <span className="inline-flex items-center gap-1.5">
                             <span className="w-3 h-3 rounded-full border border-gray-300 inline-block"
                                 style={{ backgroundColor: val }} />
-                            <span className="text-indigo-600">{val}</span>
+                            <span className="text-[#00aaa6]">{val}</span>
                         </span>
                     </p>
                 ))}
                 <p>.container {"{"} max-width:{" "}
-                    <span className="text-indigo-600">{width}px</span> {"}"}
+                    <span className="text-[#00aaa6]">{width}px</span> {"}"}
                 </p>
             </div>
 
-            {/* ── Form fields — onChange updates live preview instantly ── */}
             <FormSettings
                 type="appearance"
                 activePlugins={activePlugins}
@@ -294,10 +583,6 @@ function AppearanceTab({
 
 // ─── Header tab ───────────────────────────────────────────────────────────────
 
-/**
- * The Header tab renders a FormSettings for the "header" type plus a
- * live-preview card showing which menu is assigned to each slot.
- */
 function HeaderTab({
     activePlugins,
     initialValues,
@@ -307,7 +592,6 @@ function HeaderTab({
     initialValues: Record<string, any>;
     onSaved?: () => void;
 }) {
-    // Slot labels displayed in the preview diagram
     const slots = [
         { key: "header_main_menu",   label: "Main Menu",      icon: "solar:menu-dots-bold",          color: "bg-blue-100 text-blue-700" },
         { key: "header_mobile_menu", label: "Mobile Menu",    icon: "solar:smartphone-bold",         color: "bg-purple-100 text-purple-700" },
@@ -318,7 +602,6 @@ function HeaderTab({
 
     return (
         <div className="space-y-8">
-            {/* Slot overview */}
             <div className="rounded-xl border border-gray-100 bg-gray-50 p-5">
                 <h2 className="text-sm font-semibold text-gray-700 mb-4">Menu Slot Overview</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -341,20 +624,16 @@ function HeaderTab({
                 </div>
             </div>
 
-            {/* Header layout diagram */}
             <div className="rounded-xl border border-dashed border-gray-300 overflow-hidden">
                 <div className="bg-gray-100 px-4 py-1.5 text-[10px] uppercase tracking-widest text-gray-400 font-semibold">
                     Header preview (schematic)
                 </div>
                 <div className="bg-white">
-                    {/* Top bar */}
                     <div className="flex items-center justify-between px-6 py-1.5 bg-gray-800 text-xs text-gray-300">
                         <span className="opacity-60">Top bar</span>
                         <SlotPreviewPill value={initialValues.header_top_menu} fallback="header_top_menu" />
                     </div>
-                    {/* Main header row */}
                     <div className="flex items-center justify-between px-6 py-4 border-b">
-                        {/* Logo */}
                         <div className="flex items-center gap-2">
                             {initialValues.logo ? (
                                 <img src={initialValues.logo} alt="Logo" className="h-6 w-auto object-contain shrink-0" />
@@ -367,11 +646,8 @@ function HeaderTab({
                                 </>
                             )}
                         </div>
-                        {/* Main menu */}
                         <SlotPreviewPill value={initialValues.header_main_menu} fallback="header_main_menu" color="blue" />
-                        {/* Right side */}
                         <SlotPreviewPill value={initialValues.header_right_menu} fallback="header_right_menu" color="orange" />
-                        {/* Mobile burger */}
                         <div className="flex items-center gap-1.5 md:hidden">
                             <Icon icon="solar:hamburger-menu-bold" width={18} className="text-gray-500" />
                             <SlotPreviewPill value={initialValues.header_mobile_menu} fallback="mobile" color="purple" />
@@ -380,7 +656,6 @@ function HeaderTab({
                 </div>
             </div>
 
-            {/* Form fields */}
             <FormSettings
                 type="header"
                 activePlugins={activePlugins}
