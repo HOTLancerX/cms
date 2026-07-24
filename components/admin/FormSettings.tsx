@@ -140,7 +140,7 @@ export default function FormSettings({
                     <button
                         type="submit"
                         disabled={saving}
-                        className="w-full rounded-lg bg-indigo-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full rounded-lg bg-main px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         {saving
                             ? <><Icon icon="svg-spinners:ring-resize" width={16} /> Saving…</>

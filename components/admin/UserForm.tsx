@@ -101,7 +101,7 @@ function Field({ label, required, hint, children }: {
     );
 }
 
-const inputCls = "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10";
+const inputCls = "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-main focus:ring-2 focus:ring-main/10";
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
@@ -446,7 +446,7 @@ export default function UserForm({ mode, initialData, activePlugins, onSuccess, 
                 PERSONAL INFO — two-column grid on desktop
             ══════════════════════════════════════════════════════════════ */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="h-1 bg-linear-to-r from-indigo-500 to-purple-500" />
+                <div className="h-1 bg-linear-to-r from-main to-purple-500" />
                 <div className="px-5 py-4">
                     <SectionHeader icon="solar:user-id-bold" iconBg="bg-indigo-50" iconColor="text-indigo-600"
                         title="Personal Information" subtitle="Your name, contact details and login credentials" />

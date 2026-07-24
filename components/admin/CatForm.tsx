@@ -299,7 +299,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
                         )}
                     </div>
                     {selected.length > 0 && (
-                        <p className="text-xs text-indigo-500">
+                        <p className="text-xs text-main">
                             {selected.length} categor{selected.length === 1 ? "y" : "ies"} selected
                         </p>
                     )}
@@ -368,7 +368,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
                             id="cat-title" type="text" value={title} required
                             onChange={e => handleTitleChange(e.target.value)}
                             placeholder="Enter title"
-                            className="w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500"
+                            className="w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-main"
                         />
                     </div>
 
@@ -380,7 +380,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
                             placeholder="auto-generated-slug"
                             className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition ${slugStatus === "taken" ? "border-red-400 focus:border-red-400"
                                     : slugStatus === "available" ? "border-emerald-400 focus:border-emerald-400"
-                                        : "focus:border-indigo-500"
+                                        : "focus:border-main"
                                 }`}
                         />
                         {slugStatus === "checking" && <p className="text-xs text-gray-400">Checking…</p>}
@@ -394,7 +394,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
                             (Promise.all in useEffect above), so the select is always safe. */}
                         <select
                             id="cat-parent" value={parentId} onChange={e => setParentId(e.target.value)}
-                            className="appearance-none w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500"
+                            className="appearance-none w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-main"
                         >
                             <option value="">None (Top Level)</option>
                             {buildTreeOptions(parents)}
@@ -411,7 +411,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
                         <label htmlFor="cat-status" className="text-xs font-semibold uppercase tracking-wider text-slate-400">Status</label>
                         <select
                             id="cat-status" value={status} onChange={e => setStatus(e.target.value)}
-                            className="appearance-none w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500"
+                            className="appearance-none w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-main"
                         >
                             <option value="draft">Draft</option>
                             <option value="published">Published</option>
@@ -420,7 +420,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
 
                     <button
                         type="submit" disabled={saving || slugStatus === "taken"}
-                        className="w-full rounded-lg bg-indigo-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed"
+                        className="w-full rounded-lg bg-main px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed"
                     >
                         {saving ? "Saving…" : isEdit ? "Save Changes" : "Create Category"}
                     </button>

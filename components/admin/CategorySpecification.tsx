@@ -72,7 +72,7 @@ export default function CategorySpecification({ specifications, onChange }: Cate
                 <button
                     type="button"
                     onClick={addBox}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-400 transition"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-main text-white rounded-lg text-sm font-medium hover:bg-indigo-400 transition"
                 >
                     <Icon icon="solar:add-circle-bold" width={16} />
                     Add Box
@@ -89,7 +89,7 @@ export default function CategorySpecification({ specifications, onChange }: Cate
                                 value={box.title}
                                 onChange={(e) => updateBoxTitle(boxIndex, e.target.value)}
                                 placeholder="Box Title (e.g. General, Dimensions)"
-                                className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                                className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none focus:border-main"
                             />
                             <button
                                 type="button"
@@ -122,7 +122,7 @@ export default function CategorySpecification({ specifications, onChange }: Cate
                                                 updateField(boxIndex, fieldIndex, { title: e.target.value })
                                             }
                                             placeholder="Field Title"
-                                            className="rounded-lg border px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                                            className="rounded-lg border px-3 py-2 text-sm outline-none focus:border-main"
                                         />
                                         <textarea
                                             value={field.description}
@@ -131,7 +131,7 @@ export default function CategorySpecification({ specifications, onChange }: Cate
                                             }
                                             placeholder="Field Description"
                                             rows={1}
-                                            className="rounded-lg border px-3 py-2 text-sm outline-none focus:border-indigo-500 resize-none"
+                                            className="rounded-lg border px-3 py-2 text-sm outline-none focus:border-main resize-none"
                                         />
                                     </div>
                                     <button

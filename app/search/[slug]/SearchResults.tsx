@@ -306,9 +306,9 @@ export default function SearchResults({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {items.slice(0, 6).map(post => (
+                    {items.slice(0, 6).map((post, idx) => (
                       <DynamicPostBox
-                        key={post._id}
+                        key={post._id || post.id || `search-post-all-${pt.key}-${idx}`}
                         post={post}
                         postUrl={getUrl(post.slug, pt.key, permalinkMap)}
                         currencySymbol={currencySymbol}
@@ -327,9 +327,9 @@ export default function SearchResults({
                 </h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {(results[activeTab] || []).map(post => (
+                {(results[activeTab] || []).map((post, idx) => (
                   <DynamicPostBox
-                    key={post._id}
+                    key={post._id || post.id || `search-post-tab-${activeTab}-${idx}`}
                     post={post}
                     postUrl={getUrl(post.slug, activeTab, permalinkMap)}
                     currencySymbol={currencySymbol}

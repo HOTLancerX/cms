@@ -400,7 +400,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                         <input
                             id="title" type="text" value={title} required
                             onChange={(e) => handleTitleChange(e.target.value)}
-                            className="w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500"
+                            className="w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition focus:border-main"
                             placeholder="Enter title"
                         />
                     </div>
@@ -431,12 +431,12 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                             className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition ${
                                 slugStatus === "taken"      ? "border-red-400 focus:border-red-400"
                                 : slugStatus === "available" ? "border-emerald-400 focus:border-emerald-400"
-                                : "focus:border-indigo-500"
+                                : "focus:border-main"
                             }`}
                             placeholder="auto-generated-slug"
                         />
                         {slug === "pending-id" && (
-                            <p className="text-xs text-indigo-500">ℹ Post ID will be used as slug on publish</p>
+                            <p className="text-xs text-main">ℹ Post ID will be used as slug on publish</p>
                         )}
                         {slug !== "pending-id" && slugStatus === "checking"  && <p className="text-xs text-gray-400">Checking availability…</p>}
                         {slug !== "pending-id" && slugStatus === "available" && <p className="text-xs text-emerald-500">✓ Slug is available</p>}
@@ -463,7 +463,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                                 <select
                                     id="status" value={status}
                                     onChange={(e) => setStatus(e.target.value)}
-                                    className="appearance-none w-full rounded border p-2 text-sm outline-none transition focus:border-indigo-500"
+                                    className="appearance-none w-full rounded border p-2 text-sm outline-none transition focus:border-main"
                                 >
                                     <option value="draft">Draft</option>
                                     <option value="published">Published</option>
@@ -473,7 +473,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                         <button
                             type="submit"
                             disabled={saving || slugStatus === "taken"}
-                            className="p-2 flex-1 rounded bg-indigo-500 text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed"
+                            className="p-2 flex-1 rounded bg-main text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed"
                         >
                             {saving ? "Saving…" : isEdit ? "Save Changes" : "Publish"}
                         </button>

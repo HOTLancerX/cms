@@ -43,7 +43,7 @@ export default function PostAddEditPage() {
             <div className="text-center py-24 text-gray-400">
                 <Icon icon="solar:file-corrupted-bold" width={48} className="mx-auto mb-3 opacity-40" />
                 <p className="text-lg font-medium">Post type &quot;{type}&quot; not found.</p>
-                <Link href="/admin" className="mt-4 inline-block text-indigo-500 hover:underline text-sm">
+                <Link href="/admin" className="mt-4 inline-block text-main hover:underline text-sm">
                     Back to Dashboard
                 </Link>
             </div>
@@ -71,7 +71,7 @@ export default function PostAddEditPage() {
                 {!isNew && (
                     <Link
                         href={`/admin/posts/${type}/new`}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-50 text-main hover:bg-indigo-100 transition"
                     >
                         <Icon icon="solar:add-circle-bold" width={16} />
                         Add New

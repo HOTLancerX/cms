@@ -453,7 +453,7 @@ export default function PostsListClient({
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder={`Search ${postType.label.toLowerCase()} by title, slug...`}
-                            className="w-full bg-gray-50 border border-gray-200 pl-9.5 pr-8 py-2 rounded-xl text-sm placeholder-gray-400 focus:outline-hidden focus:border-indigo-500 focus:bg-white transition"
+                            className="w-full bg-gray-50 border border-gray-200 pl-9.5 pr-8 py-2 rounded-xl text-sm placeholder-gray-400 focus:outline-hidden focus:border-main focus:bg-white transition"
                         />
                         {search && (
                             <button
@@ -470,7 +470,7 @@ export default function PostsListClient({
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3.5 py-2 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500 focus:bg-white transition text-gray-700 font-medium"
+                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3.5 py-2 rounded-xl text-sm focus:outline-hidden focus:border-main focus:bg-white transition text-gray-700 font-medium"
                         >
                             <option value="all">All Statuses</option>
                             <option value="published">Published</option>
@@ -487,7 +487,7 @@ export default function PostsListClient({
                         <select
                             value={categoryFilter}
                             onChange={(e) => setCategoryFilter(e.target.value)}
-                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3.5 py-2 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500 focus:bg-white transition text-gray-700 font-medium"
+                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3.5 py-2 rounded-xl text-sm focus:outline-hidden focus:border-main focus:bg-white transition text-gray-700 font-medium"
                         >
                             <option value="all">All Categories</option>
                             {availableCategories.map((c) => (
@@ -506,7 +506,7 @@ export default function PostsListClient({
                         <select
                             value={sellerFilter}
                             onChange={(e) => setSellerFilter(e.target.value)}
-                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3.5 py-2 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500 focus:bg-white transition text-gray-700 font-medium"
+                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3.5 py-2 rounded-xl text-sm focus:outline-hidden focus:border-main focus:bg-white transition text-gray-700 font-medium"
                         >
                             <option value="all">All Sellers</option>
                             {availableSellers.map((u) => (
@@ -525,7 +525,7 @@ export default function PostsListClient({
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
-                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500 focus:bg-white transition text-gray-700 font-medium"
+                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-xl text-sm focus:outline-hidden focus:border-main focus:bg-white transition text-gray-700 font-medium"
                             title="Sort Results"
                         >
                             <option value="newest">Newest</option>
@@ -543,7 +543,7 @@ export default function PostsListClient({
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100 text-xs font-semibold">
                         <span className="text-gray-400">Active Filters:</span>
                         {search && (
-                            <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-lg">
+                            <span className="inline-flex items-center gap-1 bg-indigo-50 text-main px-2.5 py-1 rounded-lg">
                                 Search: &quot;{search}&quot;
                                 <button onClick={() => setSearch("")} className="hover:text-indigo-900">
                                     <Icon icon="solar:close-circle-bold" width={14} />
@@ -551,7 +551,7 @@ export default function PostsListClient({
                             </span>
                         )}
                         {statusFilter !== "all" && (
-                            <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-lg">
+                            <span className="inline-flex items-center gap-1 bg-indigo-50 text-main px-2.5 py-1 rounded-lg">
                                 Status: {statusFilter}
                                 <button onClick={() => setStatusFilter("all")} className="hover:text-indigo-900">
                                     <Icon icon="solar:close-circle-bold" width={14} />
@@ -559,7 +559,7 @@ export default function PostsListClient({
                             </span>
                         )}
                         {categoryFilter !== "all" && (
-                            <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-lg">
+                            <span className="inline-flex items-center gap-1 bg-indigo-50 text-main px-2.5 py-1 rounded-lg">
                                 Category: {categoryMap.get(categoryFilter)?.title || categoryFilter}
                                 <button onClick={() => setCategoryFilter("all")} className="hover:text-indigo-900">
                                     <Icon icon="solar:close-circle-bold" width={14} />
@@ -567,7 +567,7 @@ export default function PostsListClient({
                             </span>
                         )}
                         {sellerFilter !== "all" && (
-                            <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-lg">
+                            <span className="inline-flex items-center gap-1 bg-indigo-50 text-main px-2.5 py-1 rounded-lg">
                                 Seller: {userMap.get(sellerFilter)?.name || sellerFilter}
                                 <button onClick={() => setSellerFilter("all")} className="hover:text-indigo-900">
                                     <Icon icon="solar:close-circle-bold" width={14} />
@@ -590,7 +590,7 @@ export default function PostsListClient({
                     <p className="text-xs text-gray-400 mt-1">Try tweaking your search keywords or filter settings.</p>
                     <button
                         onClick={handleResetFilters}
-                        className="mt-4 inline-flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-600 font-bold bg-indigo-50 hover:bg-indigo-100/70 px-3.5 py-2 rounded-xl transition"
+                        className="mt-4 inline-flex items-center gap-1.5 text-xs text-main hover:text-main font-bold bg-indigo-50 hover:bg-indigo-100/70 px-3.5 py-2 rounded-xl transition"
                     >
                         <Icon icon="solar:restart-bold" width={14} />
                         Clear All Filters
@@ -602,7 +602,7 @@ export default function PostsListClient({
                         <table className="w-full text-sm text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50/75 border-b border-gray-100 text-xs text-gray-500 uppercase font-bold tracking-wider">
-                                    <th className="px-5 py-4 w-[80px]">Item</th>
+                                    <th className="px-5 py-4 w-20">Item</th>
                                     <th className="px-5 py-4">Title & Slug</th>
                                     <th className="px-5 py-4">Category</th>
                                     <th className="px-5 py-4">Seller</th>
@@ -642,7 +642,7 @@ export default function PostsListClient({
 
                                             {/* Title & Slug */}
                                             <td className="px-5 py-3.5">
-                                                <div className="max-w-[280px]">
+                                                <div className="max-w-70">
                                                     <p className="font-bold text-gray-800 line-clamp-1 truncate" title={post.title}>
                                                         {post.title}
                                                     </p>
@@ -689,7 +689,7 @@ export default function PostsListClient({
                                                             <div className="text-xs">
                                                                 {priceInfo.selling ? (
                                                                     <>
-                                                                        <span className="text-indigo-600 font-bold">${priceInfo.selling}</span>
+                                                                        <span className="text-main font-bold">${priceInfo.selling}</span>
                                                                         {priceInfo.regular && (
                                                                             <span className="text-[10px] text-gray-400 line-through ml-1.5">${priceInfo.regular}</span>
                                                                         )}
@@ -699,7 +699,7 @@ export default function PostsListClient({
                                                                 )}
                                                             </div>
                                                         ) : (
-                                                            <div className="text-xs text-indigo-600 font-bold">
+                                                            <div className="text-xs text-main font-bold">
                                                                 ${priceInfo.min} - ${priceInfo.max}
                                                             </div>
                                                         )}

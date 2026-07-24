@@ -45,7 +45,7 @@ export default async function CategoryListPage({ params }: CategoryListPageProps
                 </div>
                 <Link
                     href={`/admin/category/${type}/new`}
-                    className="inline-flex items-center gap-2 bg-linear-to-r from-indigo-600 to-violet-600 text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition text-sm shadow"
+                    className="inline-flex items-center gap-2 bg-linear-to-r from-main to-violet-600 text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition text-sm shadow"
                 >
                     <Icon icon="solar:add-circle-bold" width={18} />
                     Add {catType.label}
@@ -58,7 +58,7 @@ export default async function CategoryListPage({ params }: CategoryListPageProps
                     <p>No {catType.label.toLowerCase()} entries yet.</p>
                     <Link
                         href={`/admin/category/${type}/new`}
-                        className="mt-4 inline-flex items-center gap-1.5 text-indigo-500 hover:underline text-sm"
+                        className="mt-4 inline-flex items-center gap-1.5 text-main hover:underline text-sm"
                     >
                         <Icon icon="solar:add-circle-bold" width={14} />
                         Create the first one
@@ -106,7 +106,7 @@ export default async function CategoryListPage({ params }: CategoryListPageProps
                                                 </Link>
                                                 <Link
                                                     href={`/admin/category/${type}/${cat._id}`}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-main hover:bg-indigo-100 transition"
                                                 >
                                                     <Icon icon="solar:pen-bold" width={13} /> Edit
                                                 </Link>
