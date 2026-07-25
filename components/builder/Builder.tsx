@@ -142,7 +142,7 @@ export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
             .catch(() => {});
     }, []);
 
-    // Load content from API
+    // ── Load content from API ──
     useEffect(() => {
         if (!builderId) return;
         xFetch(`/builder?id=${builderId}`)
@@ -154,6 +154,61 @@ export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
             })
             .catch(() => { });
     }, [builderId]);
+
+    // ── Dynamically pre-fetch enriched model dataset (*) based on active row types ──
+    useEffect(() => {
+        if (!rows || !Array.isArray(rows) || rows.length === 0) return;
+
+        const postTypes = new Set<string>();
+        const catTypes = new Set<string>();
+
+        function inspectElements(elements: any[]) {
+            for (const el of elements ?? []) {
+                const c = el?.schema?.content;
+                if (c) {
+                    if (c.postType) postTypes.add(c.postType);
+                    if (c.type && typeof c.type === "string" && !c.type.includes("-category")) postTypes.add(c.type);
+                    if (c.categoryType) catTypes.add(c.categoryType);
+                }
+                if (el?.type === "carousel" && c?.slides) {
+                    for (const slide of c.slides) {
+                        inspectElements(slide.elements ?? []);
+                    }
+                }
+            }
+        }
+
+        function inspectCols(cols: any[]) {
+            for (const col of cols ?? []) {
+                inspectElements(col?.elements ?? []);
+                if (col?.columns) inspectCols(col.columns);
+            }
+        }
+
+        for (const row of rows) {
+            inspectCols(row?.columns ?? []);
+        }
+
+        const finalPostTypes = postTypes.size > 0 ? Array.from(postTypes) : ["blog"];
+        const finalCatTypes = catTypes.size > 0 ? Array.from(catTypes) : ["blog-category"];
+
+        Promise.all([
+            ...finalCatTypes.map((ct) => xFetch(`/builder-post/cats?type=${ct}`).then((r) => r.json()).catch(() => ({ cats: [] }))),
+            ...finalPostTypes.map((pt) => xFetch(`/builder-post?type=${pt}&limit=12`).then((r) => r.json()).catch(() => ({ posts: [] }))),
+        ]).then((results) => {
+            const allCats = results.slice(0, finalCatTypes.length).flatMap((r) => r.cats ?? []);
+            const allPosts = results.slice(finalCatTypes.length).flatMap((r) => r.posts ?? []);
+
+            if (typeof window !== "undefined") {
+                (window as any).__initialBuilderData = {
+                    cats: allCats,
+                    posts: allPosts,
+                    postTypes: finalPostTypes,
+                    catTypes: finalCatTypes,
+                };
+            }
+        });
+    }, [rows]);
 
     // Panel resize handler
     const handleResizeStart = useCallback((e: React.MouseEvent) => {

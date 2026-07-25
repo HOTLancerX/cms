@@ -18,12 +18,12 @@ export interface FieldProps {
 // ─── Hook field definition registered by plugins ───
 export interface FormHookField {
     key: string;
-    label: string;
+    label?: string;
     type?: string;
     slug?: string;
     active?: boolean;
-    style: "left" | "right";
-    position: number;
+    style?: "left" | "right";
+    position?: number;
     /**
      * Declares the field's rendering behaviour.
      * - undefined / omitted  → standard component (Text, Select, Switch, etc.)
@@ -267,7 +267,7 @@ export function addHook(
     // the same key (e.g. "header", "footer", "blog") are all preserved.
     stamped.forEach((f) => {
         const exists = hooks[hookName].some(
-            (h) => h.pluginNx === f.pluginNx && h.label === f.label && (h.type ?? "") === (f.type ?? "")
+            (h) => h.pluginNx === f.pluginNx && h.key === f.key && (h.type ?? "") === (f.type ?? "")
         );
         if (!exists) hooks[hookName].push(f);
     });
@@ -296,7 +296,27 @@ export function getHooks(hookName: string, type?: string): FormHookField[] {
     // Filter out hooks whose plugin is no longer active
     const gated = filtered.filter((f) => !f.pluginNx || isPluginActive(f.pluginNx));
 
-    return [...gated].sort((a, b) => a.position - b.position);
+    // Merge partial key overrides (e.g. { key: "social", active: false }) into existing entries
+    const keyMap = new Map<string, FormHookField>();
+    gated.forEach((f) => {
+        const matchKey = Array.from(keyMap.keys()).find(
+            (k) => k === f.key || k.endsWith(`_${f.key}`)
+        );
+        if (matchKey) {
+            const prev = keyMap.get(matchKey)!;
+            keyMap.set(matchKey, { ...prev, ...f });
+        } else {
+            const k = f.type ? `${f.type}_${f.key}` : f.key;
+            keyMap.set(k, f);
+        }
+    });
+
+    const deduped = Array.from(keyMap.values());
+
+    // Exclude fields explicitly set to active: false
+    const activeOnly = deduped.filter((f) => f.active !== false);
+
+    return activeOnly.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 }
 
 /**

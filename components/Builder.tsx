@@ -1,25 +1,27 @@
 import connectDB from "@/lib/mongodb";
 import BuilderModel from "@/models/builder";
+import MenuModel from "@/models/Menu";
 import BuilderClient from "./BuilderClient";
 import {
     hasBuilderElement,
     renderBuilderElement,
 } from "@/hook/builderDataHooks";
+import { fetchEnrichedBuilderData } from "@/lib/builderDataEngine";
 
-// Server Component.
-// Renders the builder layout server-side.
-// Elements registered in builderDataHooks (e.g. "blog-post") are rendered
-// as async server components — MongoDB queries happen here, zero client fetches.
-// Other elements fall through to BuilderClient as before.
+// Direct central imports for the 9 core models
+import Post from "@/models/post";
+import PostInfo from "@/models/post_info";
+import Cat from "@/models/cat";
+import CatInfo from "@/models/cat_info";
+import User from "@/models/Users";
+import UserInfo from "@/models/Users_info";
+import Comment from "@/models/Comment";
+import Permalink from "@/models/permalink";
+import Template from "@/models/template";
 
 interface Props {
     id: string;
     data?: any;
-}
-
-interface RenderedElement {
-    id: string;
-    node: React.ReactNode;
 }
 
 function collectRegisteredElements(content: any[]): { id: string; type: string; schema: any }[] {
@@ -52,8 +54,6 @@ function collectRegisteredElements(content: any[]): { id: string; type: string; 
     return results;
 }
 
-import MenuModel from "@/models/Menu";
-
 export default async function Builder({ id, data }: Props) {
     await connectDB();
     const doc = await BuilderModel.findById(id).lean();
@@ -68,13 +68,39 @@ export default async function Builder({ id, data }: Props) {
     // Find all elements that have a registered server component
     const registered = collectRegisteredElements(content);
 
-    // Render them all in parallel — each is an async server component
-    // that queries MongoDB directly (LatestPosts, etc.)
+    // Pre-fetch centralized dynamic model dataset for elements
+    let enrichedModelContext: any = null;
+    if (registered.length > 0) {
+        try {
+            // Dynamically resolve postType and categoryType from element schema if present
+            const firstEl = registered[0]?.schema?.content;
+            const postType = firstEl?.postType || firstEl?.type || "blog";
+            const categoryType = firstEl?.categoryType || `${postType}-category`;
+            const categoryIds = firstEl?.categoryIds ?? [];
+            const limit = firstEl?.limit ?? 6;
+
+            enrichedModelContext = await fetchEnrichedBuilderData({
+                postType,
+                categoryType,
+                categoryIds,
+                limit,
+            });
+        } catch {
+            enrichedModelContext = null;
+        }
+    }
+
+    const mergedDataContext = {
+        ...data,
+        builderContext: enrichedModelContext,
+    };
+
+    // Render elements in parallel with dynamic type context
     const rendered: Record<string, React.ReactNode> = {};
     if (registered.length > 0) {
         await Promise.all(
             registered.map(async ({ id: elId, type, schema }) => {
-                rendered[elId] = await renderBuilderElement(type, schema, data);
+                rendered[elId] = await renderBuilderElement(type, schema, mergedDataContext);
             })
         );
     }

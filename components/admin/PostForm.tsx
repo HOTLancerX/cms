@@ -67,8 +67,8 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
         setFields(getHooks("post.form", type));
     }, [type, activePlugins]);
 
-    const leftFields  = fields.filter((f) => f.style === "left");
-    const rightFields = fields.filter((f) => f.style === "right");
+    const leftFields  = fields.filter((f) => f.style === "left" && f.active !== false);
+    const rightFields = fields.filter((f) => f.style === "right" && f.active !== false);
 
     // ── Core form state ─────────────────────────────────────────────────────
     const [title, setTitle]               = useState("");
