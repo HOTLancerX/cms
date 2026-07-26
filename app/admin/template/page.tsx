@@ -27,6 +27,7 @@ interface TemplateEntry {
 interface DbRecord {
     _id: string;
     type: string;
+    key?: string;
     label: string;
     pluginNx: string;
     isDefault: boolean;
@@ -52,6 +53,10 @@ const TYPE_ICON: Record<string, string> = {
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
+
+function getTplKey(tpl: { type: string; label: string; pluginNx: string; key?: string; builderId?: string | null }): string {
+    return `${tpl.type}::${tpl.label}::${tpl.pluginNx}::${tpl.key ?? ""}${tpl.builderId ? `::${tpl.builderId}` : ""}`;
+}
 
 export default function TemplateManager() {
     const [templates, setTemplates] = useState<TemplateEntry[]>([]);
@@ -87,9 +92,13 @@ export default function TemplateManager() {
             const dbRes = await xFetch("/template", { cache: "no-store" });
             const dbRecords: DbRecord[] = await dbRes.json();
 
-            // Build lookup: "type::label::pluginNx" → { _id, isDefault }
+            // Build lookup: "type::label::pluginNx::key" → { _id, isDefault }
             const dbMap = new Map<string, { id: string; isDefault: boolean }>();
             dbRecords.forEach((r) => {
+                dbMap.set(`${r.type}::${r.label}::${r.pluginNx}::${r.key ?? ""}`, {
+                    id: r._id,
+                    isDefault: r.isDefault,
+                });
                 dbMap.set(`${r.type}::${r.label}::${r.pluginNx}`, {
                     id: r._id,
                     isDefault: r.isDefault,
@@ -98,7 +107,9 @@ export default function TemplateManager() {
 
             // 6. Merge hook registry entries with DB state
             const hookTemplates: TemplateEntry[] = visible.map((p) => {
-                const dbEntry = dbMap.get(`${p.type}::${p.label}::${p.pluginNx}`);
+                const dbEntry =
+                    dbMap.get(`${p.type}::${p.label}::${p.pluginNx}::${p.key ?? ""}`) ||
+                    dbMap.get(`${p.type}::${p.label}::${p.pluginNx}`);
                 return {
                     key: p.key ?? "",
                     type: p.type!,
@@ -122,7 +133,9 @@ export default function TemplateManager() {
                     .map((d) => {
                         const type = d.templateType!;
                         const label = d.title;
-                        const dbEntry = dbMap.get(`${type}::${label}::${BUILDER_NX}`);
+                        const dbEntry =
+                            dbMap.get(`${type}::${label}::${BUILDER_NX}::builder:${d._id}`) ||
+                            dbMap.get(`${type}::${label}::${BUILDER_NX}`);
                         return {
                             key: `builder:${d._id}`,
                             type,
@@ -161,7 +174,7 @@ export default function TemplateManager() {
     // 3. Update local state
 
     const handleSetDefault = async (tpl: TemplateEntry) => {
-        const busyKey = `${tpl.type}::${tpl.label}`;
+        const busyKey = getTplKey(tpl);
         setProcessing(busyKey);
 
         try {
@@ -189,7 +202,8 @@ export default function TemplateManager() {
                     (r) =>
                         r.type === tpl.type &&
                         r.label === tpl.label &&
-                        r.pluginNx === tpl.pluginNx
+                        r.pluginNx === tpl.pluginNx &&
+                        (!r.key || r.key === tpl.key)
                 );
                 dbId = match?._id ?? null;
             }
@@ -206,17 +220,14 @@ export default function TemplateManager() {
             });
 
             // Step 3 — reflect in local state
+            const targetTplKey = getTplKey(tpl);
             setTemplates((prev) =>
                 prev.map((t) =>
                     t.type === tpl.type
                         ? {
                               ...t,
-                              isDefault:
-                                  t.label === tpl.label && t.pluginNx === tpl.pluginNx,
-                              dbId:
-                                  t.label === tpl.label && t.pluginNx === tpl.pluginNx
-                                      ? dbId
-                                      : t.dbId,
+                              isDefault: getTplKey(t) === targetTplKey,
+                              dbId: getTplKey(t) === targetTplKey ? dbId : t.dbId,
                           }
                         : t
                 )
@@ -282,7 +293,7 @@ export default function TemplateManager() {
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {visibleTemplates.map((tpl) => {
-                        const busyKey = `${tpl.type}::${tpl.label}`;
+                        const busyKey = getTplKey(tpl);
                         const isBusy = processing === busyKey;
                         const icon = TYPE_ICON[tpl.type] ?? "solar:file-bold";
                         const isBuilderPage = tpl.builderId !== null;

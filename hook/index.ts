@@ -296,17 +296,14 @@ export function getHooks(hookName: string, type?: string): FormHookField[] {
     // Filter out hooks whose plugin is no longer active
     const gated = filtered.filter((f) => !f.pluginNx || isPluginActive(f.pluginNx));
 
-    // Merge partial key overrides (e.g. { key: "social", active: false }) into existing entries
+    // Merge partial key overrides per plugin (keyed by pluginNx, type, and key)
     const keyMap = new Map<string, FormHookField>();
     gated.forEach((f) => {
-        const matchKey = Array.from(keyMap.keys()).find(
-            (k) => k === f.key || k.endsWith(`_${f.key}`)
-        );
-        if (matchKey) {
-            const prev = keyMap.get(matchKey)!;
-            keyMap.set(matchKey, { ...prev, ...f });
+        const k = `${f.pluginNx ?? "core"}::${f.type ?? ""}::${f.key}`;
+        if (keyMap.has(k)) {
+            const prev = keyMap.get(k)!;
+            keyMap.set(k, { ...prev, ...f });
         } else {
-            const k = f.type ? `${f.type}_${f.key}` : f.key;
             keyMap.set(k, f);
         }
     });
