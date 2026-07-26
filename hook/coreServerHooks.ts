@@ -14,6 +14,7 @@ import Post     from "@/models/post";
 import PostInfo from "@/models/post_info";
 import Cat      from "@/models/cat";
 import Template from "@/models/template";
+import User     from "@/models/Users";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -98,21 +99,92 @@ registerServerDataHook("blog-category", async (catId) => {
     return { posts, subCats, ancestors, activeBox };
 });
 
-// ── blog: full category ancestor chain for the breadcrumb ────────────────────
+// ── blog: category ancestors, related category posts, & posting user author info ───
 
 registerServerDataHook("blog", async (_id, _slug, data) => {
-    if (!data?.category) return { categoryAncestors: [] };
-    // Walk parent chain to build root → leaf breadcrumb
-    const chain: { _id: string; title: string; slug: string }[] = [];
-    let current: any = await Cat.findById(data.category).lean();
-    while (current) {
-        chain.unshift({
-            _id:   String(current._id),
-            title: current.title ?? '',
-            slug:  current.slug  ?? '',
-        });
-        if (!current.parentId) break;
-        current = await Cat.findById(current.parentId).lean();
+    let categoryAncestors: { _id: string; title: string; slug: string }[] = [];
+    let relatedPosts: any[] = [];
+    let author: { _id?: string; name?: string; image?: string; slug?: string; type?: string } | null = null;
+
+    if (data?.category) {
+        // Walk parent chain to build root → leaf breadcrumb
+        let current: any = await Cat.findById(data.category).lean();
+        while (current) {
+            categoryAncestors.unshift({
+                _id:   String(current._id),
+                title: current.title ?? '',
+                slug:  current.slug  ?? '',
+            });
+            if (!current.parentId) break;
+            current = await Cat.findById(current.parentId).lean();
+        }
+
+        // Fetch related posts in the same category (excluding current post)
+        const rawRelated = await Post.find({
+            category: data.category,
+            _id: { $ne: _id },
+            status: "published",
+        })
+            .sort({ createdAt: -1 })
+            .limit(6)
+            .lean();
+
+        if (rawRelated.length > 0) {
+            const postIds = rawRelated.map((p) => p._id);
+            const postInfos = await PostInfo.find({ postId: { $in: postIds } }).lean();
+            const infoMapByPost: Record<string, Record<string, string>> = {};
+            postInfos.forEach((info) => {
+                const pid = String(info.postId);
+                if (!infoMapByPost[pid]) infoMapByPost[pid] = {};
+                infoMapByPost[pid][info.name] = String(info.value ?? '');
+            });
+
+            relatedPosts = rawRelated.map((p) => ({
+                _id: String(p._id),
+                title: String(p.title ?? ''),
+                slug: String(p.slug ?? ''),
+                status: String(p.status ?? ''),
+                createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt ?? ''),
+                info: infoMapByPost[String(p._id)] ?? {},
+            }));
+        }
     }
-    return { categoryAncestors: chain };
+
+    // Fetch author (name & image) of posting user
+    const targetUserId = data?.userId || data?.info?.userId || data?.info?.authorId || data?.info?.reporterId;
+    if (targetUserId) {
+        try {
+            let userDoc: any = null;
+            if (mongoose.Types.ObjectId.isValid(targetUserId)) {
+                userDoc = await User.findById(targetUserId).lean();
+            }
+            if (!userDoc) {
+                userDoc = await User.findOne({
+                    $or: [{ slug: targetUserId }, { email: targetUserId }],
+                }).lean();
+            }
+
+            if (userDoc) {
+                author = {
+                    _id: String(userDoc._id),
+                    name: String(userDoc.name ?? ''),
+                    image: String(userDoc.image ?? ''),
+                    slug: String(userDoc.slug ?? ''),
+                    type: String(userDoc.type ?? ''),
+                };
+            }
+        } catch {
+            /* skip invalid userId */
+        }
+    }
+
+    if (!author && (data?.info?.author || data?.info?.userName || data?.info?.reporter || data?.info?.authorName)) {
+        author = {
+            name: String(data?.info?.author || data?.info?.userName || data?.info?.reporter || data?.info?.authorName),
+            image: String(data?.info?.authorImage || data?.info?.userImage || ''),
+            type: 'reporter',
+        };
+    }
+
+    return { categoryAncestors, relatedPosts, author };
 });

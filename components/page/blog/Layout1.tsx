@@ -164,7 +164,7 @@ export default function BlogLayout1({ data, permalinkMap = {}, pageData }: BlogP
                             </div>
                             <div className="flex justify-between">
                                 <dt className="text-gray-400">Slug</dt>
-                                <dd className="font-mono text-xs text-gray-600 truncate max-w-[140px]">{data.slug}</dd>
+                                <dd className="font-mono text-xs text-gray-600 truncate max-w-35">{data.slug}</dd>
                             </div>
                             {publishedAt && (
                                 <div className="flex justify-between">

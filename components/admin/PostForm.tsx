@@ -8,6 +8,7 @@ import { reregisterHooks } from "@/hook/PluginList";
 import { xFetch } from "@/lib/express";
 import Gallery from "@/components/Gallery";
 import Content from "@/components/Content";
+import { useUser } from "@/context/Provider";
 
 export interface PostFormProps {
     /** Post type key, e.g. "blog", "page", "product" */
@@ -56,6 +57,7 @@ const slugify = (text: string): string => {
 export default function PostForm({ type, activePlugins, postId, userId, defaultStatus, onSuccess }: PostFormProps) {
     const router = useRouter();
     const isEdit = Boolean(postId);
+    const { user: currentUser } = useUser();
 
     // ── Plugin-injected fields ──────────────────────────────────────────────
     const [fields, setFields] = useState<FormHooks>([]);
@@ -136,8 +138,9 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                 (data.info ?? []).forEach((item: { name: string; value: string }) => {
                     infoMap[item.name] = item.value;
                 });
-                // Seed category so any registered category component renders the saved value
+                // Seed category & userId so registered components & form state retain them
                 if (p.category) infoMap["category"] = p.category;
+                if (p.userId) infoMap["userId"] = String(p.userId);
                 setInfo(infoMap);
             })
             .catch(() => setNotFound(true))
@@ -204,10 +207,13 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
         }
 
         try {
-            // Merge the optional userId into info so it's persisted as PostInfo
+            // Determine effective userId from prop, info.userId, or logged in currentUser session
+            const effectiveUserId = userId || info.userId || currentUser?._id || "";
+
+            // Merge effectiveUserId into info so it's persisted in PostInfo
             // and can be used to filter posts by seller/author later.
-            const mergedInfo = userId
-                ? { ...info, userId }
+            const mergedInfo = effectiveUserId
+                ? { ...info, userId: effectiveUserId }
                 : info;
 
             // When defaultStatus is provided (reporter / seller forms), always
@@ -222,7 +228,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                 status: saveStatus,
                 type,
                 info: mergedInfo,
-                ...(userId ? { userId } : {}),
+                ...(effectiveUserId ? { userId: effectiveUserId } : {}),
                 ...(category ? { category } : {}),
                 ...(isEdit ? { _id: postId } : {}),
             };
@@ -246,7 +252,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                             status: saveStatus,
                             type,
                             info: mergedInfo,
-                            ...(userId ? { userId } : {}),
+                            ...(effectiveUserId ? { userId: effectiveUserId } : {}),
                             ...(category ? { category } : {}),
                         };
                         await xFetch("/post", {
@@ -478,6 +484,34 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                             {saving ? "Saving…" : isEdit ? "Save Changes" : "Publish"}
                         </button>
                     </div>
+
+                    {/* ── User ID & Posting Info ── */}
+                    <div className="flex flex-col gap-1.5 bg-white p-3 rounded border border-gray-100 shadow-2xs">
+                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Posting User Info
+                        </label>
+                        {currentUser?.name && (
+                            <div className="flex items-center justify-between text-xs pt-1">
+                                <span className="text-gray-400 font-medium">User Name:</span>
+                                <span className="font-semibold text-gray-900 truncate max-w-45">
+                                    {currentUser.name}
+                                </span>
+                            </div>
+                        )}
+                        <div className="flex items-center justify-between text-xs pt-0.5">
+                            <span className="text-gray-400 font-medium">User ID:</span>
+                            <span className="font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded truncate max-w-45">
+                                {userId || info["userId"] || currentUser?._id || "Auto-assigned"}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-0.5">
+                            <span className="text-gray-400 font-medium">User Type / Role:</span>
+                            <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded capitalize border border-emerald-200">
+                                {currentUser?.type || type}
+                            </span>
+                        </div>
+                    </div>
+
                     {/* ── Default image field ── */}
                     <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
                         <label className="text-xs font-semibold">Featured Image</label>

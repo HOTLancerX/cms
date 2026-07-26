@@ -6,10 +6,12 @@ import { Icon } from "@iconify/react";
 import PostForm from "@/components/admin/PostForm";
 import { useActivePlugins } from "@/hook/useActivePlugins";
 import { getAllPostTypes } from "@/hook";
+import { useUser } from "@/context/Provider";
 
 export default function PostAddEditPage() {
     const { type, id } = useParams<{ type: string; id: string }>();
     const router = useRouter();
+    const { user: currentUser } = useUser();
 
     const activePlugins = useActivePlugins();
 
@@ -84,6 +86,7 @@ export default function PostAddEditPage() {
                     type={type}
                     activePlugins={activePlugins}
                     postId={postId}
+                    userId={currentUser?._id}
                     onSuccess={(savedId) => {
                         // After creating a new post, redirect to its edit page
                         if (isNew) {
