@@ -476,32 +476,29 @@ export function register(): void {
     addHook("root.pages", [
         {
             key: "header",
-            label: "Header Layout 1",
+            label: "Header 1",
             type: "header",
             slug: "layout",
             style: "left",
             position: 10,
-            active: true,           // first-boot default
             component: Header1,
         },
         {
             key: "header",
-            label: "Header Layout 2",
+            label: "Header 2",
             type: "header",
             slug: "layout",
             style: "left",
             position: 20,
-            active: false,
             component: Header2,
         },
         {
             key: "header",
-            label: "Header Layout 3",
+            label: "Header 3",
             type: "header",
             slug: "layout",
             style: "left",
             position: 30,
-            active: false,
             component: Header3,
         },
     ], CORE_NX);
@@ -510,17 +507,16 @@ export function register(): void {
     addHook("root.pages", [
         {
             key: "footer",
-            label: "Footer Layout 1",
+            label: "Footer 1",
             type: "footer",
             slug: "layout",
             style: "left",
             position: 10,
-            active: true,           // first-boot default
             component: Footer1,
         },
         {
             key: "footer",
-            label: "Footer Layout 2",
+            label: "Footer 2",
             type: "footer",
             slug: "layout",
             style: "left",
@@ -530,7 +526,7 @@ export function register(): void {
         },
         {
             key: "footer",
-            label: "Footer Layout 3",
+            label: "Footer 3",
             type: "footer",
             slug: "layout",
             style: "left",

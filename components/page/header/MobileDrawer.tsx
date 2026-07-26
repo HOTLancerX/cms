@@ -16,12 +16,12 @@ import type { MenuItem } from '@/models/Menu';
 
 interface MobileDrawerProps {
     items: MenuItem[];
-    siteName?: string;
+    settings?: Record<string, any>;
     /** CSS colour for the burger button icon */
     iconColor?: string;
 }
 
-export default function MobileDrawer({ items, siteName = 'MySite', iconColor = 'currentColor' }: MobileDrawerProps) {
+export default function MobileDrawer({ items, settings, iconColor = 'currentColor' }: MobileDrawerProps) {
     const [open, setOpen] = useState(false);
 
     // Prevent body scroll when drawer is open
@@ -58,10 +58,20 @@ export default function MobileDrawer({ items, siteName = 'MySite', iconColor = '
             >
                 {/* Drawer header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b">
-                    <Link href="/" onClick={() => setOpen(false)}
-                        className="text-lg font-extrabold text-gray-900 tracking-tight">
-                        {siteName}
+                    <Link href="/" className="text-xl font-extrabold text-gray-900 tracking-tight shrink-0 flex items-center">
+                        {settings.logo ? (
+                            <img src={settings.logo} alt={settings.siteName} className="h-8 w-auto object-contain" />
+                        ) : (
+                            settings.siteName
+                        )}
                     </Link>
+                    <Link href="/" className="text-xl font-extrabold text-gray-900 tracking-tight shrink-0 flex items-center">
+                    {settings.logo ? (
+                        <img src={settings.logo} alt={settings.siteName} className="h-8 w-auto object-contain" />
+                    ) : (
+                        settings.siteName
+                    )}
+                </Link>
                     <button type="button" onClick={() => setOpen(false)}
                         aria-label="Close menu"
                         className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500">

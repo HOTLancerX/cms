@@ -36,8 +36,8 @@ export default function PageLayout2({ data }: PageProps) {
             <header className="relative overflow-hidden">
                 {/* Background gradient blobs */}
                 <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-sky-600/20 blur-3xl" />
-                    <div className="absolute -bottom-20 right-0 w-[400px] h-[400px] rounded-full bg-blue-700/15 blur-3xl" />
+                    <div className="absolute -top-32 -left-32 w-125 h-125 rounded-full bg-sky-600/20 blur-3xl" />
+                    <div className="absolute -bottom-20 right-0 w-100 h-100 rounded-full bg-blue-700/15 blur-3xl" />
                 </div>
 
                 <div className="relative max-w-5xl mx-auto px-6 pt-20 pb-16 text-center">

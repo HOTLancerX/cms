@@ -39,7 +39,7 @@ export default function ElementsPanel({ onClickAdd }: Props) {
                     placeholder="Search Widget..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full py-[7px] pr-2 pl-7 border border-gray-200 rounded text-xs outline-none"
+                    className="w-full py-1.75 pr-2 pl-7 border border-gray-200 rounded text-xs outline-none"
                 />
             </div>
 
@@ -95,15 +95,19 @@ function DraggableCatalogItem({
                     : "bg-white hover:border-blue-300 hover:bg-blue-50/30 hover:shadow-sm active:scale-95"
                 }`}
         >
-            {typeof item.icon === "string" && (item.icon.startsWith("/") || item.icon.includes(".") || item.icon.startsWith("http")) ? (
-                <img
-                    src={item.icon}
-                    alt={item.label}
-                    className="w-full h-14 object-contain"
-                />
-            ) : (
-                <Icon icon={item.icon} width="35" className={`transition-colors duration-200 ${isDragging ? "text-blue-500" : "text-gray-600"}`} />
-            )}
+            {(() => {
+                const iconSrc = typeof item.icon === "object" && item.icon !== null ? (item.icon as any).src : item.icon;
+                const isImg = typeof iconSrc === "string" && (iconSrc.startsWith("/") || iconSrc.includes(".") || iconSrc.startsWith("http") || iconSrc.startsWith("data:"));
+                return isImg ? (
+                    <img
+                        src={iconSrc}
+                        alt={item.label}
+                        className="w-full h-14 object-contain"
+                    />
+                ) : (
+                    <Icon icon={item.icon} width="35" className={`transition-colors duration-200 ${isDragging ? "text-blue-500" : "text-gray-600"}`} />
+                );
+            })()}
             <span className={`text-sm transition-colors duration-200 line-clamp-2 ${isDragging ? "text-blue-600" : "text-gray-700"}`}>{item.label}</span>
         </button>
     );

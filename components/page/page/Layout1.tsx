@@ -84,7 +84,7 @@ export default function PageLayout1({ data, builder }: PageProps & { builder?: R
                             <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 overflow-hidden">
                                 {extraInfo.map(([key, value]) => (
                                     <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-2 px-5 py-3.5 bg-white hover:bg-gray-50 transition">
-                                        <dt className="text-xs font-mono font-semibold text-sky-500 uppercase tracking-wide min-w-[180px]">
+                                        <dt className="text-xs font-mono font-semibold text-sky-500 uppercase tracking-wide min-w-45">
                                             {key.replace(/_/g, " ")}
                                         </dt>
                                         <dd className="text-sm text-gray-700 break-all">{value}</dd>
