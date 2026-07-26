@@ -102,7 +102,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #124d9d;
+  background: var(--color-main);
 }
 
 @layer base {

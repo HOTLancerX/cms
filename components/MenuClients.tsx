@@ -280,7 +280,7 @@ function StyledPanel({ item, styleNum, gridCols, colors, panelTop, onMouseEnter,
 
     return (
         <div
-            className="fixed left-0 right-0 z-[9999] shadow-2xl border-t"
+            className="fixed left-0 right-0 z-9999 shadow-2xl border-t"
             style={{ top: panelTop, background: colors.navBoxBg, borderColor: colors.navBorderColor, color: colors.navBoxText }}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
@@ -435,7 +435,7 @@ function MegaPanel({ item, colors, panelTop, onMouseEnter, onMouseLeave }: MegaP
     const colClass = gridClass[gridCols] ?? 'grid-cols-4';
 
     return (
-        <div className="fixed left-0 right-0 z-[9999] shadow-2xl border-t"
+        <div className="fixed left-0 right-0 z-9999 shadow-2xl border-t"
             style={{ top: panelTop, background: colors.navBoxBg, borderColor: colors.navBorderColor, color: colors.navBoxText }}
             onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
             <div className="container py-6">
@@ -475,7 +475,7 @@ interface SideDropdownProps {
 function SideDropdown({ item, colors, side, onMouseEnter, onMouseLeave }: SideDropdownProps) {
     return (
         <div
-            className={`absolute top-full mt-1 rounded-xl shadow-xl border min-w-[260px] z-50 py-2 ${side === 'right' ? 'right-0' : 'left-0'}`}
+            className={`absolute top-full mt-1 rounded-xl shadow-xl border min-w-65 z-50 py-2 ${side === 'right' ? 'right-0' : 'left-0'}`}
             style={{ background: colors.navBoxBg, borderColor: colors.navBorderColor, color: colors.navBoxText }}
             onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
             {(item.children ?? []).map((child) => (
@@ -506,7 +506,7 @@ interface SimpleDropdownProps {
 
 function SimpleDropdown({ item, colors, onMouseEnter, onMouseLeave }: SimpleDropdownProps) {
     return (
-        <ul className="absolute left-0 top-full mt-1 rounded-xl shadow-xl border min-w-[220px] z-50 py-2"
+        <ul className="absolute left-0 top-full mt-1 rounded-xl shadow-xl border min-w-55 z-50 py-2"
             style={{ background: colors.navBoxBg, borderColor: colors.navBorderColor, color: colors.navBoxText }}
             onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
             {(item.children ?? []).map((child) => (
