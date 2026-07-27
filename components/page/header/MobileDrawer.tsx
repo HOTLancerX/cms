@@ -17,7 +17,6 @@ import type { MenuItem } from '@/models/Menu';
 interface MobileDrawerProps {
     items: MenuItem[];
     settings?: Record<string, any>;
-    /** CSS colour for the burger button icon */
     iconColor?: string;
 }
 

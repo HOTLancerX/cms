@@ -56,7 +56,7 @@ export default function Header3({
                         <MenuClients menuItems={rightItems} settings={darkSettings} builderContent={builderContent} className="flex items-center" />
                     </div>
                 )}
-                <MobileDrawer items={mobileItems} siteName={settings.siteName} iconColor="#9ca3af" />
+                <MobileDrawer items={mobileItems} settings={settings} iconColor="#9ca3af" />
             </div>
         </header>
     );

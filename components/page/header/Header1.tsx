@@ -41,7 +41,7 @@ export default function Header1({
                         settings.siteName || 'MySite'
                     )}
                 </Link>
-                <MobileDrawer items={mobileItems} siteName={settings.siteName} iconColor="#374151" />
+                <MobileDrawer items={mobileItems} settings={settings} iconColor="#374151" />
                 {mainItems.length > 0 ? (
                     <div className="hidden md:flex justify-end flex-1">
                         <MenuClients menuItems={mainItems} settings={settings} builderContent={builderContent} className="flex items-center" />
