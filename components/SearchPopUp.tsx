@@ -51,7 +51,7 @@ export default function SearchPopUp({ currencySymbol = '', type = 'products', fo
             {visible && (
                 <div
                     ref={overlayRef}
-                    className="fixed left-0 right-0 top-0 z-50 w-full bg-black overflow-hidden transition-all duration-300 ease-in-out"
+                    className="fixed left-0 right-0 top-0 z-50 w-full bg-main overflow-hidden transition-all duration-300 ease-in-out"
                     style={{
                         maxHeight: open ? '120px' : '0px',
                         opacity: open ? 1 : 0,
