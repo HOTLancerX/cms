@@ -27,5 +27,5 @@ const PluginSchema = new Schema<IPlugin>(
     { timestamps: true }
 );
 
-export default (mongoose.models.Plugin as mongoose.Model<IPlugin>) ||
-    mongoose.model<IPlugin>("Plugin", PluginSchema);
+export default (mongoose.models.installedplugins as mongoose.Model<IPlugin>) ||
+    mongoose.model<IPlugin>("installedplugins", PluginSchema);

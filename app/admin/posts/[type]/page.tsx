@@ -44,8 +44,8 @@ export default async function PostsListPage({ params }: PostsListPageProps) {
         ...p,
         _id: p._id.toString(),
         category: p.category ? p.category.toString() : null,
-        createdAt: p.createdAt ? (p.createdAt as Date).toISOString() : "",
-        updatedAt: p.updatedAt ? (p.updatedAt as Date).toISOString() : ""
+        createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : "",
+        updatedAt: p.updatedAt ? new Date(p.updatedAt).toISOString() : ""
     }));
 
     const infos = infosData.map(i => ({

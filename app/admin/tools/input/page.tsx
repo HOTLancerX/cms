@@ -62,7 +62,7 @@ export default function InputToolsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          filePath: hook.filePath,
+          key: hook.key,
           mode: importMode,
         }),
       });
@@ -165,7 +165,7 @@ export default function InputToolsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-            <Icon icon="solar:import-bold" className="text-sky-500" width={28} />
+            <Icon icon="solar:import-bold" className="text-main" width={28} />
             Import / Data Input Box Tools
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
@@ -189,7 +189,7 @@ export default function InputToolsPage() {
             onClick={() => setImportMode("merge")}
             className={`px-3 py-1.5 rounded-lg transition-all ${
               importMode === "merge"
-                ? "bg-white dark:bg-zinc-700 text-sky-600 dark:text-sky-400 shadow-sm"
+                ? "bg-white dark:bg-zinc-700 text-main dark:text-sky-400 shadow-sm"
                 : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
             }`}
           >
@@ -218,13 +218,13 @@ export default function InputToolsPage() {
       {/* Registered Files Grid Header */}
       <div>
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 mb-4">
-          <Icon icon="solar:folder-with-files-bold" className="text-sky-500" width={22} />
+          <Icon icon="solar:folder-with-files-bold" className="text-main" width={22} />
           Registered File Input Grid Hooks
         </h2>
 
         {loading ? (
           <div className="p-12 text-center text-zinc-500 flex flex-col items-center gap-3">
-            <Icon icon="solar:restart-bold" className="animate-spin text-sky-500" width={32} />
+            <Icon icon="solar:restart-bold" className="animate-spin text-main" width={32} />
             <span>Loading registered file hooks...</span>
           </div>
         ) : hooks.length === 0 ? (
@@ -236,26 +236,26 @@ export default function InputToolsPage() {
             {hooks.map((hook) => (
               <div
                 key={hook.key}
-                className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 flex flex-col justify-between hover:shadow-lg transition-all space-y-4"
+                className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 flex flex-col justify-between hover:shadow-lg transition-all space-y-4"
               >
                 <div>
                   {/* File location icon & header */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="p-3 bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 rounded-xl flex items-center gap-2">
-                      <Icon icon={hook.locationIcon || "solar:folder-path-bold-duotone"} width={24} />
+                  <div className="flex items-center gap-2 w-full mb-4">
+                    <div className="p-3 bg-sky-50 dark:bg-sky-950/40 text-main dark:text-sky-400 rounded-xl flex items-center gap-2">
                       <Icon icon={hook.icon || "solar:document-text-bold"} width={20} />
                     </div>
-                    {hook.pluginNx && (
-                      <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
-                        {hook.pluginNx}
-                      </span>
-                    )}
+                    {/* Name */}
+                    <div className="flex flex-col">
+                      <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
+                        {hook.name}
+                      </h3>
+                      {hook.pluginNx && (
+                        <span className="text-xs inline-flex font-mono font-semibold px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                          {hook.pluginNx}
+                        </span>
+                      )}
+                    </div>
                   </div>
-
-                  {/* Name */}
-                  <h3 className="font-bold text-lg text-zinc-900 dark:text-zinc-100 mt-4">
-                    {hook.name}
-                  </h3>
 
                   {/* Description */}
                   {hook.description && (
@@ -266,10 +266,6 @@ export default function InputToolsPage() {
 
                   {/* File Location display */}
                   <div className="mt-4 p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60 space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 font-mono overflow-hidden text-ellipsis">
-                      <Icon icon="solar:map-point-bold" className="text-sky-500 shrink-0" width={14} />
-                      <span className="truncate">{hook.filePath}</span>
-                    </div>
                     <div className="flex items-center justify-between text-[11px] text-zinc-400 font-medium">
                       <span>{hook.itemCount || 0} records</span>
                       <span>
@@ -283,7 +279,7 @@ export default function InputToolsPage() {
                 <button
                   onClick={() => handleImportHook(hook)}
                   disabled={importingKey === hook.key}
-                  className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white font-semibold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                  className="w-full py-2.5 px-4 bg-main hover:bg-main/80 active:bg-sky-800 text-white font-semibold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
                 >
                   <Icon
                     icon={

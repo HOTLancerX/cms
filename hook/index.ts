@@ -81,9 +81,7 @@ export interface NavHookField {
 export interface DataInputHookField {
     key: string;
     name: string;
-    filePath: string;
     icon?: string;         // File icon (e.g. "solar:document-text-bold")
-    locationIcon?: string; // Location icon (e.g. "solar:folder-path-bold-duotone")
     description?: string;
     pluginNx?: string;     // stamped automatically by addHook
     data?: any;

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB, { importDatabaseDump } from "@/lib/mongodb";
 import { getDataInputHooks } from "@/hook";
-import { reregisterHooks, pluginList } from "@/hook/PluginList";
+import { reregisterHooks } from "@/hook/PluginList";
+import { getActivePluginNames } from "@/hook/PluginListServer";
 import path from "path";
 import fs from "fs/promises";
 
@@ -36,8 +37,9 @@ async function resolveDumpFilePath(targetPath: string): Promise<string> {
 
 export async function GET() {
   try {
-    // Ensure all plugin hooks are registered
-    reregisterHooks(pluginList.map((p) => p.nx));
+    // Ensure only active plugin hooks are registered
+    const activePluginNxs = await getActivePluginNames();
+    reregisterHooks(activePluginNxs);
     const registeredHooks = getDataInputHooks();
 
     // Enriched hooks with file size / exists information
@@ -61,27 +63,28 @@ export async function GET() {
           fileSize = JSON.stringify(hook.data).length;
         }
 
-        try {
-          const absolutePath = await resolveDumpFilePath(hook.filePath);
-          const stat = await fs.stat(absolutePath);
-          fileExists = true;
-          fileSize = stat.size;
+        if ((hook as any).filePath) {
+          try {
+            const absolutePath = await resolveDumpFilePath((hook as any).filePath);
+            const stat = await fs.stat(absolutePath);
+            fileExists = true;
+            fileSize = stat.size;
 
-          if (!hook.data) {
-            const content = await fs.readFile(absolutePath, "utf-8");
-            const parsed = JSON.parse(content);
-            if (parsed?.collections) {
-              const collectionsArray = Object.values(parsed.collections) as any[];
-              itemCount = collectionsArray.reduce(
-                (acc: number, arr: any) => acc + (Array.isArray(arr) ? arr.length : 0),
-                0
-              );
+            if (!hook.data) {
+              const content = await fs.readFile(absolutePath, "utf-8");
+              const parsed = JSON.parse(content);
+              if (parsed?.collections) {
+                const collectionsArray = Object.values(parsed.collections) as any[];
+                itemCount = collectionsArray.reduce(
+                  (acc: number, arr: any) => acc + (Array.isArray(arr) ? arr.length : 0),
+                  0
+                );
+              }
             }
-          }
-        } catch (err) {
-          // If filesystem read fails on Vercel, keep fileExists = true if hook.data exists
-          if (!hook.data) {
-            fileExists = false;
+          } catch (err) {
+            if (!hook.data) {
+              fileExists = false;
+            }
           }
         }
 
@@ -110,20 +113,25 @@ export async function POST(req: NextRequest) {
   try {
     await connectDB();
     const body = await req.json().catch(() => ({}));
-    const { filePath, dumpData, mode = "replace" } = body;
+    const { key, filePath, dumpData, mode = "replace" } = body;
+    const targetIdentifier = key || filePath;
 
     let collectionsToImport: Record<string, any[]> = {};
 
-    if (filePath) {
-      reregisterHooks(pluginList.map((p) => p.nx));
+    if (targetIdentifier) {
+      const activePluginNxs = await getActivePluginNames();
+      reregisterHooks(activePluginNxs);
       const registeredHooks = getDataInputHooks();
-      const matchedHook = registeredHooks.find((h) => h.filePath === filePath || h.key === filePath);
+      const matchedHook = registeredHooks.find(
+        (h) => h.key === targetIdentifier || (h as any).filePath === targetIdentifier
+      );
 
       if (matchedHook?.data) {
         const parsed = matchedHook.data;
         collectionsToImport = parsed?.collections || parsed;
-      } else {
-        const absolutePath = await resolveDumpFilePath(filePath);
+      } else if ((matchedHook as any)?.filePath || filePath) {
+        const pathToResolve = (matchedHook as any)?.filePath || filePath;
+        const absolutePath = await resolveDumpFilePath(pathToResolve);
         const fileContent = await fs.readFile(absolutePath, "utf-8");
         const parsed = JSON.parse(fileContent);
 
@@ -132,6 +140,11 @@ export async function POST(req: NextRequest) {
         } else if (typeof parsed === "object") {
           collectionsToImport = parsed;
         }
+      } else {
+        return NextResponse.json(
+          { error: `No registered hook data found for: ${targetIdentifier}` },
+          { status: 404 }
+        );
       }
     } else if (dumpData && typeof dumpData === "object") {
       collectionsToImport = dumpData.collections || dumpData;
