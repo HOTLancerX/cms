@@ -77,6 +77,19 @@ export interface NavHookField {
     pluginNx?: string; // stamped automatically by addHook
 }
 
+// ─── Data Input hook field registered by plugins via addHook("data.input", ...) ───
+export interface DataInputHookField {
+    key: string;
+    name: string;
+    filePath: string;
+    icon?: string;         // File icon (e.g. "solar:document-text-bold")
+    locationIcon?: string; // Location icon (e.g. "solar:folder-path-bold-duotone")
+    description?: string;
+    pluginNx?: string;     // stamped automatically by addHook
+    data?: any;
+}
+
+
 // ─── Type alias for Form components to import ───
 export type FormHooks = FormHookField[];
 
@@ -193,7 +206,7 @@ export function getAllRootPages(): FormHookField[] {
  */
 export function addHook(
     hookName: string,
-    fields: FormHookField[] | NavHookField[],
+    fields: FormHookField[] | NavHookField[] | DataInputHookField[],
     pluginNx: string
 ): void {
     // ── admin.nav → permanent nav registry (no gate, never cleared) ──────────
@@ -218,6 +231,18 @@ export function addHook(
         });
         return;
     }
+
+    // ── data.input → permanent data input registry (no gate, never cleared) ──
+    if (hookName === "data.input") {
+        (fields as DataInputHookField[]).forEach((f) => {
+            const exists = _dataInputItems.some(
+                (d) => d.pluginNx === pluginNx && d.key === f.key
+            );
+            if (!exists) _dataInputItems.push({ ...f, pluginNx });
+        });
+        return;
+    }
+
 
     const stamped = (fields as FormHookField[]).map((f) => ({ ...f, pluginNx }));
 
@@ -354,6 +379,19 @@ const _userPages: FormHookField[] = [];
 
 // ─── User nav registry (permanent, never cleared) ────────────────────────────
 const _userNavItems: NavHookField[] = [];
+
+// ─── Data Input registry (permanent, never cleared) ──────────────────────────
+const _dataInputItems: DataInputHookField[] = [];
+
+/**
+ * Returns all registered data.input items across all plugins.
+ */
+export function getDataInputHooks(): DataInputHookField[] {
+    return [..._dataInputItems].filter(
+        (f) => !f.pluginNx || isPluginActive(f.pluginNx)
+    );
+}
+
 
 /**
  * Returns every user.page entry ever registered across all plugins.

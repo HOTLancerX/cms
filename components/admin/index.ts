@@ -214,6 +214,31 @@ export function register(): void {
             parent: "",
             position: 150,
         },
+        // ── Tools ──
+        {
+            key: "tools",
+            label: "Tools",
+            icon: "solar:tuning-bold",
+            slug: "tools/export",
+            parent: "",
+            position: 180,
+        },
+        {
+            key: "tools-export",
+            label: "Export Data",
+            icon: "solar:export-bold",
+            slug: "tools/export",
+            parent: "tools",
+            position: 1,
+        },
+        {
+            key: "tools-input",
+            label: "Import Data",
+            icon: "solar:import-bold",
+            slug: "tools/input",
+            parent: "tools",
+            position: 2,
+        },
         // ── Settings ──
         {
             key: "settings",
@@ -224,6 +249,7 @@ export function register(): void {
             position: 200,
         },
     ], CORE_NX);
+
 
     // ─── Core post types ────────────────────────────────────────────────────
     addPostType([
