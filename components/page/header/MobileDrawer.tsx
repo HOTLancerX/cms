@@ -56,7 +56,7 @@ export default function MobileDrawer({ items, settings, iconColor = 'currentColo
                 }`}
             >
                 {/* Drawer header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b">
+                <div className="flex items-center justify-between p-2 md:p-4 border-b">
                     <Link href="/" className="text-xl font-extrabold text-gray-900 tracking-tight shrink-0 flex items-center">
                         {settings.logo ? (
                             <img src={settings.logo} alt={settings.siteName} className="h-8 w-auto object-contain" />
@@ -64,22 +64,15 @@ export default function MobileDrawer({ items, settings, iconColor = 'currentColo
                             settings.siteName
                         )}
                     </Link>
-                    <Link href="/" className="text-xl font-extrabold text-gray-900 tracking-tight shrink-0 flex items-center">
-                    {settings.logo ? (
-                        <img src={settings.logo} alt={settings.siteName} className="h-8 w-auto object-contain" />
-                    ) : (
-                        settings.siteName
-                    )}
-                </Link>
                     <button type="button" onClick={() => setOpen(false)}
                         aria-label="Close menu"
-                        className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500">
-                        <Icon icon="solar:close-bold" width={20} />
+                        className="p-2 rounded-lg transition text-gray-500">
+                        <Icon icon="material-symbols:close" width={25} />
                     </button>
                 </div>
 
                 {/* Nav items */}
-                <nav className="flex-1 overflow-y-auto py-4 px-3">
+                <nav className="flex-1 overflow-y-auto">
                     {items.length === 0 ? (
                         <p className="text-sm text-gray-400 px-3 py-2">No menu items.</p>
                     ) : (
@@ -95,7 +88,7 @@ export default function MobileDrawer({ items, settings, iconColor = 'currentColo
 
 function DrawerItems({ items, onClose, depth }: { items: MenuItem[]; onClose: () => void; depth: number }) {
     return (
-        <ul className="space-y-0.5">
+        <ul className="divide-y divide-gray-200">
             {items.map((item) => (
                 <DrawerItem key={item.id} item={item} onClose={onClose} depth={depth} />
             ))}
