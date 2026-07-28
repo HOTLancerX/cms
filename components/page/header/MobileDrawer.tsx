@@ -20,7 +20,7 @@ interface MobileDrawerProps {
     iconColor?: string;
 }
 
-export default function MobileDrawer({ items, settings, iconColor = 'currentColor' }: MobileDrawerProps) {
+export default function MobileDrawer({ items, settings = {}, iconColor = 'currentColor' }: MobileDrawerProps) {
     const [open, setOpen] = useState(false);
 
     // Prevent body scroll when drawer is open
