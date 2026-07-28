@@ -47,7 +47,7 @@ export default function NumberControl({
                                 {unit || units[0]}
                             </button>
                             {showUnits && (
-                                <div className="absolute top-full right-0 z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[50px]">
+                                <div className="absolute top-full right-0 z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-12.5">
                                     {units.map((u) => (
                                         <button
                                             key={u}
