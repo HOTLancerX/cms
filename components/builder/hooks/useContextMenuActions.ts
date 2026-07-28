@@ -162,6 +162,15 @@ export function useContextMenuActions(
         setContextMenu(null);
     }, [clipboard, contextMenu, rows, setRows, setContextMenu]);
 
+const safeClone = <T>(val: T, fallback: any = {}): T => {
+    if (val === undefined || val === null) return fallback;
+    try {
+        return JSON.parse(JSON.stringify(val));
+    } catch {
+        return fallback;
+    }
+};
+
     const handlePasteStyle = useCallback(() => {
         if (!clipboard || !contextMenu) { setContextMenu(null); return; }
         if (contextMenu.type === "element" && clipboard.type === "element" && contextMenu.colPath && contextMenu.elementId) {
@@ -172,8 +181,12 @@ export function useContextMenuActions(
                     const col = getColumnByPath(updated, contextMenu.colPath!);
                     const el = col.elements.find((e) => e.id === contextMenu.elementId);
                     if (el && el.type === clipboard.data.type) {
-                        el.schema.style = JSON.parse(JSON.stringify(clipboard.data.schema.style));
-                        el.schema.advanced = JSON.parse(JSON.stringify(clipboard.data.schema.advanced));
+                        if (clipboard.data?.schema?.style !== undefined) {
+                            el.schema.style = safeClone(clipboard.data.schema.style, {});
+                        }
+                        if (clipboard.data?.schema?.advanced !== undefined) {
+                            el.schema.advanced = safeClone(clipboard.data.schema.advanced, {});
+                        }
                     }
                     return updated;
                 })
@@ -183,8 +196,12 @@ export function useContextMenuActions(
                 prev.map((r) => {
                     if (r.id !== contextMenu.rowId) return r;
                     const updated = JSON.parse(JSON.stringify(r)) as Row;
-                    updated.schema.style = JSON.parse(JSON.stringify(clipboard.data.schema.style));
-                    updated.schema.advanced = JSON.parse(JSON.stringify(clipboard.data.schema.advanced));
+                    if (clipboard.data?.schema?.style !== undefined) {
+                        updated.schema.style = safeClone(clipboard.data.schema.style, {});
+                    }
+                    if (clipboard.data?.schema?.advanced !== undefined) {
+                        updated.schema.advanced = safeClone(clipboard.data.schema.advanced, {});
+                    }
                     return updated;
                 })
             );
@@ -194,8 +211,12 @@ export function useContextMenuActions(
                     if (r.id !== contextMenu.rowId) return r;
                     const updated = JSON.parse(JSON.stringify(r)) as Row;
                     const col = getColumnByPath(updated, contextMenu.colPath!);
-                    col.schema.style = JSON.parse(JSON.stringify(clipboard.data.schema.style));
-                    col.schema.advanced = JSON.parse(JSON.stringify(clipboard.data.schema.advanced));
+                    if (clipboard.data?.schema?.style !== undefined) {
+                        col.schema.style = safeClone(clipboard.data.schema.style, {});
+                    }
+                    if (clipboard.data?.schema?.advanced !== undefined) {
+                        col.schema.advanced = safeClone(clipboard.data.schema.advanced, {});
+                    }
                     return updated;
                 })
             );
@@ -210,8 +231,8 @@ export function useContextMenuActions(
                 prev.map((r) => {
                     if (r.id !== contextMenu.rowId) return r;
                     const updated = JSON.parse(JSON.stringify(r)) as Row;
-                    updated.schema.style = JSON.parse(JSON.stringify(rowElement.schema.style));
-                    updated.schema.advanced = JSON.parse(JSON.stringify(rowElement.schema.advanced));
+                    updated.schema.style = safeClone(rowElement.schema?.style, {});
+                    updated.schema.advanced = safeClone(rowElement.schema?.advanced, {});
                     return updated;
                 })
             );
@@ -221,8 +242,8 @@ export function useContextMenuActions(
                     if (r.id !== contextMenu.rowId) return r;
                     const updated = JSON.parse(JSON.stringify(r)) as Row;
                     const col = getColumnByPath(updated, contextMenu.colPath!);
-                    col.schema.style = JSON.parse(JSON.stringify(columnElement.schema.style));
-                    col.schema.advanced = JSON.parse(JSON.stringify(columnElement.schema.advanced));
+                    col.schema.style = safeClone(columnElement.schema?.style, {});
+                    col.schema.advanced = safeClone(columnElement.schema?.advanced, {});
                     return updated;
                 })
             );
@@ -236,8 +257,8 @@ export function useContextMenuActions(
                     if (el) {
                         const def = getElementDef(el.type);
                         if (def) {
-                            el.schema.style = JSON.parse(JSON.stringify(def.schema.style || {}));
-                            el.schema.advanced = JSON.parse(JSON.stringify(def.schema.advanced || {}));
+                            el.schema.style = safeClone(def.schema?.style, {});
+                            el.schema.advanced = safeClone(def.schema?.advanced, {});
                         }
                     }
                     return updated;

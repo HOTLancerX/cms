@@ -573,7 +573,7 @@ export const commonAdvancedControls: { tab: string; section: string; controls: C
 
 export const commonStyleControls: { tab: string; section: string; controls: ControlDef[]; condition?: (values: any) => boolean }[] = [
     {
-        tab: "Style",
+        tab: "Advanced",
         section: "Background",
         controls: [
             {
@@ -598,7 +598,7 @@ export const commonStyleControls: { tab: string; section: string; controls: Cont
         ],
     },
     {
-        tab: "Style",
+        tab: "Advanced",
         section: "Border",
         controls: [
             {

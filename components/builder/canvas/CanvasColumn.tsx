@@ -234,7 +234,7 @@ export default function CanvasColumn({
                     ))}
 
                 {isEmpty && (
-                    <div className="flex flex-col items-center justify-center w-full min-h-[80px] text-gray-400 gap-1.5 py-4">
+                    <div className="flex flex-col items-center justify-center w-full min-h-20 text-gray-400 gap-1.5 py-4">
                         <Icon icon="mdi:plus-circle-outline" width="28" className="text-gray-300" />
                         <span className="text-[11px] font-medium">Drag widget here</span>
                         <div className="flex items-center gap-2 mt-1">

@@ -280,7 +280,7 @@ export default function ColorPickerPopup({ label, value, onChange }: Props) {
                     <button
                         type="button"
                         onClick={() => setOpen(!open)}
-                        className="relative w-8 h-8 rounded-[4px] border border-gray-200 cursor-pointer overflow-hidden"
+                        className="relative w-8 h-8 rounded-sm border border-gray-200 cursor-pointer overflow-hidden"
                         style={{ background: swatchBg }}
                     >
                         {isTransparent && (

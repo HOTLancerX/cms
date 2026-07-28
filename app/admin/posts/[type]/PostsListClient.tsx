@@ -214,7 +214,7 @@ export default function PostsListClient({
 
             // 2. Generate unique slug by checking availability
             let originalSlug = post.slug;
-            let slug = `${originalSlug}-copy`;
+            let slug = `${originalSlug}-1`;
             let checkCount = 0;
             let isAvailable = false;
 
@@ -228,7 +228,7 @@ export default function PostsListClient({
                         isAvailable = true;
                     } else {
                         checkCount++;
-                        slug = `${originalSlug}-copy-${checkCount}`;
+                        slug = `${originalSlug}-1-${checkCount}`;
                     }
                 } else {
                     break;
@@ -237,7 +237,7 @@ export default function PostsListClient({
 
             // 3. Send POST request to duplicate post
             const payload = {
-                title: `${post.title} (Copy)`,
+                title: `${post.title} 1`,
                 slug,
                 status: "draft",
                 type: post.type,

@@ -8,17 +8,6 @@ import {
 } from "@/hook/builderDataHooks";
 import { fetchEnrichedBuilderData } from "@/lib/builderDataEngine";
 
-// Direct central imports for the 9 core models
-import Post from "@/models/post";
-import PostInfo from "@/models/post_info";
-import Cat from "@/models/cat";
-import CatInfo from "@/models/cat_info";
-import User from "@/models/Users";
-import UserInfo from "@/models/Users_info";
-import Comment from "@/models/Comment";
-import Permalink from "@/models/permalink";
-import Template from "@/models/template";
-
 interface Props {
     id: string;
     data?: any;
