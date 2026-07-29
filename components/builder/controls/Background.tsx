@@ -5,6 +5,7 @@ import ColorPickerPopup from "./ColorPickerPopup";
 import NumberControl from "./Number";
 import Tabs from "./group/Tabs";
 import ImageGallery from "./ImageGallery";
+import BackgroundImageControls from "./BackgroundImageControls";
 
 /**
  * Background control — Elementor-style
@@ -13,8 +14,8 @@ import ImageGallery from "./ImageGallery";
  *
  * Schema shape:
  * {
- *   normal: { type, color, image, gradient, video, scrollingEffects, mouseEffects },
- *   hover: { type, color, image, gradient, scrollingEffects, mouseEffects },
+ *   normal: { type, color, image, position, attachment, repeat, displaySize, customDisplaySize, gradient, video, scrollingEffects, mouseEffects },
+ *   hover: { type, color, image, position, attachment, repeat, displaySize, customDisplaySize, gradient, scrollingEffects, mouseEffects },
  *   transition: number (ms)
  * }
  */
@@ -37,6 +38,11 @@ const DEFAULT_STATE = {
   type: "none" as string,
   color: "transparent",
   image: "",
+  position: "",
+  attachment: "",
+  repeat: "",
+  displaySize: "",
+  customDisplaySize: "",
   gradient: {
     color1: "#ffffff",
     location1: 0,
@@ -113,6 +119,7 @@ export default function Background({ value, onChange }: any) {
           <div>
             <ColorPickerPopup label="Color" value={current.color} onChange={(c) => update("color", c)} />
             <ImageGallery label="Image" value={current.image} onChange={(v) => update("image", v)} />
+            <BackgroundImageControls current={current} update={update} />
             <ToggleRow label="Scrolling Effects" value={current.scrollingEffects} onChange={(v) => update("scrollingEffects", v)} />
             <ToggleRow label="Mouse Effects" value={current.mouseEffects} onChange={(v) => update("mouseEffects", v)} />
           </div>
@@ -184,6 +191,7 @@ export default function Background({ value, onChange }: any) {
           <div>
             <ColorPickerPopup label="Color" value={current.color} onChange={(c) => update("color", c)} />
             <ImageGallery label="Image" value={current.image} onChange={(v) => update("image", v)} />
+            <BackgroundImageControls current={current} update={update} />
             <ToggleRow label="Scrolling Effects" value={current.scrollingEffects} onChange={(v) => update("scrollingEffects", v)} />
             <ToggleRow label="Mouse Effects" value={current.mouseEffects} onChange={(v) => update("mouseEffects", v)} />
           </div>
@@ -233,7 +241,7 @@ function ImageUpload({ label, value, onChange }: { label: string; value: string;
       </div>
       {value ? (
         <div className="relative rounded overflow-hidden mb-1">
-          <img src={value} alt="" className="w-full h-[120px] object-cover" />
+          <img src={value} alt="" className="w-full h-30 object-cover" />
           <button
             type="button"
             onClick={() => onChange("")}
@@ -248,7 +256,7 @@ function ImageUpload({ label, value, onChange }: { label: string; value: string;
             const url = prompt("Enter image URL:");
             if (url) onChange(url);
           }}
-          className="w-full h-[120px] bg-gray-200 rounded flex items-center justify-center cursor-pointer"
+          className="w-full h-30 bg-gray-200 rounded flex items-center justify-center cursor-pointer"
         >
           <Icon icon="mdi:plus-circle" width="24" className="text-white" />
         </div>
@@ -266,7 +274,7 @@ function ToggleRow({ label, value, onChange }: { label: string; value: boolean; 
         onClick={() => onChange(!value)}
         className={`relative w-9 h-5 rounded-[10px] border-none cursor-pointer transition-colors ${value ? "bg-blue-500" : "bg-gray-300"}`}
       >
-        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-[left] ${value ? "left-[18px]" : "left-0.5"}`} />
+        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-[left] ${value ? "left-4.5" : "left-0.5"}`} />
       </button>
     </div>
   );

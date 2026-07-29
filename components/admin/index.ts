@@ -921,4 +921,57 @@ export function register(): void {
             component: Switch,
         },
     ], CORE_NX);
+
+    // ─── Category layout grid settings ───────────────────────────────────────
+    // type: "category" → appears on the Category Layout tab of the Settings page
+    addHook("setting.form", [
+        {
+            key: "category_grid_cols_desktop",
+            label: "Category Desktop Grid Columns (1-12)",
+            type: "category",
+            style: "left",
+            position: 10,
+            component: Number,
+        },
+        {
+            key: "category_grid_cols_tablet",
+            label: "Category Tablet Grid Columns (1-12)",
+            type: "category",
+            style: "left",
+            position: 20,
+            component: Number,
+        },
+        {
+            key: "category_grid_cols_mobile",
+            label: "Category Mobile Grid Columns (1-12)",
+            type: "category",
+            style: "left",
+            position: 30,
+            component: Number,
+        },
+        {
+            key: "category_grid_gap_desktop",
+            label: "Category Desktop Grid Gap Step (0-12)",
+            type: "category",
+            style: "right",
+            position: 10,
+            component: Number,
+        },
+        {
+            key: "category_grid_gap_tablet",
+            label: "Category Tablet Grid Gap Step (0-12)",
+            type: "category",
+            style: "right",
+            position: 20,
+            component: Number,
+        },
+        {
+            key: "category_grid_gap_mobile",
+            label: "Category Mobile Grid Gap Step (0-12)",
+            type: "category",
+            style: "right",
+            position: 30,
+            component: Number,
+        },
+    ], CORE_NX);
 }

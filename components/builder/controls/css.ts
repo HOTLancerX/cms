@@ -27,56 +27,53 @@ export type CSSGeneratorFn = (value: any, schema?: any) => string;
  * Handles both legacy flat format and new { type, width, color, radius } format.
  */
 function resolveBorderSide(side: any, transition?: number): string {
-    if (!side) return "";
-    const type = side.type ?? side.style ?? "";
-    // "" (Default) = inherit browser default — emit nothing
-    // "none" = explicitly remove border
-    if (type === "") return "";
-    if (type === "none") return "border: none;";
-
+    if (!side || typeof side !== "object") return "";
     const parts: string[] = [];
 
-    // Width — new format: { top, right, bottom, left, unit } or legacy number
-    const rawWidth = side.width;
-    if (rawWidth && typeof rawWidth === "object") {
-        const u = rawWidth.unit || "px";
-        const t = rawWidth.top || 0;
-        const r = rawWidth.right || 0;
-        const b = rawWidth.bottom || 0;
-        const l = rawWidth.left || 0;
-        const color = side.color || "#000000";
-        // If all sides equal, use shorthand; otherwise use border-width + border-style + border-color
-        if (t === r && r === b && b === l) {
-            if (t > 0) parts.push(`border: ${t}${u} ${type} ${color};`);
+    const type = side.type ?? side.style ?? "";
+
+    // 1. Border Style, Width, Color (only emitted if type is selected)
+    if (type === "none") {
+        parts.push("border: none;");
+    } else if (type && type !== "") {
+        const rawWidth = side.width;
+        if (rawWidth && typeof rawWidth === "object") {
+            const u = rawWidth.unit || "px";
+            const t = rawWidth.top === "" || rawWidth.top === undefined ? 0 : rawWidth.top;
+            const r = rawWidth.right === "" || rawWidth.right === undefined ? 0 : rawWidth.right;
+            const b = rawWidth.bottom === "" || rawWidth.bottom === undefined ? 0 : rawWidth.bottom;
+            const l = rawWidth.left === "" || rawWidth.left === undefined ? 0 : rawWidth.left;
+            const color = side.color || "#000000";
+            if (t === r && r === b && b === l) {
+                if (t > 0) parts.push(`border: ${t}${u} ${type} ${color};`);
+            } else {
+                parts.push(`border-style: ${type};`);
+                parts.push(`border-color: ${color};`);
+                parts.push(`border-width: ${t}${u} ${r}${u} ${b}${u} ${l}${u};`);
+            }
         } else {
-            parts.push(`border-style: ${type};`);
-            parts.push(`border-color: ${color};`);
-            parts.push(`border-width: ${t}${u} ${r}${u} ${b}${u} ${l}${u};`);
+            const width = typeof rawWidth === "number" ? rawWidth : 1;
+            const color = side.color || "#000000";
+            parts.push(`border: ${width}px ${type} ${color};`);
         }
-    } else {
-        // Legacy flat width (number)
-        const width = typeof rawWidth === "number" ? rawWidth : 1;
-        const color = side.color || "#000000";
-        parts.push(`border: ${width}px ${type} ${color};`);
     }
 
-    // Border radius — new format: { top, right, bottom, left, unit }
+    // 2. Border Radius (INDEPENDENT — works whether border type is set or not!)
     const r = side.radius;
     if (r && typeof r === "object") {
         const u = r.unit || "px";
-        const top = r.top || 0;
-        const right = r.right || 0;
-        const bottom = r.bottom || 0;
-        const left = r.left || 0;
+        const top = r.top === "" || r.top === undefined ? 0 : r.top;
+        const right = r.right === "" || r.right === undefined ? 0 : r.right;
+        const bottom = r.bottom === "" || r.bottom === undefined ? 0 : r.bottom;
+        const left = r.left === "" || r.left === undefined ? 0 : r.left;
         if (top || right || bottom || left) {
             parts.push(`border-radius: ${top}${u} ${right}${u} ${bottom}${u} ${left}${u};`);
         }
     } else if (typeof r === "number" && r > 0) {
-        // Legacy flat radius
         parts.push(`border-radius: ${r}px;`);
     }
 
-    if (transition && transition > 0) {
+    if (transition && transition > 0 && parts.length > 0) {
         parts.push(`transition: border ${transition}ms ease, border-radius ${transition}ms ease;`);
     }
 
@@ -104,6 +101,69 @@ function resolveSpacing(obj: any): string {
     // Skip output when all sides are 0 (default state — avoids redundant CSS)
     if (top === 0 && right === 0 && bottom === 0 && left === 0) return "";
     return `${top}${u} ${right}${u} ${bottom}${u} ${left}${u}`;
+}
+
+export function getBackgroundImageCSS(obj: any): string {
+    if (!obj || !obj.image) return "";
+    const parts: string[] = [`background-image: url("${obj.image}")`];
+
+    const pos = obj.position && obj.position !== "default" ? obj.position : "center center";
+    parts.push(`background-position: ${pos}`);
+
+    if (obj.attachment && obj.attachment !== "default") {
+        parts.push(`background-attachment: ${obj.attachment}`);
+    }
+
+    const rep = obj.repeat && obj.repeat !== "default" ? obj.repeat : "no-repeat";
+    parts.push(`background-repeat: ${rep}`);
+
+    let size = "cover";
+    if (obj.displaySize === "custom") {
+        size = obj.customDisplaySize || "cover";
+    } else if (obj.displaySize && obj.displaySize !== "default") {
+        size = obj.displaySize;
+    }
+    parts.push(`background-size: ${size}`);
+
+    return parts.join("; ") + ";";
+}
+
+export function getOverlayStyle(overlay: any): React.CSSProperties {
+    if (!overlay || !overlay.enabled) return {};
+    const normal = overlay.normal || overlay;
+    const style: React.CSSProperties = {
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+    };
+
+    if (normal.type === "color" || !normal.type) {
+        if (normal.color) style.backgroundColor = normal.color;
+        if (normal.image) {
+            style.backgroundImage = `url("${normal.image}")`;
+            style.backgroundPosition = normal.position && normal.position !== "default" ? normal.position : "center center";
+            if (normal.attachment && normal.attachment !== "default") {
+                style.backgroundAttachment = normal.attachment;
+            }
+            style.backgroundRepeat = normal.repeat && normal.repeat !== "default" ? normal.repeat : "no-repeat";
+            style.backgroundSize = normal.displaySize === "custom"
+                ? (normal.customDisplaySize || "cover")
+                : (normal.displaySize && normal.displaySize !== "default" ? normal.displaySize : "cover");
+        }
+    } else if (normal.type === "gradient" && normal.gradient) {
+        const g = normal.gradient;
+        if (g.type === "radial") {
+            style.background = `radial-gradient(${g.color1} ${g.location1 || 0}%, ${g.color2} ${g.location2 || 100}%)`;
+        } else {
+            style.background = `linear-gradient(${g.angle || 180}deg, ${g.color1} ${g.location1 || 0}%, ${g.color2} ${g.location2 || 100}%)`;
+        }
+    }
+
+    if (normal.opacity !== undefined) {
+        style.opacity = normal.opacity;
+    }
+
+    return style;
 }
 
 // ============================================================
@@ -158,8 +218,8 @@ export const cssRegistry: Record<string, CSSGeneratorFn> = {
 
         let css = "";
         if (normal.type === "color") {
-            if (normal.color) css += `background-color: ${normal.color};`;
-            if (normal.image) css += ` background-image: url(${normal.image}); background-size: cover; background-position: center;`;
+            if (normal.color) css += `background-color: ${normal.color}; `;
+            if (normal.image) css += getBackgroundImageCSS(normal);
         } else if (normal.type === "gradient" && normal.gradient) {
             const g = normal.gradient;
             if (g.type === "radial") {
@@ -169,7 +229,7 @@ export const cssRegistry: Record<string, CSSGeneratorFn> = {
             }
         } else if (normal.type === "image" && normal.image) {
             if (normal.color && normal.color !== "transparent") css += `background-color: ${normal.color}; `;
-            css += `background-image: url(${normal.image}); background-size: cover; background-position: center;`;
+            css += getBackgroundImageCSS(normal);
         }
 
         if (!css) return "";
@@ -380,11 +440,13 @@ export const cssRegistry: Record<string, CSSGeneratorFn> = {
     },
 
     hideDesktop: (value, schema) => {
+        if (schema?._isEditor) return "";
         if (value === true && schema?._device === "desktop") return "display: none !important;";
         return "";
     },
 
     hideTablet: (value, schema) => {
+        if (schema?._isEditor) return "";
         if (schema?._device === "tablet") {
             if (value === true) return "display: none !important;";
             if (schema.advanced?.hideDesktop === true) {
@@ -396,6 +458,7 @@ export const cssRegistry: Record<string, CSSGeneratorFn> = {
     },
 
     hideMobile: (value, schema) => {
+        if (schema?._isEditor) return "";
         if (schema?._device === "mobile") {
             if (value === true) return "display: none !important;";
             if (schema.advanced?.hideTablet === true || schema.advanced?.hideDesktop === true) {
@@ -433,8 +496,8 @@ export const hoverRegistry: Record<string, CSSGeneratorFn> = {
 
         let css = "";
         if (hover.type === "color") {
-            if (hover.color && hover.color !== "transparent") css += `background-color: ${hover.color};`;
-            if (hover.image) css += ` background-image: url(${hover.image}); background-size: cover; background-position: center;`;
+            if (hover.color && hover.color !== "transparent") css += `background-color: ${hover.color}; `;
+            if (hover.image) css += getBackgroundImageCSS(hover);
         } else if (hover.type === "gradient" && hover.gradient) {
             const g = hover.gradient;
             if (g.type === "radial") {
@@ -444,7 +507,7 @@ export const hoverRegistry: Record<string, CSSGeneratorFn> = {
             }
         } else if (hover.type === "image" && hover.image) {
             if (hover.color && hover.color !== "transparent") css += `background-color: ${hover.color}; `;
-            css += `background-image: url(${hover.image}); background-size: cover; background-position: center;`;
+            css += getBackgroundImageCSS(hover);
         }
         return css;
     },

@@ -18,6 +18,7 @@ export { default as Gaps } from "./Gaps";
 export { default as Wrap } from "./Wrap";
 export { default as Background } from "./Background";
 export { default as BackgroundOverlay } from "./BackgroundOverlay";
+export { default as BackgroundImageControls } from "./BackgroundImageControls";
 export { default as Border } from "./Border"; //border or Radius
 export { default as Dimensions } from "./Dimensions";
 export { default as AlignSelf } from "./AlignSelf";
@@ -32,5 +33,5 @@ export { default as Section } from "./group/Section";
 export { default as Tabs } from "./group/Tabs";
 
 // CSS registry — add toCSS entries here for new controls
-export { cssRegistry, controlToCSS, hoverRegistry, controlToHoverCSS } from "./css";
+export { cssRegistry, controlToCSS, hoverRegistry, controlToHoverCSS, getOverlayStyle, getBackgroundImageCSS } from "./css";
 export { commonAdvancedControls, commonStyleControls, mergeControls } from "./common";

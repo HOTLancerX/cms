@@ -33,7 +33,14 @@ export function useContextMenuActions(
         (e: React.MouseEvent, target: Omit<ContextMenuTarget, "x" | "y">) => {
             e.preventDefault();
             e.stopPropagation();
-            setContextMenu({ ...target, x: e.clientX, y: e.clientY } as ContextMenuTarget);
+            const targetEl = e.target as HTMLElement;
+            const frame = targetEl?.ownerDocument?.defaultView?.frameElement;
+            const rect = frame ? frame.getBoundingClientRect() : { left: 0, top: 0 };
+            setContextMenu({
+                ...target,
+                x: e.clientX + rect.left,
+                y: e.clientY + rect.top,
+            } as ContextMenuTarget);
         },
         [setContextMenu]
     );

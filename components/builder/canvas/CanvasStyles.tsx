@@ -25,23 +25,28 @@ function getVisibilityCSS(advanced: any, device: Device, displayDefault: string 
     const hideTablet = advanced?.hideTablet;
     const hideMobile = advanced?.hideMobile;
 
+    let isHidden = false;
+
     if (device === "desktop" && hideDesktop) {
-        return "display:none!important";
-    }
-    if (device === "tablet") {
+        isHidden = true;
+    } else if (device === "tablet") {
         if (hideTablet) {
-            return "display:none!important";
+            isHidden = true;
         } else if (hideDesktop) {
             return `display:${displayDefault}!important`;
         }
-    }
-    if (device === "mobile") {
+    } else if (device === "mobile") {
         if (hideMobile) {
-            return "display:none!important";
+            isHidden = true;
         } else if (hideTablet || hideDesktop) {
             return `display:${displayDefault}!important`;
         }
     }
+
+    if (isHidden) {
+        return `display:${displayDefault}!important;opacity:0.45!important;outline:2px dashed #f59e0b!important;outline-offset:-2px!important`;
+    }
+
     return "";
 }
 
@@ -51,7 +56,7 @@ function generateRowCSS(row: Row, device: Device): string {
     const innerCls = `brow-${row.id}-inner`;
 
     // --- OUTER --- (no overflow:hidden here — it clips box-shadow)
-    const outer: string[] = ["width:100%", "position:relative"];
+    const outer: string[] = ["width:100%", "max-width:100%", "box-sizing:border-box", "position:relative"];
 
     const visibility = getVisibilityCSS(s.advanced, device, "block");
     if (visibility) outer.push(visibility);
@@ -83,7 +88,7 @@ function generateRowCSS(row: Row, device: Device): string {
     if (hoverParts.length) css += `.${cls}:hover{${hoverParts.join(";")}}`;
 
     // --- INNER ---
-    const inner: string[] = ["display:flex", "width:100%", "margin-left:auto", "margin-right:auto", "overflow:visible", "position:relative"];
+    const inner: string[] = ["display:flex", "width:100%", "margin-left:auto", "margin-right:auto", "overflow:visible", "position:relative", "box-sizing:border-box"];
 
     const contentWidth = getDeviceValue(s.layout.contentWidth, device);
     if (contentWidth === "boxed") {
@@ -95,13 +100,20 @@ function generateRowCSS(row: Row, device: Device): string {
         inner.push("max-width:100%");
     }
 
-    const flex = controlToCSS("flex", getDeviceValue(s.layout.flex, device), s);
+    const rawFlex = (s.layout as any)?.flex;
+    const flexVal = getDeviceValue(s.layout.flex, device);
+    let flexObj = flexVal;
+    if (device === "mobile" && (!rawFlex?._mobile || !rawFlex._mobile.direction)) {
+        flexObj = flexVal ? { ...flexVal, direction: "column" } : { direction: "column" };
+    }
+    const flex = controlToCSS("flex", flexObj, s);
     if (flex) inner.push(flex);
 
     const gap = controlToCSS("gap", getDeviceValue(s.layout.gap, device), s);
     if (gap) inner.push(gap);
 
-    const wrap = controlToCSS("wrap", getDeviceValue(s.layout.wrap, device), s);
+    const wrapVal = getDeviceValue(s.layout.wrap, device);
+    const wrap = controlToCSS("wrap", wrapVal || "wrap", s);
     if (wrap) inner.push(wrap);
 
     const minH = controlToCSS("minHeight", getDeviceValue(s.layout.minHeight, device), s);
@@ -126,10 +138,10 @@ function generateRowCSS(row: Row, device: Device): string {
             }
             if (value === undefined) continue;
 
-            const cssStr = controlToCSS(ctrl.name, value, { ...s, _device: device });
+            const cssStr = controlToCSS(ctrl.name, value, { ...s, _device: device, _isEditor: true });
             if (cssStr) outer.push(cssStr);
 
-            const hover = controlToHoverCSS(ctrl.name, value, { ...s, _device: device });
+            const hover = controlToHoverCSS(ctrl.name, value, { ...s, _device: device, _isEditor: true });
             if (hover) hoverParts.push(hover);
         }
     }
@@ -172,7 +184,7 @@ function generateColumnCSS(col: Column, device: Device): string {
     if (hasNestedCols) {
         const storedFlex = getDeviceValue((schema as any).layout?.flex, device);
         const storedWrap = getDeviceValue((schema as any).layout?.wrap, device);
-        const direction = storedFlex?.direction || "row";
+        const direction = storedFlex?.direction || (device === "mobile" ? "column" : "row");
         const wrap = storedWrap || "wrap";
         lines.push(
             `flex-direction:${direction}`,
@@ -200,10 +212,10 @@ function generateColumnCSS(col: Column, device: Device): string {
             // Skip flex and wrap for nested containers — already handled above
             if (hasNestedCols && (ctrl.name === "flex" || ctrl.name === "wrap")) continue;
 
-            const css = controlToCSS(ctrl.name, value, { ...schema, _device: device });
+            const css = controlToCSS(ctrl.name, value, { ...schema, _device: device, _isEditor: true });
             if (css) lines.push(css);
 
-            const hover = controlToHoverCSS(ctrl.name, value, { ...schema, _device: device });
+            const hover = controlToHoverCSS(ctrl.name, value, { ...schema, _device: device, _isEditor: true });
             if (hover) hoverLines.push(hover);
         }
     }
@@ -211,9 +223,9 @@ function generateColumnCSS(col: Column, device: Device): string {
     // boxShadow is nested inside border.boxShadow — emit it separately
     const borderVal = getDeviceValue((schema as any).style?.border, device);
     if (borderVal?.boxShadow) {
-        const shadowCSS = controlToCSS("boxShadow", borderVal.boxShadow, { ...schema, _device: device });
+        const shadowCSS = controlToCSS("boxShadow", borderVal.boxShadow, { ...schema, _device: device, _isEditor: true });
         if (shadowCSS) lines.push(shadowCSS);
-        const shadowHover = controlToHoverCSS("boxShadow", borderVal.boxShadow, { ...schema, _device: device });
+        const shadowHover = controlToHoverCSS("boxShadow", borderVal.boxShadow, { ...schema, _device: device, _isEditor: true });
         if (shadowHover) hoverLines.push(shadowHover);
     }
 
@@ -260,12 +272,21 @@ function generateElementCSS(element: BuilderElement, device: Device): string {
             }
             if (value === undefined) continue;
 
-            const css = controlToCSS(ctrl.name, value, { ...schema, _device: device });
+            const css = controlToCSS(ctrl.name, value, { ...schema, _device: device, _isEditor: true });
             if (css) lines.push(css);
 
-            const hover = controlToHoverCSS(ctrl.name, value, { ...schema, _device: device });
+            const hover = controlToHoverCSS(ctrl.name, value, { ...schema, _device: device, _isEditor: true });
             if (hover) hoverLines.push(hover);
         }
+    }
+
+    // boxShadow is nested inside border.boxShadow — emit it separately for elements
+    const borderVal = getDeviceValue(schema.style?.border, device);
+    if (borderVal?.boxShadow) {
+        const shadowCSS = controlToCSS("boxShadow", borderVal.boxShadow, { ...schema, _device: device, _isEditor: true });
+        if (shadowCSS) lines.push(shadowCSS);
+        const shadowHover = controlToHoverCSS("boxShadow", borderVal.boxShadow, { ...schema, _device: device, _isEditor: true });
+        if (shadowHover) hoverLines.push(shadowHover);
     }
 
     let css = `.${cls}{${lines.join(";")}}`;

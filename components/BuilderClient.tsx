@@ -4,7 +4,7 @@ import React, { useMemo, useId } from "react";
 import { getElementDef } from "@/components/builder/helpers";
 import "@/components/builder/elements/index";
 import columnElement from "@/components/builder/elements/column";
-import { controlToCSS, controlToHoverCSS, ANIMATION_KEYFRAMES } from "@/components/builder/controls/css";
+import { controlToCSS, controlToHoverCSS, ANIMATION_KEYFRAMES, getOverlayStyle } from "@/components/builder/controls/css";
 import { getDeviceValue, getColumnWidth } from "@/components/builder/device";
 import { commonAdvancedControls, mergeControls } from "@/components/builder/controls/common";
 import { SHAPES } from "@/components/builder/controls/ShapeDivider";
@@ -102,13 +102,20 @@ function generateRowCSS(row: any, device: "desktop" | "tablet" | "mobile" = "des
         inner.push("max-width:100%");
     }
 
-    const flex = controlToCSS("flex", getDeviceValue(s.layout?.flex, device), s);
+    const rawFlex = (s.layout as any)?.flex;
+    const flexVal = getDeviceValue(s.layout?.flex, device);
+    let flexObj = flexVal;
+    if (device === "mobile" && (!rawFlex?._mobile || !rawFlex._mobile.direction)) {
+        flexObj = flexVal ? { ...flexVal, direction: "column" } : { direction: "column" };
+    }
+    const flex = controlToCSS("flex", flexObj, s);
     if (flex) inner.push(flex);
 
     const gap = controlToCSS("gap", getDeviceValue(s.layout?.gap, device), s);
     if (gap) inner.push(gap);
 
-    const wrap = controlToCSS("wrap", getDeviceValue(s.layout?.wrap, device), s);
+    const wrapVal = getDeviceValue(s.layout?.wrap, device);
+    const wrap = controlToCSS("wrap", wrapVal || "wrap", s);
     if (wrap) inner.push(wrap);
 
     const minH = controlToCSS("minHeight", getDeviceValue(s.layout?.minHeight, device), s);
@@ -276,6 +283,15 @@ function generateElementCSS(element: any, device: "desktop" | "tablet" | "mobile
             const hover = controlToHoverCSS(ctrl.name, value, { ...schema, _device: device });
             if (hover) hoverLines.push(hover);
         }
+    }
+
+    // boxShadow is nested inside border.boxShadow — emit it separately for elements
+    const borderVal = getDeviceValue(schema.style?.border, device);
+    if (borderVal?.boxShadow) {
+        const shadowCSS = controlToCSS("boxShadow", borderVal.boxShadow, { ...schema, _device: device });
+        if (shadowCSS) lines.push(shadowCSS);
+        const shadowHover = controlToHoverCSS("boxShadow", borderVal.boxShadow, { ...schema, _device: device });
+        if (shadowHover) hoverLines.push(shadowHover);
     }
 
     let css = `.${cls}{${lines.join(";")}}`;
@@ -500,13 +516,7 @@ function RenderRow({ row, serverElements }: { row: any; serverElements: Record<s
         <section id={idAttr} className={`brow-${row.id}${classAttr}`}>
             {overlayEnabled && (
                 <div
-                    style={{
-                        position: "absolute",
-                        inset: 0,
-                        background: overlayNormal?.color || "rgba(0,0,0,0.5)",
-                        opacity: overlayNormal?.opacity ?? 0.5,
-                        pointerEvents: "none",
-                    }}
+                    style={getOverlayStyle(overlay)}
                 />
             )}
             <div className={`brow-${row.id}-inner`}>

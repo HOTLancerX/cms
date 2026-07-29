@@ -4,6 +4,8 @@ import { Icon } from "@iconify/react";
 import ColorPickerPopup from "./ColorPickerPopup";
 import NumberControl from "./Number";
 import Tabs from "./group/Tabs";
+import ImageGallery from "./ImageGallery";
+import BackgroundImageControls from "./BackgroundImageControls";
 
 /**
  * Background Overlay control — Elementor-style
@@ -13,8 +15,8 @@ import Tabs from "./group/Tabs";
  * Schema shape:
  * {
  *   enabled: boolean,
- *   normal: { type, color, image, opacity, gradient },
- *   hover:  { type, color, image, opacity, gradient },
+ *   normal: { type, color, image, position, attachment, repeat, displaySize, customDisplaySize, opacity, gradient },
+ *   hover:  { type, color, image, position, attachment, repeat, displaySize, customDisplaySize, opacity, gradient },
  *   transition: number (ms)
  * }
  */
@@ -28,6 +30,11 @@ const DEFAULT_STATE = {
     type: "color" as string,
     color: "rgba(0,0,0,0.5)",
     image: "",
+    position: "",
+    attachment: "",
+    repeat: "",
+    displaySize: "",
+    customDisplaySize: "",
     opacity: 0.5,
     gradient: {
         color1: "#000000",
@@ -91,6 +98,8 @@ export default function BackgroundOverlay({ value, onChange }: any) {
                 {current.type === "color" && (
                     <div>
                         <ColorPickerPopup label="Color" value={current.color} onChange={(c) => update("color", c)} />
+                        <ImageGallery label="Image" value={current.image} onChange={(v) => update("image", v)} />
+                        <BackgroundImageControls current={current} update={update} />
                     </div>
                 )}
 

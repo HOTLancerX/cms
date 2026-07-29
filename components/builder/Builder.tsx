@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { DragDropProvider } from "@dnd-kit/react";
@@ -9,6 +10,108 @@ import { getColumnByPath, uid, isContainerType, getElementDef } from "./helpers"
 import { xFetch } from "@/lib/express";
 import { reregisterHooks } from "@/hook/PluginList";
 import { getBuilderElement } from "@/hook";
+
+function CanvasIframe({
+    children,
+    head,
+    className,
+    style,
+}: {
+    children: React.ReactNode;
+    head?: React.ReactNode;
+    className?: string;
+    style?: React.CSSProperties;
+}) {
+    const [iframeBody, setIframeBody] = useState<HTMLElement | null>(null);
+    const [iframeHead, setIframeHead] = useState<HTMLElement | null>(null);
+    const iframeRef = useRef<HTMLIFrameElement>(null);
+
+    const syncHeadStyles = useCallback((doc: Document) => {
+        if (!doc || !doc.head) return;
+
+        let baseStyle = doc.head.querySelector("#iframe-base-style");
+        if (!baseStyle) {
+            baseStyle = doc.createElement("style");
+            baseStyle.id = "iframe-base-style";
+            baseStyle.textContent = `
+                html, body {
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                    width: 100%;
+                    min-height: 100%;
+                    box-sizing: border-box;
+                    font-family: inherit;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                }
+                * {
+                    box-sizing: border-box;
+                }
+            `;
+            doc.head.appendChild(baseStyle);
+        }
+
+        const parentStyles = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"));
+        parentStyles.forEach((node, index) => {
+            const styleId = node.getAttribute("data-iframe-sync-id") || `sync-style-${index}`;
+            if (!doc.head.querySelector(`[data-iframe-sync-id="${styleId}"]`)) {
+                const clone = node.cloneNode(true) as HTMLElement;
+                clone.setAttribute("data-iframe-sync-id", styleId);
+                doc.head.appendChild(clone);
+            }
+        });
+    }, []);
+
+    useEffect(() => {
+        const iframe = iframeRef.current;
+        if (!iframe) return;
+
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!doc) return;
+
+        syncHeadStyles(doc);
+
+        const observer = new MutationObserver(() => {
+            syncHeadStyles(doc);
+        });
+        observer.observe(document.head, { childList: true, subtree: true });
+
+        setIframeHead(doc.head);
+        setIframeBody(doc.body);
+
+        // Auto sync iframe height to content height (eliminates double height / double scrollbar)
+        let resizeObserver: ResizeObserver | null = null;
+        if (doc.body) {
+            const updateHeight = () => {
+                if (doc.body) {
+                    const h = Math.max(500, doc.body.scrollHeight);
+                    iframe.style.height = `${h}px`;
+                }
+            };
+            updateHeight();
+            resizeObserver = new ResizeObserver(() => updateHeight());
+            resizeObserver.observe(doc.body);
+        }
+
+        return () => {
+            observer.disconnect();
+            if (resizeObserver) resizeObserver.disconnect();
+        };
+    }, [syncHeadStyles, iframeBody]);
+
+    return (
+        <iframe
+            ref={iframeRef}
+            className={className}
+            style={style}
+            title="Builder Viewport Frame"
+        >
+            {iframeHead && head && createPortal(head, iframeHead)}
+            {iframeBody && createPortal(children, iframeBody)}
+        </iframe>
+    );
+}
 if (typeof window !== "undefined") {
     const originalError = console.error;
     console.error = (...args: any[]) => {
@@ -343,14 +446,17 @@ export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
     const handleContextMenuCarouselSlide = (e: React.MouseEvent, carouselId: string, slideIndex: number, childElementId: string | null) => {
         e.preventDefault();
         e.stopPropagation();
+        const targetEl = e.target as HTMLElement;
+        const frame = targetEl?.ownerDocument?.defaultView?.frameElement;
+        const rect = frame ? frame.getBoundingClientRect() : { left: 0, top: 0 };
         setContextMenu({
             type: "carousel-slide-element",
             rowId: rows.find((r) => r.columns.some((c) => c.elements?.some((el) => el.id === carouselId)))?.id || "",
             carouselId,
             slideIndex,
             childElementId: childElementId || undefined,
-            x: e.clientX,
-            y: e.clientY,
+            x: e.clientX + rect.left,
+            y: e.clientY + rect.top,
         });
     };
 
@@ -467,7 +573,7 @@ export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
 
     return (
         <DragDropProvider onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-            <div className="fixed inset-0 z-999 flex bg-neutral-100 gap-0">
+            <div className="fixed inset-0 z-999 flex bg-neutral-100 gap-0 overflow-hidden">
                 {/* LEFT PANEL */}
                 <div
                     className={`shrink-0 bg-white flex flex-col relative transition-[width] duration-300 ease-in-out ${isResizing ? "select-none" : ""}`}
@@ -633,18 +739,19 @@ export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
                         </div>
                         <div className="flex items-center gap-0.5 bg-neutral-100 rounded p-0.5">
                             {([
-                                { key: "desktop", icon: "mdi:monitor", width: 390 },
-                                { key: "tablet", icon: "mdi:tablet", width: 768 },
-                                { key: "mobile", icon: "mdi:cellphone", width: 375 },
+                                { key: "desktop", icon: "mdi:monitor", label: "Desktop (100%)", widthLabel: "100%" },
+                                { key: "tablet", icon: "mdi:tablet", label: "Tablet (768px)", widthLabel: "768px" },
+                                { key: "mobile", icon: "mdi:cellphone", label: "Mobile (375px)", widthLabel: "375px" },
                             ] as const).map((d) => (
                                 <button
                                     key={d.key}
                                     type="button"
                                     onClick={() => setDevice(d.key)}
-                                    className={`flex items-center justify-center w-7 h-7 rounded cursor-pointer border-none transition-colors ${device === d.key ? "bg-white text-blue-600 shadow-sm" : "bg-transparent text-neutral-500 hover:text-neutral-700"}`}
-                                    title={d.key.charAt(0).toUpperCase() + d.key.slice(1)}
+                                    className={`flex items-center justify-center h-7 px-2.5 gap-1.5 rounded text-xs cursor-pointer border-none transition-all ${device === d.key ? "bg-white text-blue-600 shadow-sm font-medium" : "bg-transparent text-neutral-500 hover:text-neutral-700"}`}
+                                    title={d.label}
                                 >
                                     <Icon icon={d.icon} width="16" />
+                                    <span className="capitalize text-[11px] hidden sm:inline">{d.key}</span>
                                 </button>
                             ))}
                         </div>
@@ -710,60 +817,84 @@ export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
                     </div>
 
                     {/* Canvas scroll area */}
-                    <div className={`flex-1 overflow-y-auto p-6 ${panelCollapsed ? "builder-preview-mode" : ""}`} data-preview={panelCollapsed ? "true" : undefined}>
+                    <div className={`flex-1 bg-neutral-100/70 flex flex-col items-center justify-center overflow-hidden h-full ${panelCollapsed ? "builder-preview-mode" : ""}`} data-preview={panelCollapsed ? "true" : undefined}>
                         <div
-                            className="mx-auto container transition-[max-width] duration-300 ease-in-out"
+                            className={`mx-auto transition-all duration-300 ease-in-out bg-white flex flex-col h-full overflow-hidden ${
+                                device === "desktop"
+                                    ? "w-full rounded-none border-none shadow-none"
+                                    : "shadow-2xl border border-neutral-300/80 rounded-xl my-1 shrink-0"
+                            }`}
                             style={{
-                                maxWidth: device === "desktop" ? "" : device === "tablet" ? "768px" : "375px",
+                                width: device === "desktop" ? "100%" : device === "tablet" ? "768px" : "375px",
+                                maxWidth: "100%",
+                                height: device === "desktop" ? "100%" : "calc(100vh - 100px)",
                             }}
                         >
-                            <CanvasStyles rows={rows} device={device} />
-                            {rows.map((row, index) => (
-                                <CanvasRow
-                                    key={row.id}
-                                    row={row}
-                                    index={index}
-                                    device={device}
-                                    isSelected={selected?.type === "row" && selected.id === row.id}
-                                    onSelectRow={() => selectRow(row.id)}
-                                    onDeleteRow={() => deleteRow(row.id)}
-                                    onContextMenu={handleContextMenu}
-                                    onSelectColumn={selectColumn}
-                                    onAddColumns={openAddColumns}
-                                    onAddElement={openAddElement}
-                                    onSelectElement={selectElement}
-                                    selectedColumn={
-                                        selected?.type === "column" && selected.rowId === row.id
-                                            ? selected.path
-                                            : null
-                                    }
-                                    selectedElementId={
-                                        selected?.type === "element" && selected.rowId === row.id
-                                            ? selected.elementId
-                                            : null
-                                    }
-                                    selectedCarouselSlide={selectedCarouselSlide}
-                                    selectedCarouselSlideElement={selectedCarouselSlideElement}
-                                    onSelectCarouselSlide={selectCarouselSlide}
-                                    onSelectCarouselSlideElement={selectCarouselSlideElement}
-                                    onAddElementToCarouselSlide={addElementToCarouselSlide}
-                                    onDeleteCarouselSlideElement={deleteCarouselSlideElement}
-                                    onContextMenuCarouselSlide={handleContextMenuCarouselSlide}
-                                />
-                            ))}
-
-                            {/* Add Row — Elementor-style drop zone (hidden in preview mode) */}
-                            {!panelCollapsed && (
-                                <AddRowDropZone
-                                    onAddRow={addRow}
-                                    clipboard={clipboard}
-                                    onPasteRow={(row) => setRows((prev) => [...prev, row])}
-                                    onCopyAll={rows.length > 0 ? () => setClipboard({ type: "all", data: JSON.parse(JSON.stringify(rows)) }) : undefined}
-                                    onDeleteAll={rows.length > 0 ? () => { setRows([]); setSelected(null); setLeftPanel(null); } : undefined}
-                                    onStructure={() => setShowStructure(true)}
-                                    onOpenSections={() => { setLeftPanel("sections"); setSelected(null); }}
-                                />
+                            {/* Device Frame Header (Browser Inspect style) */}
+                            {device !== "desktop" && (
+                                <div className="bg-neutral-100 border-b border-neutral-200 px-3 py-1.5 flex items-center justify-between text-[11px] text-neutral-500 font-mono select-none shrink-0">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block" />
+                                        <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
+                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
+                                    </div>
+                                    <span className="font-semibold text-neutral-600">
+                                        {device === "tablet" ? "768px (Tablet Viewport)" : "375px (Mobile Viewport)"}
+                                    </span>
+                                    <Icon icon={device === "tablet" ? "mdi:tablet" : "mdi:cellphone"} width="15" className="text-neutral-500" />
+                                </div>
                             )}
+
+                            <CanvasIframe
+                                className="w-full h-full flex-1 border-none bg-white block overflow-y-auto overflow-x-hidden"
+                                head={<CanvasStyles rows={rows} device={device} />}
+                            >
+                                {rows.map((row, index) => (
+                                    <CanvasRow
+                                        key={row.id}
+                                        row={row}
+                                        index={index}
+                                        device={device}
+                                        isSelected={selected?.type === "row" && selected.id === row.id}
+                                        onSelectRow={() => selectRow(row.id)}
+                                        onDeleteRow={() => deleteRow(row.id)}
+                                        onContextMenu={handleContextMenu}
+                                        onSelectColumn={selectColumn}
+                                        onAddColumns={openAddColumns}
+                                        onAddElement={openAddElement}
+                                        onSelectElement={selectElement}
+                                        selectedColumn={
+                                            selected?.type === "column" && selected.rowId === row.id
+                                                ? selected.path
+                                                : null
+                                        }
+                                        selectedElementId={
+                                            selected?.type === "element" && selected.rowId === row.id
+                                                ? selected.elementId
+                                                : null
+                                        }
+                                        selectedCarouselSlide={selectedCarouselSlide}
+                                        selectedCarouselSlideElement={selectedCarouselSlideElement}
+                                        onSelectCarouselSlide={selectCarouselSlide}
+                                        onSelectCarouselSlideElement={selectCarouselSlideElement}
+                                        onAddElementToCarouselSlide={addElementToCarouselSlide}
+                                        onDeleteCarouselSlideElement={deleteCarouselSlideElement}
+                                        onContextMenuCarouselSlide={handleContextMenuCarouselSlide}
+                                    />
+                                ))}
+
+                                {!panelCollapsed && (
+                                    <AddRowDropZone
+                                        onAddRow={addRow}
+                                        clipboard={clipboard}
+                                        onPasteRow={(row) => setRows((prev) => [...prev, row])}
+                                        onCopyAll={rows.length > 0 ? () => setClipboard({ type: "all", data: JSON.parse(JSON.stringify(rows)) }) : undefined}
+                                        onDeleteAll={rows.length > 0 ? () => { setRows([]); setSelected(null); setLeftPanel(null); } : undefined}
+                                        onStructure={() => setShowStructure(true)}
+                                        onOpenSections={() => { setLeftPanel("sections"); setSelected(null); }}
+                                    />
+                                )}
+                            </CanvasIframe>
                         </div>
                         {/* close device-width wrapper */}
                     </div>

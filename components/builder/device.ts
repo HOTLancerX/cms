@@ -23,12 +23,17 @@ import { Device, Column, ColumnWidths } from "./types";
  */
 export function getColumnWidth(col: Column, device: Device): number {
     if (col.widths) {
-        if (device === "mobile" && col.widths.mobile !== undefined) return col.widths.mobile;
-        if (device === "tablet" && col.widths.tablet !== undefined) return col.widths.tablet;
-        return col.widths.desktop;
+        if (device === "mobile") {
+            return col.widths.mobile !== undefined ? col.widths.mobile : 100;
+        }
+        if (device === "tablet") {
+            return col.widths.tablet !== undefined ? col.widths.tablet : (col.widths.desktop > 50 ? col.widths.desktop : 100);
+        }
+        return col.widths.desktop ?? 100;
     }
-    // Legacy flat width
-    return col.width;
+    if (device === "mobile") return 100;
+    if (device === "tablet") return (col.width && col.width > 50) ? col.width : 100;
+    return col.width ?? 100;
 }
 
 /**

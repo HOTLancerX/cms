@@ -6,6 +6,7 @@ import { useSortable } from "@dnd-kit/react/sortable";
 import { Row, Device } from "../types";
 import CanvasColumn from "./CanvasColumn";
 import { SHAPES } from "../controls/ShapeDivider";
+import { getOverlayStyle } from "../controls";
 
 interface Props {
     row: Row;
@@ -86,7 +87,7 @@ export default function CanvasRow({
         >
             {/* Drop indicator — thick blue line at top */}
             {showDropIndicator && (
-                <div className="absolute top-[-5px] left-[10%] right-[10%] h-1 bg-blue-500 rounded-sm z-30 shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
+                <div className="absolute -top-1.25 left-[10%] right-[10%] h-1 bg-blue-500 rounded-sm z-30 shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
             )}
 
             {/* Row toolbar — top center (only on hover/selected) */}
@@ -95,7 +96,7 @@ export default function CanvasRow({
                     <button
                         type="button"
                         onClick={onSelectRow}
-                        className="flex items-center justify-center w-[22px] h-[22px] bg-transparent text-purple-900 border-none cursor-pointer"
+                        className="flex items-center justify-center w-5.5 h-5.5 bg-transparent text-purple-900 border-none cursor-pointer"
                         title="Row settings"
                     >
                         <Icon icon="mdi:plus" width="14" />
@@ -103,7 +104,7 @@ export default function CanvasRow({
                     <button
                         ref={handleRef}
                         type="button"
-                        className="flex items-center justify-center w-[22px] h-[22px] bg-transparent text-purple-900 border-none cursor-grab"
+                        className="flex items-center justify-center w-5.5 h-5.5 bg-transparent text-purple-900 border-none cursor-grab"
                         title="Drag to reorder"
                     >
                         <Icon icon="mdi:dots-grid" width="14" />
@@ -111,7 +112,7 @@ export default function CanvasRow({
                     <button
                         type="button"
                         onClick={onDeleteRow}
-                        className="flex items-center justify-center w-[22px] h-[22px] bg-transparent text-purple-900 border-none cursor-pointer"
+                        className="flex items-center justify-center w-5.5 h-5.5 bg-transparent text-purple-900 border-none cursor-pointer"
                         title="Delete row"
                     >
                         <Icon icon="mdi:close" width="14" />
@@ -122,13 +123,10 @@ export default function CanvasRow({
             {/* Row outer — full-width, background via .brow-{id} */}
             <div id={(row.schema.advanced as any)?.cssID || undefined} className={`brow-${row.id}${(row.schema.advanced as any)?.cssClasses ? " " + (row.schema.advanced as any).cssClasses : ""}`}>
                 {/* Background overlay */}
-                {s.style.backgroundOverlay.enabled && (
+                {s.style.backgroundOverlay?.enabled && (
                     <div
                         className="absolute inset-0 pointer-events-none rounded-[inherit]"
-                        style={{
-                            background: (s.style.backgroundOverlay as any).normal?.color || "rgba(0,0,0,0.5)",
-                            opacity: (s.style.backgroundOverlay as any).normal?.opacity ?? 0.5,
-                        }}
+                        style={getOverlayStyle(s.style.backgroundOverlay)}
                     />
                 )}
 

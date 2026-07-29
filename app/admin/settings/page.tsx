@@ -55,6 +55,13 @@ const CORE_TABS: Tab[] = [
         settingType: "nav",
         description: "Nav bar colours, typography and spacing.",
     },
+    {
+        key:         "category",
+        label:       "Category Layout",
+        icon:        "solar:folder-with-files-bold",
+        settingType: "category",
+        description: "Configure responsive desktop, tablet, and mobile grid columns & gaps for category pages.",
+    },
 ];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────

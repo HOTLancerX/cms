@@ -41,11 +41,12 @@ export function useDragDrop(
                 return;
             }
 
-            // Column/Container reorder — any nest depth, same parent only
-            if (source.data?.dndType === "column" && target.data?.dndType === "column") {
+            // Column/Container reorder — any nest depth, same parent only (cannot leave row)
+            if (source.data?.dndType === "column") {
+                if (target.data?.dndType !== "column") return; // Block columns from targeting outer row zones or non-columns
                 const srcRowId = source.data.rowId as string;
                 const tgtRowId = target.data.rowId as string;
-                if (srcRowId !== tgtRowId) return;
+                if (srcRowId !== tgtRowId) return; // Strictly enforce row boundaries
 
                 const srcPath = source.data.colPath as number[] | undefined;
                 const tgtPath = target.data.colPath as number[] | undefined;
@@ -151,6 +152,13 @@ export function useDragDrop(
         if (event.canceled) return;
         const { source, target } = event.operation;
         if (!target || !source) return;
+
+        // Columns can never be dropped outside their parent row
+        if (source.data?.dndType === "column") {
+            if (target.data?.dndType !== "column" || source.data?.rowId !== target.data?.rowId) {
+                return;
+            }
+        }
 
         setTimeout(() => {
             // Handle section drops — insert section content as rows

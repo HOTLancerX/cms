@@ -8,6 +8,7 @@ import {
   Gaps,
   Wrap,
   ShapeDivider,
+  getOverlayStyle,
 } from "../controls";
 
 const rowElement = {
@@ -211,13 +212,7 @@ const rowElement = {
         {/* Overlay */}
         {overlayEnabled && overlayNormal && (
           <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: overlayNormal.color || "rgba(0,0,0,0.5)",
-              opacity: overlayNormal.opacity ?? 0.5,
-              pointerEvents: "none",
-            }}
+            style={getOverlayStyle(overlay)}
           />
         )}
 
