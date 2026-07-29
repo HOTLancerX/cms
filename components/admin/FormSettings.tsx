@@ -126,30 +126,20 @@ export default function FormSettings({
                 </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8">
-
-                {/* ── Left column ── */}
-                <div className="flex flex-col gap-5">
-                    {leftFields.map(renderField)}
-                </div>
-
-                {/* ── Right column ── */}
-                <div className="flex flex-col gap-5">
-                    {rightFields.map(renderField)}
-
-                    <button
-                        type="submit"
-                        disabled={saving}
-                        className="w-full rounded-lg bg-main px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                        {saving
-                            ? <><Icon icon="svg-spinners:ring-resize" width={16} /> Saving…</>
-                            : <><Icon icon="solar:check-circle-bold" width={16} /> Save Settings</>
-                        }
-                    </button>
-                </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-6">
+                {leftFields.map(renderField)}
+                {rightFields.map(renderField)}
             </div>
+            <button
+                type="submit"
+                disabled={saving}
+                className="w-full mt-10 rounded-lg bg-main px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+                {saving
+                    ? <><Icon icon="svg-spinners:ring-resize" width={16} /> Saving…</>
+                    : <><Icon icon="solar:check-circle-bold" width={16} /> Save Settings</>
+                }
+            </button>
         </form>
     );
 }

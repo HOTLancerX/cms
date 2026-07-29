@@ -160,6 +160,15 @@ export default function AdminSettingsPage() {
                     onSuccess={refresh}
                 />
             )}
+
+            {activeTab === "category" && (
+                <FormSettings
+                    type="category"
+                    activePlugins={activePlugins}
+                    initialValues={settings}
+                    onSuccess={refresh}
+                />
+            )}
         </div>
     );
 }
