@@ -398,7 +398,6 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8">
-
                 {/* ── Left Column ── */}
                 <div className="flex flex-col gap-5">
                     <div className="flex flex-col gap-1.5 bg-white p-2 rounded">

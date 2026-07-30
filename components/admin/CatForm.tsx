@@ -357,7 +357,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
     // ── Render ───────────────────────────────────────────────────────────────
     return (
         <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8">
 
                 {/* ── Left column ── */}
                 <div className="flex flex-col gap-5">
