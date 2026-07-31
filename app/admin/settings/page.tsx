@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import FormSettings from "@/components/admin/FormSettings";
 import IconifyPicker from "@/components/ui/Iconify";
+import Gallery from "@/components/Gallery";
 import { useActivePlugins } from "@/hook/useActivePlugins";
 import useSettings from "@/lib/useSettings";
 import { xFetch } from "@/lib/express";
@@ -21,44 +22,44 @@ interface Tab {
 
 const CORE_TABS: Tab[] = [
     {
-        key:         "general",
-        label:       "General",
-        icon:        "solar:settings-bold",
+        key: "general",
+        label: "General",
+        icon: "solar:settings-bold",
         settingType: "settings",
         description: "Site identity, logo, contact info and default SEO.",
     },
     {
-        key:         "appearance",
-        label:       "Appearance",
-        icon:        "solar:palette-bold",
+        key: "appearance",
+        label: "Appearance",
+        icon: "solar:palette-bold",
         settingType: "appearance",
         description: "Brand colours, container width and Google Font for the public site.",
     },
     {
-        key:         "header",
-        label:       "Header",
-        icon:        "solar:widget-2-bold",
+        key: "header",
+        label: "Header",
+        icon: "solar:widget-2-bold",
         settingType: "header",
         description: "Assign menus to header slots and configure header behaviour.",
     },
     {
-        key:         "footer",
-        label:       "Footer",
-        icon:        "solar:footer-bold",
+        key: "footer",
+        label: "Footer",
+        icon: "solar:footer-bold",
         settingType: "footer",
         description: "Configure 5 separate footer sections with default titles & dynamic fields (icon, name, link).",
     },
     {
-        key:         "nav",
-        label:       "Navigation",
-        icon:        "solar:menu-dots-bold",
+        key: "nav",
+        label: "Navigation",
+        icon: "solar:menu-dots-bold",
         settingType: "nav",
         description: "Nav bar colours, typography and spacing.",
     },
     {
-        key:         "category",
-        label:       "Category Layout",
-        icon:        "solar:folder-with-files-bold",
+        key: "category",
+        label: "Category Layout",
+        icon: "solar:folder-with-files-bold",
         settingType: "category",
         description: "Configure responsive desktop, tablet, and mobile grid columns & gaps for category pages.",
     },
@@ -67,9 +68,9 @@ const CORE_TABS: Tab[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminSettingsPage() {
-    const activePlugins                  = useActivePlugins();
+    const activePlugins = useActivePlugins();
     const { settings, loading, refresh } = useSettings();
-    const [activeTab, setActiveTab]      = useState("general");
+    const [activeTab, setActiveTab] = useState("general");
 
     if (activePlugins === null || loading) {
         return (
@@ -101,11 +102,10 @@ export default function AdminSettingsPage() {
                                 key={tab.key}
                                 type="button"
                                 onClick={() => setActiveTab(tab.key)}
-                                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                                    isActive
+                                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${isActive
                                         ? "border-indigo-500 text-indigo-600"
                                         : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                                }`}
+                                    }`}
                             >
                                 <Icon icon={tab.icon} width={16} />
                                 {tab.label}
@@ -206,7 +206,7 @@ function parseFooterSections(initialValues: Record<string, any>): FooterSection[
             try {
                 const parsed = JSON.parse(initialValues[`footer_section_${s}_items`]);
                 if (Array.isArray(parsed)) secItems = parsed;
-            } catch {}
+            } catch { }
         } else {
             const flatIcon = initialValues[`footer_item_${s}_icon`];
             const flatName = initialValues[`footer_item_${s}_name`];
@@ -243,11 +243,48 @@ function FooterTab({
 }) {
     const [sections, setSections] = useState<FooterSection[]>(() => parseFooterSections(initialValues));
 
-    const [saving, setSaving]   = useState(false);
+    const [formValues, setFormValues] = useState<Record<string, string>>({
+        admin: initialValues.admin ?? "",
+        editor: initialValues.editor ?? "",
+        footer_address: initialValues.footer_address ?? initialValues.address ?? "",
+        footer_phone: initialValues.footer_phone ?? initialValues.phone ?? "",
+        footer_number: initialValues.footer_number ?? initialValues.number ?? "",
+        footer_email: initialValues.footer_email ?? initialValues.email ?? "",
+        copyright: initialValues.copyright ?? "",
+        social_media: initialValues.social_media ?? initialValues.socialMedia ?? "",
+        footer_logo: initialValues.footer_logo ?? initialValues.footerLogo ?? "",
+        background_image: initialValues.background_image ?? initialValues.backgroundImage ?? initialValues.bg_image ?? "",
+        mobile_download: initialValues.mobile_download ?? initialValues.mobileDownload ?? "",
+        developed: initialValues.developed ?? "",
+        footer_bg_color: initialValues.footer_bg_color ?? initialValues.footer_bg_1 ?? "#ffffff",
+        footer_bg_color_2: initialValues.footer_bg_color_2 ?? initialValues.footer_bg_2 ?? "#f8fafc",
+        footer_text_color: initialValues.footer_text_color ?? initialValues.footer_text_1 ?? "#1e293b",
+        footer_text_color_2: initialValues.footer_text_color_2 ?? initialValues.footer_text_2 ?? "#64748b",
+    });
+
+    const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState("");
 
     useEffect(() => {
         setSections(parseFooterSections(initialValues));
+        setFormValues({
+            admin: initialValues.admin ?? "",
+            editor: initialValues.editor ?? "",
+            footer_address: initialValues.footer_address ?? initialValues.address ?? "",
+            footer_phone: initialValues.footer_phone ?? initialValues.phone ?? "",
+            footer_number: initialValues.footer_number ?? initialValues.number ?? "",
+            footer_email: initialValues.footer_email ?? initialValues.email ?? "",
+            copyright: initialValues.copyright ?? "",
+            social_media: initialValues.social_media ?? initialValues.socialMedia ?? "",
+            footer_logo: initialValues.footer_logo ?? initialValues.footerLogo ?? "",
+            background_image: initialValues.background_image ?? initialValues.backgroundImage ?? initialValues.bg_image ?? "",
+            mobile_download: initialValues.mobile_download ?? initialValues.mobileDownload ?? "",
+            developed: initialValues.developed ?? "",
+            footer_bg_color: initialValues.footer_bg_color ?? initialValues.footer_bg_1 ?? "#ffffff",
+            footer_bg_color_2: initialValues.footer_bg_color_2 ?? initialValues.footer_bg_2 ?? "#f8fafc",
+            footer_text_color: initialValues.footer_text_color ?? initialValues.footer_text_1 ?? "#1e293b",
+            footer_text_color_2: initialValues.footer_text_color_2 ?? initialValues.footer_text_2 ?? "#64748b",
+        });
     }, [initialValues]);
 
     const updateSectionTitle = (secIndex: number, title: string) => {
@@ -292,6 +329,10 @@ function FooterTab({
         });
     };
 
+    const handleChange = (key: string, value: string) => {
+        setFormValues((prev) => ({ ...prev, [key]: value }));
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
@@ -299,6 +340,26 @@ function FooterTab({
 
         const payload: Record<string, any> = {
             ...initialValues,
+            admin: formValues.admin,
+            editor: formValues.editor,
+            footer_address: formValues.footer_address,
+            footer_phone: formValues.footer_phone,
+            footer_number: formValues.footer_number,
+            footer_email: formValues.footer_email,
+            copyright: formValues.copyright,
+            social_media: formValues.social_media,
+            socialMedia: formValues.social_media,
+            footer_logo: formValues.footer_logo,
+            footerLogo: formValues.footer_logo,
+            background_image: formValues.background_image,
+            backgroundImage: formValues.background_image,
+            mobile_download: formValues.mobile_download,
+            mobileDownload: formValues.mobile_download,
+            developed: formValues.developed,
+            footer_bg_color: formValues.footer_bg_color,
+            footer_bg_color_2: formValues.footer_bg_color_2,
+            footer_text_color: formValues.footer_text_color,
+            footer_text_color_2: formValues.footer_text_color_2,
         };
 
         sections.forEach((sec, idx) => {
@@ -326,11 +387,11 @@ function FooterTab({
             if (!res.ok) {
                 setMessage(`Error: ${data.error ?? "Failed to save"}`);
             } else {
-                setMessage("Settings saved!");
+                setMessage("Footer settings saved successfully!");
                 try {
                     localStorage.setItem("cms_settings_updated", Date.now().toString());
                     window.dispatchEvent(new Event("cms_settings_updated"));
-                } catch {}
+                } catch { }
                 onSaved?.();
                 setTimeout(() => setMessage(""), 3000);
             }
@@ -357,109 +418,224 @@ function FooterTab({
         }
     });
 
+    const contentFields = [
+        { key: "admin", label: "Admin", icon: "solar:user-bold", placeholder: "Admin name or details" },
+        { key: "editor", label: "Editor", icon: "solar:pen-bold", placeholder: "Editor name or details" },
+        { key: "footer_address", label: "Address (Footer)", icon: "solar:map-point-bold", placeholder: "Full office address for footer", isTextarea: true },
+        { key: "footer_phone", label: "Phone (Footer)", icon: "solar:phone-bold", placeholder: "+1 (555) 000-0000" },
+        { key: "footer_number", label: "Number (Footer)", icon: "solar:hashtag-bold", placeholder: "Contact / Hotline number for footer" },
+        { key: "footer_email", label: "Email (Footer)", icon: "solar:letter-bold", placeholder: "contact@example.com" },
+        { key: "copyright", label: "Copyright", icon: "solar:copyright-bold", placeholder: "© 2026 All rights reserved." },
+        { key: "social_media", label: "Social Media", icon: "solar:share-circle-bold", placeholder: "Social media links or handle info" },
+        { key: "footer_logo", label: "Footer Logo", icon: "solar:gallery-wide-bold", placeholder: "Footer logo image", isGallery: true },
+        { key: "background_image", label: "Background Image", icon: "solar:image-bold", placeholder: "Background image", isGallery: true },
+        { key: "mobile_download", label: "Mobile Download", icon: "solar:smartphone-bold", placeholder: "App download URL or note" },
+        { key: "developed", label: "Developed", icon: "solar:code-bold", placeholder: "Developed by details / credits" },
+    ];
+
+    const colorFields = [
+        { key: "footer_bg_color", label: "Footer Background Color 1", icon: "solar:palette-bold", default: "#ffffff" },
+        { key: "footer_bg_color_2", label: "Footer Background Color 2", icon: "solar:palette-2-bold", default: "#f8fafc" },
+        { key: "footer_text_color", label: "Footer Text Color 1", icon: "solar:text-bold", default: "#1e293b" },
+        { key: "footer_text_color_2", label: "Footer Text Color 2", icon: "solar:text-cross-bold", default: "#64748b" },
+    ];
+
     return (
         <div className="space-y-8">
-            <form onSubmit={handleSave}>
-                <div className="space-y-8">
-                    {sections.map((sec, secIdx) => (
-                        <div key={sec.id || secIdx} className="bg-gray-50/70 border border-gray-200 rounded-2xl p-5 space-y-5 hover:border-indigo-200 transition">
-                            <div className="flex items-center justify-between border-b border-gray-200/80 pb-3 flex-wrap gap-3">
-                                <div className="flex items-center gap-3 flex-1 min-w-60">
-                                    <span className="px-2.5 py-1 rounded-md bg-indigo-100 text-indigo-700 text-xs font-bold font-mono shrink-0">
-                                        Section #{secIdx + 1}
-                                    </span>
-                                    <input
-                                        type="text"
-                                        value={sec.title}
-                                        onChange={(e) => updateSectionTitle(secIdx, e.target.value)}
-                                        placeholder="Section Title (e.g. Quick Links)"
-                                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white flex-1 max-w-md"
-                                    />
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => addItemToSection(secIdx)}
-                                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-gray-200 hover:border-indigo-300 text-indigo-600 transition flex items-center gap-1.5 shadow-sm"
-                                >
-                                    <Icon icon="solar:add-circle-bold" width={14} />
-                                    Add Field
-                                </button>
-                            </div>
-
-                            {sec.items.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {sec.items.map((item, itemIdx) => (
-                                        <div key={item.id || itemIdx} className="bg-white border border-gray-200 rounded-xl p-4 space-y-3.5 shadow-sm relative group">
-                                            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                                                <span className="text-[11px] font-bold text-gray-700 font-mono flex items-center gap-1.5">
-                                                    <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
-                                                    Field #{itemIdx + 1}
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeItemFromSection(secIdx, itemIdx)}
-                                                    className="px-2 py-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200/60 rounded-md transition flex items-center gap-1 shrink-0"
-                                                    title="Remove Field"
-                                                >
-                                                    <Icon icon="solar:trash-bin-trash-bold" width={12} />
-                                                    Remove
-                                                </button>
-                                            </div>
-
-                                            {/* Icon */}
-                                            <div className="space-y-1">
-                                                <label className="text-[11px] font-semibold text-gray-600">Icon</label>
-                                                <IconifyPicker
-                                                    value={item.icon}
-                                                    onChange={(val) => updateItem(secIdx, itemIdx, "icon", val)}
-                                                    placeholder="Select Icon"
-                                                />
-                                            </div>
-
-                                            {/* Name */}
-                                            <div className="space-y-1">
-                                                <label className="text-[11px] font-semibold text-gray-600">Name</label>
-                                                <input
-                                                    type="text"
-                                                    value={item.name}
-                                                    onChange={(e) => updateItem(secIdx, itemIdx, "name", e.target.value)}
-                                                    placeholder="e.g. Facebook, Terms, Support"
-                                                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                                                />
-                                            </div>
-
-                                            {/* Link */}
-                                            <div className="space-y-1">
-                                                <label className="text-[11px] font-semibold text-gray-600">Link</label>
-                                                <input
-                                                    type="text"
-                                                    value={item.link}
-                                                    onChange={(e) => updateItem(secIdx, itemIdx, "link", e.target.value)}
-                                                    placeholder="e.g. https://... or /privacy"
-                                                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : null}
-                        </div>
-                    ))}
-                </div>
-
+            <form onSubmit={handleSave} className="space-y-8">
                 {message && (
-                    <div className={`p-3 rounded-lg text-xs font-semibold ${message.startsWith("Error") ? "bg-red-50 text-red-600 border border-red-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
+                    <div className={`p-4 rounded-xl text-xs font-semibold border ${message.startsWith("Error")
+                            ? "bg-red-50 text-red-600 border-red-200"
+                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        }`}>
                         {message}
                     </div>
                 )}
-            </form>
 
-            <FormSettings
-                type="footer"
-                activePlugins={activePlugins}
-                initialValues={mergedInitialValues}
-                onSuccess={onSaved}
-            />
+                {/* Section 1: Dynamic 5 Footer Sections Builder */}
+                <div className="space-y-5">
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 border-b border-gray-200 pb-2">
+                        <Icon icon="solar:widget-2-bold" width={18} className="text-indigo-500" />
+                        Dynamic Footer Sections & Items (5 Sections)
+                    </h3>
+
+                    <div className="space-y-6">
+                        {sections.map((sec, secIdx) => (
+                            <div key={sec.id || secIdx} className="bg-gray-50/70 border border-gray-200 rounded-2xl p-5 space-y-5 hover:border-indigo-200 transition">
+                                <div className="flex items-center justify-between border-b border-gray-200/80 pb-3 flex-wrap gap-3">
+                                    <div className="flex items-center gap-3 flex-1 min-w-60">
+                                        <span className="px-2.5 py-1 rounded-md bg-indigo-100 text-indigo-700 text-xs font-bold font-mono shrink-0">
+                                            Section #{secIdx + 1}
+                                        </span>
+                                        <input
+                                            type="text"
+                                            value={sec.title}
+                                            onChange={(e) => updateSectionTitle(secIdx, e.target.value)}
+                                            placeholder="Section Title (e.g. Quick Links)"
+                                            className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white flex-1 max-w-md"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => addItemToSection(secIdx)}
+                                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-gray-200 hover:border-indigo-300 text-indigo-600 transition flex items-center gap-1.5 shadow-sm"
+                                    >
+                                        <Icon icon="solar:add-circle-bold" width={14} />
+                                        Add Field
+                                    </button>
+                                </div>
+
+                                {sec.items.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {sec.items.map((item, itemIdx) => (
+                                            <div key={item.id || itemIdx} className="bg-white border border-gray-200 rounded-xl p-4 space-y-3.5 shadow-sm relative group">
+                                                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                                                    <span className="text-[11px] font-bold text-gray-700 font-mono flex items-center gap-1.5">
+                                                        <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
+                                                        Field #{itemIdx + 1}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeItemFromSection(secIdx, itemIdx)}
+                                                        className="px-2 py-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200/60 rounded-md transition flex items-center gap-1 shrink-0"
+                                                        title="Remove Field"
+                                                    >
+                                                        <Icon icon="solar:trash-bin-trash-bold" width={12} />
+                                                        Remove
+                                                    </button>
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <label className="text-[11px] font-semibold text-gray-600">Icon</label>
+                                                    <IconifyPicker
+                                                        value={item.icon}
+                                                        onChange={(val) => updateItem(secIdx, itemIdx, "icon", val)}
+                                                        placeholder="Select Icon"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <label className="text-[11px] font-semibold text-gray-600">Name</label>
+                                                    <input
+                                                        type="text"
+                                                        value={item.name}
+                                                        onChange={(e) => updateItem(secIdx, itemIdx, "name", e.target.value)}
+                                                        placeholder="e.g. Facebook, Terms, Support"
+                                                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <label className="text-[11px] font-semibold text-gray-600">Link</label>
+                                                    <input
+                                                        type="text"
+                                                        value={item.link}
+                                                        onChange={(e) => updateItem(secIdx, itemIdx, "link", e.target.value)}
+                                                        placeholder="e.g. https://... or /privacy"
+                                                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : null}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Section 2: Content & Contact Details */}
+                <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 border-b border-gray-200 pb-2">
+                        <Icon icon="solar:document-bold" width={18} className="text-indigo-500" />
+                        Footer Content & Contact Details
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50/70 border border-gray-200 rounded-2xl p-6">
+                        {contentFields.map((f) => (
+                            <div key={f.key} className={`space-y-2 ${f.isTextarea || f.isGallery ? "md:col-span-2" : ""}`}>
+                                <label className="text-xs font-bold text-gray-700 flex items-center gap-2">
+                                    <Icon icon={f.icon} width={16} className="text-indigo-500" />
+                                    {f.label}
+                                </label>
+                                {f.isGallery ? (
+                                    <Gallery
+                                        value={formValues[f.key] ?? ""}
+                                        onChange={(v) => handleChange(f.key, Array.isArray(v) ? v[0] ?? "" : v)}
+                                        placeholder={`Select ${f.label}`}
+                                    />
+                                ) : f.isTextarea ? (
+                                    <textarea
+                                        rows={3}
+                                        value={formValues[f.key] ?? ""}
+                                        onChange={(e) => handleChange(f.key, e.target.value)}
+                                        placeholder={f.placeholder}
+                                        className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    />
+                                ) : (
+                                    <input
+                                        type="text"
+                                        value={formValues[f.key] ?? ""}
+                                        onChange={(e) => handleChange(f.key, e.target.value)}
+                                        placeholder={f.placeholder}
+                                        className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Section 3: Color Settings */}
+                <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 border-b border-gray-200 pb-2">
+                        <Icon icon="solar:palette-bold" width={18} className="text-indigo-500" />
+                        Footer Colors & Styling
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-gray-50/70 border border-gray-200 rounded-2xl p-6">
+                        {colorFields.map((cf) => (
+                            <div key={cf.key} className="space-y-2">
+                                <label className="text-xs font-bold text-gray-700 flex items-center gap-2">
+                                    <Icon icon={cf.icon} width={16} className="text-indigo-500" />
+                                    {cf.label}
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="color"
+                                        value={formValues[cf.key] || cf.default}
+                                        onChange={(e) => handleChange(cf.key, e.target.value)}
+                                        className="w-10 h-10 rounded-xl border border-gray-300 cursor-pointer p-0.5 shrink-0 bg-white"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={formValues[cf.key] ?? ""}
+                                        onChange={(e) => handleChange(cf.key, e.target.value)}
+                                        placeholder={cf.default}
+                                        className="flex-1 px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 text-sm transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                    {saving ? (
+                        <>
+                            <Icon icon="svg-spinners:ring-resize" width={18} />
+                            Saving...
+                        </>
+                    ) : (
+                        <>
+                            <Icon icon="solar:disk-bold" width={18} />
+                            Save Footer Settings
+                        </>
+                    )}
+                </button>
+            </form>
         </div>
     );
 }
@@ -479,18 +655,18 @@ function AppearanceTab({
 
     useEffect(() => { setLive(initialValues); }, [initialValues]);
 
-    const colorMain      = (live.color_main      as string) || "#00aaa6";
+    const colorMain = (live.color_main as string) || "#00aaa6";
     const colorSecondary = (live.color_secondary as string) || "#ffc800";
-    const colorPrimary   = (live.color_primary   as string) || "#10846f";
-    const colorFf        = (live.color_ff        as string) || "#fff9f3";
-    const width          = (live.width           as string) || "1600";
-    const googleFont     = (live.google_font     as string) || "";
+    const colorPrimary = (live.color_primary as string) || "#10846f";
+    const colorFf = (live.color_ff as string) || "#fff9f3";
+    const width = (live.width as string) || "1600";
+    const googleFont = (live.google_font as string) || "";
 
     const swatches = [
-        { label: "Main",       key: "color_main",      color: colorMain },
-        { label: "Secondary",  key: "color_secondary", color: colorSecondary },
-        { label: "Primary",    key: "color_primary",   color: colorPrimary },
-        { label: "Background", key: "color_ff",        color: colorFf },
+        { label: "Main", key: "color_main", color: colorMain },
+        { label: "Secondary", key: "color_secondary", color: colorSecondary },
+        { label: "Primary", key: "color_primary", color: colorPrimary },
+        { label: "Background", key: "color_ff", color: colorFf },
     ];
 
     return (
@@ -568,10 +744,10 @@ function AppearanceTab({
                     Applied as CSS custom properties on every public page:
                 </p>
                 {[
-                    ["--color-main",      colorMain],
+                    ["--color-main", colorMain],
                     ["--color-secondary", colorSecondary],
-                    ["--color-primary",   colorPrimary],
-                    ["--color-ff",        colorFf],
+                    ["--color-primary", colorPrimary],
+                    ["--color-ff", colorFf],
                 ].map(([prop, val]) => (
                     <p key={prop}>
                         {prop}:{" "}
@@ -609,11 +785,11 @@ function HeaderTab({
     onSaved?: () => void;
 }) {
     const slots = [
-        { key: "header_main_menu",   label: "Main Menu",      icon: "solar:menu-dots-bold",          color: "bg-blue-100 text-blue-700" },
-        { key: "header_mobile_menu", label: "Mobile Menu",    icon: "solar:smartphone-bold",         color: "bg-purple-100 text-purple-700" },
-        { key: "header_top_menu",    label: "Top Bar Menu",   icon: "solar:slider-minimalistic-bold", color: "bg-emerald-100 text-emerald-700" },
-        { key: "header_right_menu",  label: "Right Side Menu", icon: "solar:arrow-right-bold",       color: "bg-orange-100 text-orange-700" },
-        { key: "header_footer_menu", label: "Footer Menu",    icon: "solar:footer-bold",             color: "bg-gray-100 text-gray-700" },
+        { key: "header_main_menu", label: "Main Menu", icon: "solar:menu-dots-bold", color: "bg-blue-100 text-blue-700" },
+        { key: "header_mobile_menu", label: "Mobile Menu", icon: "solar:smartphone-bold", color: "bg-purple-100 text-purple-700" },
+        { key: "header_top_menu", label: "Top Bar Menu", icon: "solar:slider-minimalistic-bold", color: "bg-emerald-100 text-emerald-700" },
+        { key: "header_right_menu", label: "Right Side Menu", icon: "solar:arrow-right-bold", color: "bg-orange-100 text-orange-700" },
+        { key: "header_footer_menu", label: "Footer Menu", icon: "solar:footer-bold", color: "bg-gray-100 text-gray-700" },
     ];
 
     return (
@@ -692,11 +868,11 @@ function SlotPreviewPill({
     color?: "blue" | "purple" | "emerald" | "orange" | "gray";
 }) {
     const colorMap: Record<string, string> = {
-        blue:    "bg-blue-100 text-blue-700",
-        purple:  "bg-purple-100 text-purple-700",
+        blue: "bg-blue-100 text-blue-700",
+        purple: "bg-purple-100 text-purple-700",
         emerald: "bg-emerald-100 text-emerald-700",
-        orange:  "bg-orange-100 text-orange-700",
-        gray:    "bg-gray-100 text-gray-500",
+        orange: "bg-orange-100 text-orange-700",
+        gray: "bg-gray-100 text-gray-500",
     };
     return (
         <span className={`text-xs font-mono px-2 py-0.5 rounded-full ${colorMap[color] ?? colorMap.gray}`}>

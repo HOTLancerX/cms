@@ -35,7 +35,7 @@ export default function FormSettings({
         setFields(getHooks("setting.form", type));
     }, [type, activePlugins]);
 
-    const leftFields  = fields.filter((f) => f.style === "left");
+    const leftFields = fields.filter((f) => f.style === "left");
     const rightFields = fields.filter((f) => f.style === "right");
 
     // ── Form values — keyed by field.key, matches settings title ───────────
@@ -51,7 +51,7 @@ export default function FormSettings({
     };
 
     // ── Submit — bulk upsert via Express PUT /settings ──────────────────────
-    const [saving, setSaving]   = useState(false);
+    const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState("");
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -59,7 +59,7 @@ export default function FormSettings({
         setSaving(true);
         setMessage("");
         try {
-            const res  = await xFetch("/settings", {
+            const res = await xFetch("/settings", {
                 method: "PUT",
                 body: JSON.stringify(values),
             });
@@ -117,11 +117,10 @@ export default function FormSettings({
     return (
         <form onSubmit={handleSubmit}>
             {message && (
-                <div className={`mb-5 rounded-lg px-4 py-3 text-sm font-medium border ${
-                    message.startsWith("Error")
+                <div className={`mb-5 rounded-lg px-4 py-3 text-sm font-medium border ${message.startsWith("Error")
                         ? "bg-red-400/10 text-red-400 border-red-400/25"
                         : "bg-emerald-400/10 text-emerald-400 border-emerald-400/25"
-                }`}>
+                    }`}>
                     {message}
                 </div>
             )}
