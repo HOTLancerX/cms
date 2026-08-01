@@ -75,7 +75,7 @@ export default function PWA({
             <span className="text-xs font-normal whitespace-nowrap">{title || appName}</span>
             <button
                 onClick={handleInstallClick}
-                className="px-5 py-2 border md:text-2xl bg-white border-main hover:bg-main/80 hover:text-white text-main rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
+                className="px-5 py-2 border bg-white border-main hover:bg-main/80 hover:text-white text-main rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
             >
                 <Icon icon="simple-icons:pwa" width={30} />
                 Install

@@ -186,5 +186,24 @@ registerServerDataHook("blog", async (_id, _slug, data) => {
         };
     }
 
-    return { categoryAncestors, relatedPosts, author };
+    // Fetch latest & popular posts for sidebar widgets
+    const [latestDocs, popularDocs] = await Promise.all([
+        Post.find({ status: "published" }).sort({ createdAt: -1 }).limit(15).lean(),
+        Post.find({ status: "published" }).sort({ createdAt: -1 }).limit(15).lean(),
+    ]);
+
+    const latestPosts = latestDocs.map((p: any) => ({
+        _id: String(p._id),
+        title: String(p.title ?? ''),
+        slug: String(p.slug ?? ''),
+    }));
+
+    const popularPosts = popularDocs.map((p: any) => ({
+        _id: String(p._id),
+        title: String(p.title ?? ''),
+        slug: String(p.slug ?? ''),
+    }));
+
+    return { categoryAncestors, relatedPosts, author, latestPosts, popularPosts };
 });
+
