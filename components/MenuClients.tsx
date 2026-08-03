@@ -123,7 +123,7 @@ function NavItem({ item, colors, builderContent }: NavItemProps) {
             {/* Top-level label */}
             <Link
                 href={item.url}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-md whitespace-nowrap transition-colors"
+                className="flex items-center gap-1.5 p-3 rounded whitespace-nowrap transition-colors"
                 style={{ color: colors.navText, fontSize: colors.navFontSize, fontWeight: colors.navFontWeight }}
                 onMouseEnter={(e) => {
                     (e.currentTarget as HTMLElement).style.color      = colors.navHoverText;

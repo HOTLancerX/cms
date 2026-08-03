@@ -9,6 +9,10 @@ interface DropzoneProps {
   onClearImage: () => void;
   onGenerate: () => void;
   isProcessing: boolean;
+  layoutMode: "fullwidth" | "original";
+  onLayoutModeChange: (mode: "fullwidth" | "original") => void;
+  theme: string;
+  onThemeChange: (theme: string) => void;
 }
 
 export function Dropzone({
@@ -17,6 +21,10 @@ export function Dropzone({
   onClearImage,
   onGenerate,
   isProcessing,
+  layoutMode,
+  onLayoutModeChange,
+  theme,
+  onThemeChange,
 }: DropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -67,6 +75,58 @@ export function Dropzone({
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-4">
+      {/* Controls Header */}
+      <div className="space-y-2.5 pb-2 border-b border-slate-100">
+        <label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+          <Icon icon="solar:tuning-square-2-bold" className="w-4 h-4 text-indigo-600" />
+          <span>Extraction Settings</span>
+        </label>
+
+        {/* Layout Mode Selector */}
+        <div className="space-y-1">
+          <span className="text-[11px] font-medium text-slate-500">Target Layout Mode</span>
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs">
+            <button
+              type="button"
+              onClick={() => onLayoutModeChange("fullwidth")}
+              className={`py-1.5 px-2 rounded-lg font-medium text-[11px] transition-all cursor-pointer ${
+                layoutMode === "fullwidth"
+                  ? "bg-white text-indigo-700 shadow-2xs font-semibold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              16:9 Desktop (Full Width)
+            </button>
+            <button
+              type="button"
+              onClick={() => onLayoutModeChange("original")}
+              className={`py-1.5 px-2 rounded-lg font-medium text-[11px] transition-all cursor-pointer ${
+                layoutMode === "original"
+                  ? "bg-white text-indigo-700 shadow-2xs font-semibold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Original Ratio (Component)
+            </button>
+          </div>
+        </div>
+
+        {/* Theme Selector */}
+        <div className="space-y-1">
+          <span className="text-[11px] font-medium text-slate-500">Color Theme</span>
+          <select
+            value={theme}
+            onChange={(e) => onThemeChange(e.target.value)}
+            className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-indigo-500"
+          >
+            <option value="slate">Slate Modern (Light)</option>
+            <option value="charcoal">Charcoal Dark Mode</option>
+            <option value="blueprint">Technical Blueprint</option>
+            <option value="minimal">Minimal White</option>
+          </select>
+        </div>
+      </div>
+
       {!selectedImage ? (
         <div
           onDragOver={handleDragOver}
@@ -144,7 +204,7 @@ export function Dropzone({
               icon={isProcessing ? "solar:restart-bold" : "solar:magic-stick-3-bold"}
               className={`w-4 h-4 ${isProcessing ? "animate-spin" : ""}`}
             />
-            <span>{isProcessing ? "Generating Wireframe..." : "Generate Wireframe"}</span>
+            <span>{isProcessing ? "Generating Wireframe..." : "Re-Generate Wireframe"}</span>
           </button>
         </div>
       )}

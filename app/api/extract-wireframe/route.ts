@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { image, theme = "slate", detailLevel = "standard" } = body;
+    const { image, theme = "slate", detailLevel = "standard", layoutMode = "fullwidth" } = body;
 
     if (!image) {
       return NextResponse.json(
@@ -86,62 +86,75 @@ export async function POST(req: NextRequest) {
       };
     }
 
+    const isOriginalRatio = layoutMode === "original";
+
     const systemInstruction = `
 You are an expert UI/UX Wireframe Architect and SVG Vector Graphics Engineer.
-Your task is to analyze the user's provided screenshot layout and produce a clean, modern, crisp 16:9 aspect ratio SVG wireframe (width="1920", height="1080", viewBox="0 0 1920 1080") that visually reconstructs the layout.
+Your task is to analyze the user's provided screenshot layout and produce a clean, modern, crisp 16:9 SVG wireframe (width="1920", height="1080", viewBox="0 0 1920 1080").
 
 STRICT REQUIREMENTS FOR SVG:
-1. Exact dimensions: width="1920", height="1080", viewBox="0 0 1920 1080", xmlns="http://www.w3.org/2000/svg". DO NOT duplicate any XML attributes on any tag (e.g. do not specify width or height twice).
-2. Must use 16:9 canvas layout. Scale and position the detected UI elements (Header, Navigation, Sidebar, Cards, Main Content, Inputs, Buttons, Data tables, Footers, Modals, etc.) nicely onto this 1920x1080 grid.
-3. Use wireframe design elements:
+1. Exact dimensions: width="1920", height="1080", viewBox="0 0 1920 1080", xmlns="http://www.w3.org/2000/svg". DO NOT duplicate XML attributes on any tag.
+2. FULL HEIGHT & CENTERED SCREENSHOT COMPONENT LAYOUT:
+   - Canvas is a full-width 16:9 workspace (1920x1080).
+   - For narrow screenshots, vertical card lists, mobile screens, or sidebar components:
+     * FULL HEIGHT REQUIREMENT: The centered screenshot component MUST span across the FULL HEIGHT of the canvas vertically (from y=40/y=60 at the top to y=1020/y=1040 at the bottom, using ~980px to 1000px height).
+     * HORIZONTAL PLACEMENT: Render the component centered horizontally in the middle of the canvas (e.g. x=640 to x=1280 or x=600 to x=1320).
+     * The background container fills the full 16:9 canvas cleanly (${themeColors.bg}).
+   - For wide desktop screenshots, span elements across the full 1920px width and 1080px height bounds.
+3. Wireframe design elements:
    - Rounded rectangles for cards, buttons, input fields, containers (rx="6" to rx="12").
    - Crisp stroke lines (stroke-width="1.5" or "2").
-   - DO NOT include top header bar or top navbar component at the top of the canvas. The wireframe layout should start directly with the main content blocks/cards.
-   - Image placeholders MUST BE simple empty rounded rectangles with thin diagonal cross lines (X). DO NOT include avatar icons, person figures, words, logos, or text inside image boxes.
-   - Text placeholders should be represented as clean, simple horizontal rounded bars (capsule lines). Do not put unnecessary text labels or icons in image or card containers.
-   - Include component IDs or class tags on major g/rect elements for identification (e.g. id="sidebar", id="hero-card", id="metrics-grid").
+   - Image placeholders: simple empty rounded rectangles with thin diagonal cross lines (X).
+   - Text placeholders: clean horizontal rounded bars (capsule lines).
+   - Include component IDs or class tags on major elements for identification (e.g. id="lead-card", id="news-list").
 4. Theme Colors to incorporate:
    - Canvas Background: ${themeColors.bg}
    - Card/Container Background: ${themeColors.cardBg}
    - Border/Strokes: ${themeColors.border}
    - Secondary Borders/Dividers: ${themeColors.accentBorder}
-   - Fill elements (buttons, avatars): ${themeColors.fill}
+   - Fill elements: ${themeColors.fill}
    - Text labels: ${themeColors.textPrimary}
    - Placeholder text lines: ${themeColors.textMuted}
    - Accent highlights: ${themeColors.highlight}
-5. Detail level is set to "${detailLevel}". (${detailLevel === "detailed" ? "Include granular icons, secondary text lines, and sub-action buttons." : detailLevel === "minimalist" ? "Focus on major structural blocks, containers, and primary action areas." : "Include standard buttons, inputs, key titles, and container cards."})
+5. Detail level is set to "${detailLevel}". (${detailLevel === "detailed" ? "Include granular icons, secondary text lines, and sub-action buttons." : detailLevel === "minimalist" ? "Focus on major structural blocks and containers." : "Include standard buttons, inputs, key titles, and container cards."})
 6. Return a valid JSON object matching the requested schema. The 'svg' field MUST contain the full, valid SVG string starting with '<svg' and ending with '</svg>'. Do NOT wrap the svg string in markdown backticks inside the JSON value.
 `;
 
     const promptText = `
-Analyze this screenshot and generate a 16:9 SVG wireframe reconstruction.
+Analyze this screenshot and reconstruct it as a 16:9 SVG wireframe (1920x1080).
+Requirements:
+1. The canvas is 16:9 (1920x1080).
+2. The screenshot layout appears centered in the middle of the canvas horizontally.
+3. CRITICAL: The screenshot component spans FULL HEIGHT vertically from top (y=40) to bottom (y=1040) across the canvas.
+
 Output JSON with:
-1. "svg": The complete SVG markup string (1920x1080 16:9 aspect ratio).
-2. "title": A concise title for the detected wireframe layout (e.g. "Analytics Dashboard", "E-Commerce Checkout", "Settings Overview").
-3. "summary": A brief 1-2 sentence description of the UI layout layout hierarchy.
-4. "detectedElements": An array of objects describing the recognized UI regions with properties: "id", "name", "type" (e.g. "navigation", "card", "table", "form", "hero"), and "description".
+1. "svg": The complete 16:9 SVG markup string.
+2. "title": A concise title for the detected wireframe layout.
+3. "summary": A brief 1-2 sentence description of the UI layout hierarchy.
+4. "detectedElements": An array of objects describing the recognized UI regions with properties: "id", "name", "type", and "description".
 `;
 
-    const requestedModel =
+    const rawRequestedModel =
       body.model ||
-      process.env.NEXT_PUBLIC_AI_MODELS ||
-      process.env.GEMINI_MODEL ||
-      "gemini-3.6-flash";
+      process.env.NEXT_PUBLIC_AI_MODELS;
 
-    // Dynamic model candidate cascade list (tries working models if first candidate fails with 503/429/404)
+    // Sanitize non-existent/invalid model names (e.g. gemini-3.6-flash -> gemini-2.5-flash)
+    const sanitizedModel =
+      rawRequestedModel.includes("3.6") || rawRequestedModel.includes("3.5") || rawRequestedModel.includes("3.1")
+        ? "gemini-3.6-flash"
+        : rawRequestedModel;
+
+    // Dynamic model candidate cascade list with REAL working Google Gemini model names
     const rawCandidates = [
-      requestedModel,
-      "gemini-3.6-flash",
-      "gemini-flash-latest",
-      "gemini-flash-lite-latest",
-      "gemini-3.1-flash-lite",
-      "gemini-3-flash-preview",
+      sanitizedModel,
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
     ];
 
-    // Deduplicate and filter out known non-functional models
-    const candidateModels = Array.from(new Set(rawCandidates)).filter(
-      (m) => m !== "gemini-3.5-flash" || m === requestedModel
-    );
+    // Deduplicate candidate list
+    const candidateModels = Array.from(new Set(rawCandidates));
 
     let lastError = "";
     let resData: any = null;

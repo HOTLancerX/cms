@@ -8,11 +8,20 @@ export default function Home() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [wireframeSvg, setWireframeSvg] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [layoutMode, setLayoutMode] = useState<"fullwidth" | "original">("fullwidth");
+  const [theme, setTheme] = useState<string>("slate");
 
   // Process uploaded image strictly with Gemini AI route
-  const processImage = async (dataUrl: string) => {
+  const processImage = async (
+    dataUrl: string,
+    overrideLayoutMode?: "fullwidth" | "original",
+    overrideTheme?: string
+  ) => {
     setSelectedImage(dataUrl);
     setIsProcessing(true);
+
+    const modeToUse = overrideLayoutMode || layoutMode;
+    const themeToUse = overrideTheme || theme;
 
     try {
       const res = await fetch("/api/extract-wireframe", {
@@ -22,8 +31,9 @@ export default function Home() {
         },
         body: JSON.stringify({
           image: dataUrl,
-          theme: "slate",
+          theme: themeToUse,
           detailLevel: "standard",
+          layoutMode: modeToUse,
         }),
       });
 
@@ -43,28 +53,31 @@ export default function Home() {
   };
 
   // Global Clipboard Image Paste Handler (Ctrl+V / Cmd+V)
-  const handlePaste = useCallback((e: ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
+  const handlePaste = useCallback(
+    (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
 
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf("image") !== -1) {
-        const file = items[i].getAsFile();
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            if (event.target?.result) {
-              const url = event.target.result as string;
-              setSelectedImage(url);
-              processImage(url);
-            }
-          };
-          reader.readAsDataURL(file);
-          break;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              if (event.target?.result) {
+                const url = event.target.result as string;
+                setSelectedImage(url);
+                processImage(url);
+              }
+            };
+            reader.readAsDataURL(file);
+            break;
+          }
         }
       }
-    }
-  }, []);
+    },
+    [layoutMode, theme]
+  );
 
   useEffect(() => {
     window.addEventListener("paste", handlePaste);
@@ -91,6 +104,20 @@ export default function Home() {
           onClearImage={handleClearImage}
           onGenerate={() => selectedImage && processImage(selectedImage)}
           isProcessing={isProcessing}
+          layoutMode={layoutMode}
+          onLayoutModeChange={(mode) => {
+            setLayoutMode(mode);
+            if (selectedImage) {
+              processImage(selectedImage, mode, theme);
+            }
+          }}
+          theme={theme}
+          onThemeChange={(newTheme) => {
+            setTheme(newTheme);
+            if (selectedImage) {
+              processImage(selectedImage, layoutMode, newTheme);
+            }
+          }}
         />
       </div>
 

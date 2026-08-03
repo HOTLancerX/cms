@@ -91,9 +91,27 @@ export function WireframePreview({
   const [copiedSvg, setCopiedSvg] = useState<boolean>(false);
   const [downloadingPng, setDownloadingPng] = useState<boolean>(false);
   const [downloadCount, setDownloadCount] = useState<number>(1);
+  const [canvasViewMode, setCanvasViewMode] = useState<"desktop" | "adaptive" | "fit">("desktop");
+
+  // Parse SVG viewBox to compute width, height and aspect ratio
+  const getSvgInfo = () => {
+    if (!wireframeSvg) return { width: 1920, height: 1080, ratio: 16 / 9, isNarrow: false };
+    const match = wireframeSvg.match(/viewBox=["']\s*([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s*["']/i);
+    if (match) {
+      const w = parseFloat(match[3]);
+      const h = parseFloat(match[4]);
+      if (w > 0 && h > 0) {
+        const ratio = w / h;
+        return { width: Math.round(w), height: Math.round(h), ratio, isNarrow: ratio < 1.3 };
+      }
+    }
+    return { width: 1920, height: 1080, ratio: 16 / 9, isNarrow: false };
+  };
+
+  const svgInfo = getSvgInfo();
 
   // Helper function to render SVG onto HTML5 Canvas and convert to PNG Blob
-  const generatePngFromSvg = async (targetWidth = 1920, targetHeight = 1080): Promise<Blob> => {
+  const generatePngFromSvg = async (targetWidth = svgInfo.width, targetHeight = svgInfo.height): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       if (!wireframeSvg) return reject("No SVG content available");
 
@@ -139,7 +157,7 @@ export function WireframePreview({
     setDownloadingPng(true);
 
     try {
-      const blob = await generatePngFromSvg(1920, 1080);
+      const blob = await generatePngFromSvg(svgInfo.width, svgInfo.height);
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.download = `n${downloadCount}.png`;
@@ -163,7 +181,7 @@ export function WireframePreview({
     const blob = new Blob([wireframeSvg], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.download = `wireframe-16x9.svg`;
+    link.download = `wireframe-${svgInfo.width}x${svgInfo.height}.svg`;
     link.href = url;
     document.body.appendChild(link);
     link.click();
@@ -186,7 +204,7 @@ export function WireframePreview({
     return (
       <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-sm space-y-3">
         <Icon icon="solar:magic-stick-3-bold" className="w-8 h-8 mx-auto text-indigo-600 animate-spin" />
-        <p className="text-xs font-semibold text-slate-800">Reconstructing 16:9 Vector Wireframe...</p>
+        <p className="text-xs font-semibold text-slate-800">Reconstructing Vector Wireframe...</p>
         <p className="text-[11px] text-slate-400">Analyzing layout geometry with Gemini AI</p>
       </div>
     );
@@ -202,12 +220,23 @@ export function WireframePreview({
     );
   }
 
+  // Calculate container aspect ratio class/style
+  const getContainerStyle = () => {
+    if (canvasViewMode === "adaptive") {
+      return { aspectRatio: `${svgInfo.ratio}` };
+    }
+    if (canvasViewMode === "fit") {
+      return { height: "auto", minHeight: "400px" };
+    }
+    return {}; // default desktop 16:9
+  };
+
   return (
     <div className="flex flex-col">
       {/* Workspace Top Bar */}
       <div className="px-4 py-2.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between text-xs text-slate-600 gap-2">
         <div className="flex items-center gap-3">
-          <span className="font-semibold text-slate-800">16:9 Vector Workspace</span>
+          <span className="font-semibold text-slate-800">Vector Workspace</span>
           <button
             onClick={() => setShowGrid(!showGrid)}
             type="button"
@@ -217,6 +246,40 @@ export function WireframePreview({
           >
             <Icon icon="solar:grid-bold" className="w-3.5 h-3.5" />
             Grid
+          </button>
+        </div>
+
+        {/* View Canvas Mode Switcher */}
+        <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-semibold">
+          <button
+            onClick={() => setCanvasViewMode("desktop")}
+            type="button"
+            className={`px-2 py-1 rounded cursor-pointer transition-all ${
+              canvasViewMode === "desktop" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+            }`}
+            title="Force 16:9 Desktop View"
+          >
+            16:9 Desktop
+          </button>
+          <button
+            onClick={() => setCanvasViewMode("adaptive")}
+            type="button"
+            className={`px-2 py-1 rounded cursor-pointer transition-all ${
+              canvasViewMode === "adaptive" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+            }`}
+            title="Match Screenshot Ratio"
+          >
+            Adaptive Ratio
+          </button>
+          <button
+            onClick={() => setCanvasViewMode("fit")}
+            type="button"
+            className={`px-2 py-1 rounded cursor-pointer transition-all ${
+              canvasViewMode === "fit" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+            }`}
+            title="Auto Fit Bounds"
+          >
+            Full Fit
           </button>
         </div>
 
@@ -295,25 +358,29 @@ export function WireframePreview({
           <div className="flex flex-wrap items-center justify-between pb-2 border-b border-slate-100 gap-2">
             <div className="flex items-center gap-2 text-xs font-semibold text-indigo-900">
               <Icon icon="solar:layers-bold" className="w-4 h-4 text-indigo-600" />
-              <span>Extracted 16:9 Vector Wireframe</span>
+              <span>Extracted Vector Wireframe</span>
             </div>
             
             <div className="flex items-center gap-2">
               <span className="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 text-indigo-700 rounded border border-indigo-100">
-                1920 x 1080
+                {svgInfo.width} x {svgInfo.height}
               </span>
             </div>
           </div>
 
           {/* SVG Render Container */}
           <div
-            className={`aspect-video w-full rounded-xl overflow-hidden border border-slate-200 relative bg-white transition-transform ${
+            className={`w-full rounded-xl overflow-hidden border border-slate-200 relative bg-white transition-transform ${
+              canvasViewMode === "desktop" ? "aspect-video" : ""
+            } ${
               showGrid ? "bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] bg-size-[16px_16px]" : ""
             }`}
-            style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: "center top" }}
+            style={{ ...getContainerStyle(), transform: `scale(${zoomLevel / 100})`, transformOrigin: "center top" }}
           >
             <div
-              className="w-full h-full [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain"
+              className={`w-full h-full [&>svg]:w-full [&>svg]:h-full ${
+                canvasViewMode === "fit" ? "[&>svg]:object-fill" : "[&>svg]:object-contain"
+              }`}
               dangerouslySetInnerHTML={{ __html: wireframeSvg }}
             />
           </div>

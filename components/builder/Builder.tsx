@@ -846,7 +846,7 @@ export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
                             )}
 
                             <CanvasIframe
-                                className="w-full h-full flex-1 border-none bg-white block overflow-y-auto overflow-x-hidden"
+                                className="w-full h-full flex-1 border-none bg-ff block overflow-y-auto overflow-x-hidden"
                                 head={<CanvasStyles rows={rows} device={device} />}
                             >
                                 {rows.map((row, index) => (

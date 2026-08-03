@@ -76,7 +76,7 @@ export default function Share({
     };
 
     return (
-        <div className={`pt-4 pb-4 border-t border-b border-gray-100 my-6 ${className}`}>
+        <div className={`${className}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
                     <Icon icon="solar:share-bold" className="text-emerald-700 w-5 h-5" />

@@ -672,8 +672,13 @@ export function getBuilderElements(): BuilderElementDef[] {
  * Returns a single builder element definition by type, or undefined.
  * Respects the active-plugin gate for plugin-owned elements.
  */
-export function getBuilderElement(type: string): BuilderElementDef | undefined {
-    return getBuilderElements().find((e) => e.type === type);
+export function getBuilderElement(type: string, pluginNx?: string): BuilderElementDef | undefined {
+    const list = getBuilderElements();
+    if (pluginNx) {
+        const match = list.find((e) => e.type === type && e.pluginNx === pluginNx);
+        if (match) return match;
+    }
+    return list.find((e) => e.type === type);
 }
 
 // ─── Wire the plugin bus gate ──────────────────────────────────────────────────

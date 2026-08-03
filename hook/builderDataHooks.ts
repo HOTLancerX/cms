@@ -36,15 +36,20 @@ export function runBuilderWrapper(
  */
 export function registerBuilderElement(
     elementType: string,
-    component: BuilderElementComponent
+    component: BuilderElementComponent,
+    pluginNx?: string
 ): void {
+    if (pluginNx) {
+        _registry.set(`${pluginNx}::${elementType}`, component);
+    }
     _registry.set(elementType, component);
 }
 
 /**
  * Returns true when a server component is registered for this element type.
  */
-export function hasBuilderElement(elementType: string): boolean {
+export function hasBuilderElement(elementType: string, pluginNx?: string): boolean {
+    if (pluginNx && _registry.has(`${pluginNx}::${elementType}`)) return true;
     return _registry.has(elementType);
 }
 
@@ -55,9 +60,10 @@ export function hasBuilderElement(elementType: string): boolean {
 export async function renderBuilderElement(
     elementType: string,
     schema: any,
-    data?: any
+    data?: any,
+    pluginNx?: string
 ): Promise<ReactNode> {
-    const component = _registry.get(elementType);
+    const component = (pluginNx && _registry.get(`${pluginNx}::${elementType}`)) || _registry.get(elementType);
     if (!component) return null;
     return component(schema, data);
 }
