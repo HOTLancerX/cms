@@ -501,7 +501,7 @@ function ContactUsFrontend({ element }: { element: any }) {
                   <button
                     type="button"
                     onClick={() => handleSocialSend("whatsapp")}
-                    className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl border-none text-xs font-bold uppercase text-white cursor-pointer transition-all hover:opacity-90 bg-[#25d366]"
+                    className="flex-1 min-w-30 inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl border-none text-xs font-bold uppercase text-white cursor-pointer transition-all hover:opacity-90 bg-[#25d366]"
                   >
                     <Icon icon="logos:whatsapp-icon" width="16" />
                     WhatsApp
@@ -511,7 +511,7 @@ function ContactUsFrontend({ element }: { element: any }) {
                   <button
                     type="button"
                     onClick={() => handleSocialSend("facebook")}
-                    className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl border-none text-xs font-bold uppercase text-white cursor-pointer transition-all hover:opacity-90 bg-[#0084ff]"
+                    className="flex-1 min-w-30 inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl border-none text-xs font-bold uppercase text-white cursor-pointer transition-all hover:opacity-90 bg-[#0084ff]"
                   >
                     <Icon icon="logos:facebook" width="16" className="brightness-0 invert" />
                     Facebook
@@ -521,7 +521,7 @@ function ContactUsFrontend({ element }: { element: any }) {
                   <button
                     type="button"
                     onClick={() => handleSocialSend("telegram")}
-                    className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl border-none text-xs font-bold uppercase text-white cursor-pointer transition-all hover:opacity-90 bg-[#0088cc]"
+                    className="flex-1 min-w-30 inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl border-none text-xs font-bold uppercase text-white cursor-pointer transition-all hover:opacity-90 bg-[#0088cc]"
                   >
                     <Icon icon="logos:telegram" width="16" />
                     Telegram
@@ -593,7 +593,7 @@ function FieldsManager({ value, onChange }: { value: any[]; onChange: (val: any[
           <div className="flex items-center justify-between pb-2 border-b border-gray-100 mb-3 select-none">
             <div className="flex items-center gap-2 cursor-grab active:cursor-grabbing">
               <Icon icon="solar:hamburger-menu-bold" className="text-gray-400 shrink-0" width="18" />
-              <span className="text-xs font-bold text-gray-700 truncate max-w-[120px]">
+              <span className="text-xs font-bold text-gray-700 truncate max-w-30">
                 {item.label || `Field #${idx + 1}`}
               </span>
             </div>
