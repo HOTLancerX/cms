@@ -158,9 +158,7 @@ export function resolveLocaleTag(
     lan ||
     lang ||
     locale ||
-    process.env.NEXT_PUBLIC_LANGUAGE ||
-    process.env.LANGUAGE ||
-    'en'
+    process.env.NEXT_PUBLIC_LANGUAGE || 'en'
   )
     .toString()
     .trim();

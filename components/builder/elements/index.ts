@@ -38,6 +38,7 @@ import blogMetaElement from "./BlogMeta";
 import relatedElement from "./Related";
 import sliderElement from "./Slider";
 import htmlElement from "./Html";
+import videoElement from "./Videos";
 
 // Core elements are registered with no pluginNx — they are always visible.
 addBuilderElement(headingElement);
@@ -61,3 +62,4 @@ addBuilderElement(blogMetaElement);
 addBuilderElement(relatedElement);
 addBuilderElement(sliderElement);
 addBuilderElement(htmlElement);
+addBuilderElement(videoElement);

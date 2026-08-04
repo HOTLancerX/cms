@@ -6,6 +6,7 @@ import NextImage from 'next/image'
 import { Library } from '@/models/Library'
 import { Icon } from '@iconify/react'
 import GalleryBg from './GalleryBg'
+import GalleryEditing from './GalleryEditing'
 
 const isVideoUrl = (url: string): boolean => {
     if (!url) return false;
@@ -38,7 +39,7 @@ interface GalleryModalProps {
 
 export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSelect }: GalleryModalProps) {
     const [mounted, setMounted] = useState(false)
-    const [activeTab, setActiveTab] = useState<'library' | 'cloudinary' | 'cloudflare' | 'url' | 'bg-removal'>('library')
+    const [activeTab, setActiveTab] = useState<'library' | 'cloudinary' | 'cloudflare' | 'url' | 'bg-removal' | 'editing'>('library')
     const [libraryImages, setLibraryImages] = useState<Library[]>([])
     const [loading, setLoading] = useState(false)
     const [selected, setSelected] = useState<string[]>(selectedImages)
@@ -49,6 +50,7 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
     const [uploadProgress, setUploadProgress] = useState(0)
     const [mediaFilter, setMediaFilter] = useState<'all' | 'image' | 'video'>('all')
     const [bgRemovalImage, setBgRemovalImage] = useState<string | null>(null)
+    const [editingImage, setEditingImage] = useState<string | null>(null)
 
     useEffect(() => {
         setMounted(true)
@@ -274,12 +276,12 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
     }
 
     const modalContent = (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+        <div className="fixed inset-0 z-9999 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
             <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
                 <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                     <h2 className="text-lg font-bold text-gray-800">Media Library</h2>
                     <div className="flex gap-2">
-                        {['library', 'cloudinary', 'cloudflare', 'url', 'bg-removal'].map((tab) => (
+                        {['library', 'cloudinary', 'cloudflare', 'url', 'bg-removal', 'editing'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => {
@@ -287,12 +289,15 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                                     if (tab !== 'bg-removal') {
                                         setBgRemovalImage(null)
                                     }
+                                    if (tab !== 'editing') {
+                                        setEditingImage(null)
+                                    }
                                 }}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
                                     activeTab === tab ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50'
                                 }`}
                             >
-                                {tab === 'bg-removal' ? 'Bg Removal' : tab === 'url' ? 'URL' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                {tab === 'bg-removal' ? 'Bg Removal' : tab === 'editing' ? 'Image Editor' : tab === 'url' ? 'URL' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                             </button>
                         ))}
                     </div>
@@ -405,18 +410,32 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                                                          </div>
                                                      )}
                                                      {!isVid && (
-                                                         <button
-                                                             type="button"
-                                                             onClick={(e) => {
-                                                                 e.stopPropagation()
-                                                                 setBgRemovalImage(image.url)
-                                                                 setActiveTab('bg-removal')
-                                                             }}
-                                                             className="absolute top-2 left-2 p-1.5 bg-white/90 hover:bg-white text-blue-600 rounded-lg shadow-sm border border-gray-100 hover:scale-105 active:scale-95 transition flex items-center justify-center opacity-0 group-hover:opacity-100 z-20"
-                                                             title="Remove Background"
-                                                         >
-                                                             <Icon icon="solar:magic-stick-3-bold-duotone" width={14} />
-                                                         </button>
+                                                         <div className="absolute top-2 left-2 flex gap-1 z-20 opacity-0 group-hover:opacity-100 transition">
+                                                             <button
+                                                                 type="button"
+                                                                 onClick={(e) => {
+                                                                     e.stopPropagation()
+                                                                     setBgRemovalImage(image.url)
+                                                                     setActiveTab('bg-removal')
+                                                                 }}
+                                                                 className="p-1.5 bg-white/90 hover:bg-white text-blue-600 rounded-lg shadow-sm border border-gray-100 hover:scale-105 active:scale-95 transition flex items-center justify-center"
+                                                                 title="Remove Background"
+                                                             >
+                                                                 <Icon icon="solar:magic-stick-3-bold-duotone" width={14} />
+                                                             </button>
+                                                             <button
+                                                                 type="button"
+                                                                 onClick={(e) => {
+                                                                     e.stopPropagation()
+                                                                     setEditingImage(image.url)
+                                                                     setActiveTab('editing')
+                                                                 }}
+                                                                 className="p-1.5 bg-white/90 hover:bg-white text-indigo-600 rounded-lg shadow-sm border border-gray-100 hover:scale-105 active:scale-95 transition flex items-center justify-center"
+                                                                 title="Edit Image (Crop, Rotate, Filters)"
+                                                             >
+                                                                 <Icon icon="solar:pen-new-square-bold-duotone" width={14} />
+                                                             </button>
+                                                         </div>
                                                      )}
                                                 </div>
                                             );
@@ -623,6 +642,13 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                     {activeTab === 'bg-removal' && (
                         <GalleryBg
                             initialImage={bgRemovalImage}
+                            onLibraryRefresh={fetchLibraryImages}
+                            onSwitchTab={setActiveTab}
+                        />
+                    )}
+                    {activeTab === 'editing' && (
+                        <GalleryEditing
+                            initialImage={editingImage}
                             onLibraryRefresh={fetchLibraryImages}
                             onSwitchTab={setActiveTab}
                         />
