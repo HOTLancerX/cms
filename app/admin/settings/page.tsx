@@ -244,6 +244,8 @@ function FooterTab({
     const [sections, setSections] = useState<FooterSection[]>(() => parseFooterSections(initialValues));
 
     const [formValues, setFormValues] = useState<Record<string, string>>({
+        footer_about_title: initialValues.footer_about_title ?? "About Our Organization",
+        footer_about_description: initialValues.footer_about_description ?? "Dedicated to community integration, elderly welfare, cultural preservation, and youth educational development across the United Kingdom.",
         admin: initialValues.admin ?? "",
         editor: initialValues.editor ?? "",
         footer_address: initialValues.footer_address ?? initialValues.address ?? "",
@@ -268,6 +270,8 @@ function FooterTab({
     useEffect(() => {
         setSections(parseFooterSections(initialValues));
         setFormValues({
+            footer_about_title: initialValues.footer_about_title ?? "About Our Organization",
+            footer_about_description: initialValues.footer_about_description ?? "Dedicated to community integration, elderly welfare, cultural preservation, and youth educational development across the United Kingdom.",
             admin: initialValues.admin ?? "",
             editor: initialValues.editor ?? "",
             footer_address: initialValues.footer_address ?? initialValues.address ?? "",
@@ -340,6 +344,8 @@ function FooterTab({
 
         const payload: Record<string, any> = {
             ...initialValues,
+            footer_about_title: formValues.footer_about_title,
+            footer_about_description: formValues.footer_about_description,
             admin: formValues.admin,
             editor: formValues.editor,
             footer_address: formValues.footer_address,
@@ -419,6 +425,8 @@ function FooterTab({
     });
 
     const contentFields = [
+        { key: "footer_about_title", label: "Footer About Title", icon: "solar:text-bold", placeholder: "About Our Organization" },
+        { key: "footer_about_description", label: "Footer About Description", icon: "solar:document-bold", placeholder: "Dedicated to community integration, elderly welfare...", isTextarea: true },
         { key: "admin", label: "Admin", icon: "solar:user-bold", placeholder: "Admin name or details" },
         { key: "editor", label: "Editor", icon: "solar:pen-bold", placeholder: "Editor name or details" },
         { key: "footer_address", label: "Address (Footer)", icon: "solar:map-point-bold", placeholder: "Full office address for footer", isTextarea: true },

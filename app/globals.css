@@ -360,6 +360,7 @@ table>tbody>tr>th {
     .lg\:grid-cols-11 { grid-template-columns: repeat(11, minmax(0, 1fr)); }
     .lg\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
     .lg\:grid-cols-\[1fr_380px\] { grid-template-columns: 1fr 380px; }
+    .lg\:grid-cols-\[1\.5rem_1fr_6rem_6rem_5rem_5rem_3rem\] {grid-template-columns: 1.5rem 1fr 6rem 6rem 5rem 5rem 3rem;}
   }
 
   /* Safelist dynamic gap classes (0 to 12) for Mobile, Tablet (md), and Desktop (lg) */
