@@ -11,8 +11,27 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
 import type { MenuItem } from '@/models/Menu';
+
+// ─── Active URL Helpers ───────────────────────────────────────────────────────
+
+function checkIsActive(pathname: string, url?: string): boolean {
+    if (!url || url === '#' || url === '') return false;
+    const normPath = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+    const normUrl = url !== '/' && url.endsWith('/') ? url.slice(0, -1) : url;
+    if (normUrl === '/') return normPath === '/';
+    return normPath === normUrl || normPath.startsWith(normUrl + '/');
+}
+
+function isItemOrChildActive(item: MenuItem, pathname: string): boolean {
+    if (checkIsActive(pathname, item.url)) return true;
+    if (item.children && item.children.length > 0) {
+        return item.children.some((child) => isItemOrChildActive(child, pathname));
+    }
+    return false;
+}
 
 interface MobileDrawerProps {
     items: MenuItem[];
@@ -38,7 +57,7 @@ export default function MobileDrawer({ items, settings = {}, iconColor = 'curren
                 aria-label="Open mobile menu"
                 className="md:hidden p-2 rounded-lg hover:bg-black/10 transition"
             >
-                <Icon icon="boxicons:list-filled" width={22} style={{ color: iconColor }} />
+                <Icon icon="ep:menu" width={30} style={{ color: iconColor }} />
             </button>
 
             {/* Backdrop */}
@@ -97,13 +116,17 @@ function DrawerItems({ items, onClose, depth }: { items: MenuItem[]; onClose: ()
 }
 
 function DrawerItem({ item, onClose, depth }: { item: MenuItem; onClose: () => void; depth: number }) {
+    const pathname = usePathname();
     const [expanded, setExpanded] = useState(false);
     const hasChildren = (item.children?.length ?? 0) > 0;
+    const isActive = isItemOrChildActive(item, pathname);
 
     return (
         <li>
             <div
-                className="flex items-center gap-2 rounded-lg px-3 py-2.5 hover:bg-gray-50 transition"
+                className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition ${
+                    isActive ? 'bg-gray-100 font-semibold' : 'hover:bg-gray-50'
+                }`}
                 style={{ paddingLeft: depth > 0 ? `${12 + depth * 16}px` : undefined }}
             >
                 {item.image && (
@@ -113,7 +136,9 @@ function DrawerItem({ item, onClose, depth }: { item: MenuItem; onClose: () => v
                 <Link
                     href={item.url}
                     onClick={onClose}
-                    className="flex-1 text-sm font-medium text-gray-800"
+                    className={`flex-1 text-sm font-medium transition-colors ${
+                        isActive ? 'text-emerald-700 font-bold' : 'text-gray-800'
+                    }`}
                 >
                     {item.label}
                 </Link>

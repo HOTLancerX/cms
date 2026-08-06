@@ -4,11 +4,30 @@ import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
 import { MenuItem } from '@/models/Menu';
 
 import dynamic from 'next/dynamic';
 const BuilderClient = dynamic(() => import('@/components/BuilderClient'), { ssr: false });
+
+// ─── Active URL Helpers ───────────────────────────────────────────────────────
+
+function checkIsActive(pathname: string, url?: string): boolean {
+    if (!url || url === '#' || url === '') return false;
+    const normPath = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+    const normUrl = url !== '/' && url.endsWith('/') ? url.slice(0, -1) : url;
+    if (normUrl === '/') return normPath === '/';
+    return normPath === normUrl || normPath.startsWith(normUrl + '/');
+}
+
+function isItemOrChildActive(item: MenuItem, pathname: string): boolean {
+    if (checkIsActive(pathname, item.url)) return true;
+    if (item.children && item.children.length > 0) {
+        return item.children.some((child) => isItemOrChildActive(child, pathname));
+    }
+    return false;
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -83,15 +102,17 @@ interface NavItemProps {
 }
 
 function NavItem({ item, colors, builderContent }: NavItemProps) {
+    const pathname                  = usePathname();
     const [isOpen, setIsOpen]       = useState(false);
     const liRef                     = useRef<HTMLLIElement>(null);
     const [panelTop, setPanelTop]   = useState(0);
     const closeTimer                = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const hasChildren  = !!(item.children && item.children.length > 0);
-    const displayStyle = item.displayStyle;
-    const gridCols     = item.gridNumber ?? 4;
+    const hasChildren   = !!(item.children && item.children.length > 0);
+    const displayStyle  = item.displayStyle;
+    const gridCols      = item.gridNumber ?? 4;
     const isBuilderItem = (displayStyle === 'builder' || item.type === 'builder') && !!item.builderId;
+    const isActive      = isItemOrChildActive(item, pathname);
 
     // A builder item opens on hover even without child items
     const opensOnHover = hasChildren || isBuilderItem;
@@ -124,14 +145,19 @@ function NavItem({ item, colors, builderContent }: NavItemProps) {
             <Link
                 href={item.url}
                 className="flex items-center gap-1.5 p-3 rounded whitespace-nowrap transition-colors"
-                style={{ color: colors.navText, fontSize: colors.navFontSize, fontWeight: colors.navFontWeight }}
+                style={{
+                    color: isActive ? colors.navActiveText : colors.navText,
+                    background: isActive ? colors.navActiveBg : 'transparent',
+                    fontSize: colors.navFontSize,
+                    fontWeight: colors.navFontWeight,
+                }}
                 onMouseEnter={(e) => {
                     (e.currentTarget as HTMLElement).style.color      = colors.navHoverText;
                     (e.currentTarget as HTMLElement).style.background = colors.navHoverBg;
                 }}
                 onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.color      = colors.navText;
-                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                    (e.currentTarget as HTMLElement).style.color      = isActive ? colors.navActiveText : colors.navText;
+                    (e.currentTarget as HTMLElement).style.background = isActive ? colors.navActiveBg : 'transparent';
                 }}
             >
                 {item.image && (
@@ -306,11 +332,13 @@ function StyledPanel({ item, styleNum, gridCols, colors, panelTop, onMouseEnter,
 
 // ── Style 1: image top, title below ──────────────────────────────────────────
 function Style1Card({ item, colors }: { item: MenuItem; colors: ReturnType<typeof useNavColors> }) {
+    const pathname = usePathname();
+    const isActive = checkIsActive(pathname, item.url);
     return (
-        <Link href={item.url} className="group flex flex-col gap-2 rounded-xl p-2"
-            style={{ color: colors.navBoxText }}
+        <Link href={item.url} className="group flex flex-col gap-2 rounded-xl p-2 transition-colors"
+            style={{ color: isActive ? colors.navHoverText : colors.navBoxText, background: isActive ? colors.navHoverBg : 'transparent' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.navHoverBg; (e.currentTarget as HTMLElement).style.color = colors.navHoverText; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = colors.navBoxText; }}>
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isActive ? colors.navHoverBg : 'transparent'; (e.currentTarget as HTMLElement).style.color = isActive ? colors.navHoverText : colors.navBoxText; }}>
             <div className="relative w-full flex items-center justify-center h-20">
                 {item.image ? (
                     <Image width={100} height={100} src={item.image} alt={item.label}
@@ -330,11 +358,13 @@ function Style1Card({ item, colors }: { item: MenuItem; colors: ReturnType<typeo
 
 // ── Style 2: image left, title right ─────────────────────────────────────────
 function Style2Card({ item, colors }: { item: MenuItem; colors: ReturnType<typeof useNavColors> }) {
+    const pathname = usePathname();
+    const isActive = checkIsActive(pathname, item.url);
     return (
         <Link href={item.url} className="group flex items-center gap-3 rounded-xl p-3 transition-colors"
-            style={{ color: colors.navBoxText }}
+            style={{ color: isActive ? colors.navHoverText : colors.navBoxText, background: isActive ? colors.navHoverBg : 'transparent' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.navHoverBg; (e.currentTarget as HTMLElement).style.color = colors.navHoverText; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = colors.navBoxText; }}>
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isActive ? colors.navHoverBg : 'transparent'; (e.currentTarget as HTMLElement).style.color = isActive ? colors.navHoverText : colors.navBoxText; }}>
             <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded-lg bg-gray-100">
                 {item.image ? (
                     <Image fill src={item.image} alt={item.label}
@@ -355,11 +385,13 @@ function Style2Card({ item, colors }: { item: MenuItem; colors: ReturnType<typeo
 
 // ── Style 3: title only, clean list ──────────────────────────────────────────
 function Style3Card({ item, colors }: { item: MenuItem; colors: ReturnType<typeof useNavColors> }) {
+    const pathname = usePathname();
+    const isActive = checkIsActive(pathname, item.url);
     return (
         <Link href={item.url} className="group flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors"
-            style={{ color: colors.navBoxText }}
+            style={{ color: isActive ? colors.navHoverText : colors.navBoxText, background: isActive ? colors.navHoverBg : 'transparent' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.navHoverBg; (e.currentTarget as HTMLElement).style.color = colors.navHoverText; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = colors.navBoxText; }}>
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isActive ? colors.navHoverBg : 'transparent'; (e.currentTarget as HTMLElement).style.color = isActive ? colors.navHoverText : colors.navBoxText; }}>
             <Icon icon="mdi:chevron-right" className="w-3.5 h-3.5 opacity-40 shrink-0 group-hover:translate-x-0.5 transition-transform" />
             <span className="font-medium" style={{ fontSize: colors.navFontSize }}>{item.label}</span>
         </Link>
@@ -368,11 +400,13 @@ function Style3Card({ item, colors }: { item: MenuItem; colors: ReturnType<typeo
 
 // ── Style 4: image left, title + url (wider card) ────────────────────────────
 function Style4Card({ item, colors }: { item: MenuItem; colors: ReturnType<typeof useNavColors> }) {
+    const pathname = usePathname();
+    const isActive = checkIsActive(pathname, item.url);
     return (
         <Link href={item.url} className="group flex items-center gap-4 rounded-xl p-3 transition-colors"
-            style={{ color: colors.navBoxText }}
+            style={{ color: isActive ? colors.navHoverText : colors.navBoxText, background: isActive ? colors.navHoverBg : 'transparent' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.navHoverBg; (e.currentTarget as HTMLElement).style.color = colors.navHoverText; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = colors.navBoxText; }}>
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isActive ? colors.navHoverBg : 'transparent'; (e.currentTarget as HTMLElement).style.color = isActive ? colors.navHoverText : colors.navBoxText; }}>
             <div className="relative w-16 h-16 shrink-0 overflow-hidden rounded-xl bg-gray-100">
                 {item.image ? (
                     <Image fill src={item.image} alt={item.label}
@@ -395,11 +429,13 @@ function Style4Card({ item, colors }: { item: MenuItem; colors: ReturnType<typeo
 
 // ── Style 5: icon + title, compact ───────────────────────────────────────────
 function Style5Card({ item, colors }: { item: MenuItem; colors: ReturnType<typeof useNavColors> }) {
+    const pathname = usePathname();
+    const isActive = checkIsActive(pathname, item.url);
     return (
         <Link href={item.url} className="group flex flex-col items-center gap-2 rounded-xl p-3 transition-colors text-center"
-            style={{ color: colors.navBoxText }}
+            style={{ color: isActive ? colors.navHoverText : colors.navBoxText, background: isActive ? colors.navHoverBg : 'transparent' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.navHoverBg; (e.currentTarget as HTMLElement).style.color = colors.navHoverText; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = colors.navBoxText; }}>
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isActive ? colors.navHoverBg : 'transparent'; (e.currentTarget as HTMLElement).style.color = isActive ? colors.navHoverText : colors.navBoxText; }}>
             <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors"
                 style={{ background: colors.navHoverBg }}>
                 {item.image ? (
@@ -425,6 +461,7 @@ interface MegaPanelProps {
 }
 
 function MegaPanel({ item, colors, panelTop, onMouseEnter, onMouseLeave }: MegaPanelProps) {
+    const pathname = usePathname();
     const children = item.children ?? [];
     const gridCols = item.gridNumber ?? 4;
     const gridClass: Record<number, string> = {
@@ -440,22 +477,25 @@ function MegaPanel({ item, colors, panelTop, onMouseEnter, onMouseLeave }: MegaP
             onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
             <div className="container py-6">
                 <div className={`grid ${colClass} gap-4`}>
-                    {children.map((child) => (
-                        <Link key={child.id} href={child.url}
-                            className="group flex flex-col gap-2 rounded-xl p-3 transition-colors"
-                            style={{ color: colors.navBoxText }}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.navHoverBg; (e.currentTarget as HTMLElement).style.color = colors.navHoverText; }}
-                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = colors.navBoxText; }}>
-                            {child.image && (
-                                <div className="relative w-full aspect-video overflow-hidden rounded-lg bg-gray-100">
-                                    <Image fill src={child.image} alt={child.label}
-                                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                        sizes="200px" unoptimized />
-                                </div>
-                            )}
-                            <span className="font-medium leading-snug line-clamp-2" style={{ fontSize: colors.navFontSize }}>{child.label}</span>
-                        </Link>
-                    ))}
+                    {children.map((child) => {
+                        const isActive = checkIsActive(pathname, child.url);
+                        return (
+                            <Link key={child.id} href={child.url}
+                                className="group flex flex-col gap-2 rounded-xl p-3 transition-colors"
+                                style={{ color: isActive ? colors.navHoverText : colors.navBoxText, background: isActive ? colors.navHoverBg : 'transparent' }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.navHoverBg; (e.currentTarget as HTMLElement).style.color = colors.navHoverText; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isActive ? colors.navHoverBg : 'transparent'; (e.currentTarget as HTMLElement).style.color = isActive ? colors.navHoverText : colors.navBoxText; }}>
+                                {child.image && (
+                                    <div className="relative w-full aspect-video overflow-hidden rounded-lg bg-gray-100">
+                                        <Image fill src={child.image} alt={child.label}
+                                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                            sizes="200px" unoptimized />
+                                    </div>
+                                )}
+                                <span className="font-medium leading-snug line-clamp-2" style={{ fontSize: colors.navFontSize }}>{child.label}</span>
+                            </Link>
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -473,24 +513,28 @@ interface SideDropdownProps {
 }
 
 function SideDropdown({ item, colors, side, onMouseEnter, onMouseLeave }: SideDropdownProps) {
+    const pathname = usePathname();
     return (
         <div
             className={`absolute top-full mt-1 rounded-xl shadow-xl border min-w-65 z-50 py-2 ${side === 'right' ? 'right-0' : 'left-0'}`}
             style={{ background: colors.navBoxBg, borderColor: colors.navBorderColor, color: colors.navBoxText }}
             onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
-            {(item.children ?? []).map((child) => (
-                <Link key={child.id} href={child.url}
-                    className="flex items-center gap-3 px-4 py-2.5 transition-colors"
-                    style={{ color: colors.navBoxText, fontSize: colors.navFontSize }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.navHoverBg; (e.currentTarget as HTMLElement).style.color = colors.navHoverText; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = colors.navBoxText; }}>
-                    {child.image && (
-                        <Image width={36} height={36} src={child.image} alt={child.label}
-                            className="w-9 h-9 object-cover rounded-lg shrink-0" unoptimized />
-                    )}
-                    <span className="font-medium flex-1">{child.label}</span>
-                </Link>
-            ))}
+            {(item.children ?? []).map((child) => {
+                const isActive = checkIsActive(pathname, child.url);
+                return (
+                    <Link key={child.id} href={child.url}
+                        className="flex items-center gap-3 px-4 py-2.5 transition-colors"
+                        style={{ color: isActive ? colors.navHoverText : colors.navBoxText, background: isActive ? colors.navHoverBg : 'transparent', fontSize: colors.navFontSize }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.navHoverBg; (e.currentTarget as HTMLElement).style.color = colors.navHoverText; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isActive ? colors.navHoverBg : 'transparent'; (e.currentTarget as HTMLElement).style.color = isActive ? colors.navHoverText : colors.navBoxText; }}>
+                        {child.image && (
+                            <Image width={36} height={36} src={child.image} alt={child.label}
+                                className="w-9 h-9 object-cover rounded-lg shrink-0" unoptimized />
+                        )}
+                        <span className="font-medium flex-1">{child.label}</span>
+                    </Link>
+                );
+            })}
         </div>
     );
 }
@@ -505,25 +549,29 @@ interface SimpleDropdownProps {
 }
 
 function SimpleDropdown({ item, colors, onMouseEnter, onMouseLeave }: SimpleDropdownProps) {
+    const pathname = usePathname();
     return (
         <ul className="absolute left-0 top-full mt-1 rounded-xl shadow-xl border min-w-55 z-50 py-2"
             style={{ background: colors.navBoxBg, borderColor: colors.navBorderColor, color: colors.navBoxText }}
             onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
-            {(item.children ?? []).map((child) => (
-                <li key={child.id}>
-                    <Link href={child.url}
-                        className="flex items-center gap-2.5 px-4 py-2.5 transition-colors"
-                        style={{ color: colors.navBoxText, fontSize: colors.navFontSize }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.navHoverBg; (e.currentTarget as HTMLElement).style.color = colors.navHoverText; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = colors.navBoxText; }}>
-                        {child.image && (
-                            <Image width={20} height={20} src={child.image} alt={child.label}
-                                className="w-5 h-5 object-cover rounded shrink-0" unoptimized />
-                        )}
-                        <span className="font-medium">{child.label}</span>
-                    </Link>
-                </li>
-            ))}
+            {(item.children ?? []).map((child) => {
+                const isActive = checkIsActive(pathname, child.url);
+                return (
+                    <li key={child.id}>
+                        <Link href={child.url}
+                            className="flex items-center gap-2.5 px-4 py-2.5 transition-colors"
+                            style={{ color: isActive ? colors.navHoverText : colors.navBoxText, background: isActive ? colors.navHoverBg : 'transparent', fontSize: colors.navFontSize }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.navHoverBg; (e.currentTarget as HTMLElement).style.color = colors.navHoverText; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isActive ? colors.navHoverBg : 'transparent'; (e.currentTarget as HTMLElement).style.color = isActive ? colors.navHoverText : colors.navBoxText; }}>
+                            {child.image && (
+                                <Image width={20} height={20} src={child.image} alt={child.label}
+                                    className="w-5 h-5 object-cover rounded shrink-0" unoptimized />
+                            )}
+                            <span className="font-medium">{child.label}</span>
+                        </Link>
+                    </li>
+                );
+            })}
         </ul>
     );
 }

@@ -2,12 +2,31 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { usePathname } from "next/navigation";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { MenuItem } from "@/models/Menu";
 
 const BuilderClient = dynamic(() => import("@/components/BuilderClient"), { ssr: false });
+
+// ─── Active URL Helpers ───────────────────────────────────────────────────────
+
+function checkIsActive(pathname: string, url?: string): boolean {
+  if (!url || url === '#' || url === '') return false;
+  const normPath = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  const normUrl = url !== '/' && url.endsWith('/') ? url.slice(0, -1) : url;
+  if (normUrl === '/') return normPath === '/';
+  return normPath === normUrl || normPath.startsWith(normUrl + '/');
+}
+
+function isItemOrChildActive(item: MenuItem, pathname: string): boolean {
+  if (checkIsActive(pathname, item.url)) return true;
+  if (item.children && item.children.length > 0) {
+    return item.children.some((child) => isItemOrChildActive(child, pathname));
+  }
+  return false;
+}
 
 interface MobileMenuClientsProps {
   menuItems: MenuItem[];
@@ -65,7 +84,7 @@ export default function MobileMenuClients({
         <>
           {/* Backdrop */}
           <div
-            className={`fixed inset-0 bg-black/50 z-[9998] transition-opacity duration-300 ${
+            className={`fixed inset-0 bg-black/50 z-9998 transition-opacity duration-300 ${
               animateOpen ? "opacity-100" : "opacity-0"
             }`}
             onClick={handleClose}
@@ -73,7 +92,7 @@ export default function MobileMenuClients({
 
           {/* Sliding Drawer */}
           <div
-            className="fixed inset-y-0 z-[9999] w-[80vw] max-w-[340px] shadow-2xl flex flex-col transition-transform duration-300 ease-out"
+            className="fixed inset-y-0 z-9999 w-[80vw] max-w-85 shadow-2xl flex flex-col transition-transform duration-300 ease-out"
             style={{
               backgroundColor: drawerBg,
               color: drawerText,
@@ -171,15 +190,19 @@ function MobileDrawerItem({
   activeColor,
   builderContent,
 }: MobileDrawerItemProps) {
+  const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
   const isBuilderItem = (item.displayStyle === "builder" || item.type === "builder") && !!item.builderId;
   const hasChildren = (item.children?.length ?? 0) > 0;
   const canExpand = hasChildren || isBuilderItem;
+  const isActive = isItemOrChildActive(item, pathname);
 
   return (
     <li>
       <div
-        className="flex items-center gap-2 rounded-lg px-3 py-2.5 hover:bg-black/5 transition"
+        className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition ${
+          isActive ? 'bg-black/5 font-semibold' : 'hover:bg-black/5'
+        }`}
         style={{ paddingLeft: depth > 0 ? `${12 + depth * 16}px` : undefined }}
       >
         {item.image && (
@@ -193,7 +216,7 @@ function MobileDrawerItem({
           href={item.url}
           onClick={onClose}
           className="flex-1 text-sm font-medium transition-colors hover:opacity-80"
-          style={{ color: textColor }}
+          style={{ color: isActive ? activeColor : textColor }}
         >
           {item.label}
         </Link>
