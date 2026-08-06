@@ -20,12 +20,14 @@ export default async function PluginPage() {
 
     const headers = { "x-license-key": LICENSE_KEY, "Content-Type": "application/json" };
 
-    // Fetch current DB state — no writes here
-    const dbRes = await fetch(`${EXPRESS_API}/plugin/installed`, {
-        headers,
-        cache: "no-store",
-    });
-    const { plugins: dbDocs = [] } = dbRes.ok ? await dbRes.json() : { plugins: [] };
+    // Fetch domain info & installed plugins in parallel directly from Express
+    const [domainRes, dbRes] = await Promise.all([
+        fetch(`${EXPRESS_API}/auth/domain`, { headers, cache: "no-store" }).catch(() => null),
+        fetch(`${EXPRESS_API}/plugin/installed`, { headers, cache: "no-store" }).catch(() => null),
+    ]);
+
+    const { domain = null } = domainRes && domainRes.ok ? await domainRes.json().catch(() => ({})) : {};
+    const { plugins: dbDocs = [] } = dbRes && dbRes.ok ? await dbRes.json().catch(() => ({ plugins: [] })) : { plugins: [] };
     const dbMap = new Map(dbDocs.map((d: any) => [d.nx, d]));
 
     // Merge: file metadata wins for display fields; status comes from DB.
@@ -37,12 +39,12 @@ export default async function PluginPage() {
         return {
             _id: dbRecord?._id ?? null,
             nx: meta.nx,
-            name: meta.name,
-            version: meta.version,
-            description: meta.description,
-            author: meta.author,
-            icon: meta.icon,
-            color: meta.color,
+            name: meta.name || dbRecord?.name || meta.nx,
+            version: meta.version || dbRecord?.version || "1.0.0",
+            description: meta.description || dbRecord?.description || "",
+            author: meta.author || dbRecord?.author || "System",
+            icon: meta.icon || dbRecord?.icon || "solar:plugin-bold",
+            color: meta.color || dbRecord?.color || "from-violet-500 to-purple-600",
             startDate: dbRecord?.startDate ?? null,
             endDate: dbRecord?.endDate ?? null,
             isExpired: dbRecord?.isExpired ?? false,
@@ -52,5 +54,5 @@ export default async function PluginPage() {
         };
     });
 
-    return <PluginList initialPlugins={plugins} />;
+    return <PluginList initialPlugins={plugins} domain={domain} />;
 }

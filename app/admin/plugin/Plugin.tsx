@@ -42,6 +42,15 @@ function DeployButton() {
     );
 }
 
+export interface DomainData {
+    projectName?: string;
+    domainName?: string;
+    domainURL?: string;
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+}
+
 interface PluginRecord {
     _id: string | null;
     nx: string;
@@ -58,6 +67,39 @@ interface PluginRecord {
     /** True when the domain's date window hasn't started yet — display only */
     isNotStarted?: boolean;
     status: PluginStatus;
+}
+
+function getDaysRemaining(endDateStr?: string | null): {
+    days: number;
+    hours: number;
+    text: string;
+    status: "ok" | "warning" | "expired" | "none";
+} {
+    if (!endDateStr) {
+        return { days: 0, hours: 0, text: "No Expiration", status: "none" };
+    }
+    const now = Date.now();
+    const end = new Date(endDateStr).getTime();
+    const diff = end - now;
+
+    if (diff <= 0) {
+        return { days: 0, hours: 0, text: "Expired", status: "expired" };
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+    let text = "";
+    if (days > 0) {
+        text = `${days} day${days === 1 ? "" : "s"} left`;
+    } else if (hours > 0) {
+        text = `${hours} hour${hours === 1 ? "" : "s"} left`;
+    } else {
+        text = "< 1 hour left";
+    }
+
+    const status = days < 7 ? "warning" : "ok";
+    return { days, hours, text, status };
 }
 
 // Maps Tailwind gradient class pairs → actual CSS gradient.
@@ -90,7 +132,13 @@ const STATUS_CONFIG: Record<PluginStatus, { label: string; cls: string }> = {
     delete:   { label: "Delete",   cls: "bg-red-100 text-red-700 ring-1 ring-red-300" },
 };
 
-export default function PluginList({ initialPlugins }: { initialPlugins: PluginRecord[] }) {
+export default function PluginList({
+    initialPlugins,
+    domain,
+}: {
+    initialPlugins: PluginRecord[];
+    domain?: DomainData | null;
+}) {
     const [plugins, setPlugins] = useState<PluginRecord[]>(initialPlugins);
     const [processing, setProcessing] = useState<string | null>(null);
     const [search, setSearch] = useState("");
@@ -171,7 +219,7 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
             <div>
                 <h1 className="text-2xl font-bold">Installed Plugins</h1>
                 <div className="flex items-center justify-between mt-1 flex-wrap gap-3">
-                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                    <div className="flex items-center gap-3 text-sm text-gray-500 flex-wrap">
                         <span>{activeCount} of {plugins.length} active</span>
                         {newCount > 0 && (
                             <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-xs font-semibold ring-1 ring-violet-300">
@@ -181,6 +229,12 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
                         {expiredCount > 0 && (
                             <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-semibold ring-1 ring-red-300">
                                 {expiredCount} expired
+                            </span>
+                        )}
+                        {domain?.endDate && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
+                                <Icon icon="solar:shield-keyhole-bold" width={14} className="text-emerald-600" />
+                                System License: {getDaysRemaining(domain.endDate).text}
                             </span>
                         )}
                     </div>
@@ -265,7 +319,42 @@ export default function PluginList({ initialPlugins }: { initialPlugins: PluginR
                                         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                                             v{plugin.version}
                                         </span>
-                                        <span className="text-xs text-gray-400">by {plugin.author}</span>
+                                        <span className="text-xs text-gray-400">by {plugin.author || "System"}</span>
+                                    </div>
+
+                                    {/* License Remaining Days Badge */}
+                                    <div className="flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+                                        <span className="text-gray-500 font-medium flex items-center gap-1.5">
+                                            <Icon icon="solar:clock-circle-bold" width={14} className="text-gray-400" />
+                                            License Left:
+                                        </span>
+                                        {(() => {
+                                            const targetDate = plugin.endDate || domain?.endDate;
+                                            const rem = getDaysRemaining(targetDate);
+                                            if (rem.status === "none") {
+                                                return <span className="font-semibold text-gray-500">Unlimited</span>;
+                                            }
+                                            if (rem.status === "expired") {
+                                                return (
+                                                    <span className="font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-md border border-red-200 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                                                        Expired
+                                                    </span>
+                                                );
+                                            }
+                                            if (rem.status === "warning") {
+                                                return (
+                                                    <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                                                        {rem.text}
+                                                    </span>
+                                                );
+                                            }
+                                            return (
+                                                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                                    {rem.text}
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Date-based warnings — display only, do not affect plugin operation */}

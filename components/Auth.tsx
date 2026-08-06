@@ -73,7 +73,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
     };
 
     // ── Login ─────────────────────────────────────────────────────────────────
-    const handleLogin = async (loginVal: string, pass: string): Promise<boolean> => {
+    const handleLogin = async (loginVal: string, pass: string): Promise<any | null> => {
         // 1. Validate against Express (license check + password check)
         const res = await fetch(`${EXPRESS_API}/auth/login`, {
             method: "POST",
@@ -86,12 +86,12 @@ export default function AuthForm({ mode }: AuthFormProps) {
 
         if (!res.ok) {
             setError(data.message ?? data.error ?? "No account found or password incorrect.");
-            return false;
+            return null;
         }
 
         if (!data.user?._id) {
             setError("Login failed. Please try again.");
-            return false;
+            return null;
         }
 
         // 2. Pass the already-validated user + Express token to NextAuth.
@@ -103,10 +103,10 @@ export default function AuthForm({ mode }: AuthFormProps) {
 
         if (result?.error) {
             setError("Session creation failed. Please try again.");
-            return false;
+            return null;
         }
 
-        return true;
+        return data.user;
     };
 
     // ── Submit ────────────────────────────────────────────────────────────────
@@ -117,10 +117,14 @@ export default function AuthForm({ mode }: AuthFormProps) {
 
         try {
             if (isLogin) {
-                const ok = await handleLogin(loginValue, password);
-                if (ok) {
+                const user = await handleLogin(loginValue, password);
+                if (user) {
                     refresh();
-                    router.replace("/");
+                    if (user.type === "admin") {
+                        router.replace("/admin");
+                    } else {
+                        router.replace("/");
+                    }
                 }
             } else {
                 // ── Sign up ───────────────────────────────────────────────────
@@ -145,10 +149,14 @@ export default function AuthForm({ mode }: AuthFormProps) {
 
                 // Auto sign-in after signup
                 const loginField = signupTab === "email" ? email : phone;
-                const ok = await handleLogin(loginField, password);
-                if (ok) {
+                const user = await handleLogin(loginField, password);
+                if (user) {
                     refresh();
-                    router.replace("/");
+                    if (user.type === "admin") {
+                        router.replace("/admin");
+                    } else {
+                        router.replace("/");
+                    }
                 }
             }
         } catch {
