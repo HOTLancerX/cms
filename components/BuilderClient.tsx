@@ -462,7 +462,7 @@ function RenderElement({ element, serverElements }: { element: any; serverElemen
     // Server-rendered element — node already built by Builder.tsx
     if (serverElements[element.id] !== undefined) {
         return (
-            <div id={idAttr} className={`bel-${element.id}${classAttr}`}>
+            <div id={idAttr} className={`bel-${element.id}${classAttr}`} suppressHydrationWarning>
                 {serverElements[element.id]}
             </div>
         );
@@ -472,7 +472,7 @@ function RenderElement({ element, serverElements }: { element: any; serverElemen
     if (!def || !def.render) return null;
 
     return (
-        <div id={idAttr} className={`bel-${element.id}${classAttr}`}>
+        <div id={idAttr} className={`bel-${element.id}${classAttr}`} suppressHydrationWarning>
             {def.render(element)}
         </div>
     );

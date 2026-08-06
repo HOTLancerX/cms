@@ -7,6 +7,7 @@ import { Library } from '@/models/Library'
 import { Icon } from '@iconify/react'
 import GalleryBg from './GalleryBg'
 import GalleryEditing from './GalleryEditing'
+import GalleryUrl from './GalleryUrl'
 
 const isVideoUrl = (url: string): boolean => {
     if (!url) return false;
@@ -585,59 +586,10 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                         </div>
                     )}
                     {activeTab === 'url' && (
-                        <div className="space-y-6 w-full">
-                            <div className="border border-gray-100 p-2 rounded-2xl bg-white shadow-xs space-y-4">
-                                <div className="flex items-center gap-3 pb-2">
-                                    <div className="p-3 rounded-full bg-indigo-50 text-indigo-600">
-                                        <Icon icon="solar:link-circle-bold" width={24} />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-base font-semibold text-gray-800">
-                                            Import Media from URL or CDN
-                                        </h3>
-                                        <p className="text-xs text-gray-400 mt-0.5">
-                                            Add absolute URLs to import images or videos (mp4) directly into the library.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label htmlFor="url-input" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                        Absolute Media URLs (one per line)
-                                    </label>
-                                    <textarea
-                                        id="url-input"
-                                        value={urlInput}
-                                        onChange={(e) => setUrlInput(e.target.value)}
-                                        placeholder="https://example.com/assets/images/product-1.jpg&#10;https://example.com/assets/videos/product-demo.mp4"
-                                        className="w-full h-40 p-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-mono placeholder:text-gray-400/80 transition"
-                                        rows={6}
-                                        disabled={loading}
-                                    />
-                                </div>
-
-                                <div className="flex justify-end pt-2">
-                                    <button
-                                        type="button"
-                                        onClick={handleUrlSubmit}
-                                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-2 cursor-pointer"
-                                        disabled={loading || !urlInput.trim()}
-                                    >
-                                        {loading ? (
-                                            <>
-                                                <Icon icon="line-md:loading-twotone-loop" width={16} />
-                                                Processing URLs...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Icon icon="solar:import-bold" width={16} />
-                                                Add URLs to Library
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        <GalleryUrl
+                            onLibraryRefresh={fetchLibraryImages}
+                            onSwitchTab={setActiveTab}
+                        />
                     )}
                     {activeTab === 'bg-removal' && (
                         <GalleryBg

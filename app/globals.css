@@ -35,6 +35,16 @@
   }
 }
 
+@keyframes sliderProgressFill {
+  0% {
+    width: 0%;
+  }
+
+  100% {
+    width: 100%;
+  }
+}
+
 /* ─── Builder Preview Mode ─── */
 /* When panel is collapsed, show a clean landing page preview — no editor UI */
 .builder-preview-mode {

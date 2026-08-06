@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
@@ -18,12 +19,15 @@ export default function PostAddEditPage() {
     // "new" is the sentinel for add mode — anything else is treated as a MongoDB _id
     const isNew = id === "new";
     const postId = isNew ? undefined : id;
+    const [postSlug, setPostSlug] = useState<string>("");
 
     // Resolve post type label from the client-side registry
     // (populated after reregisterHooks runs inside useActivePlugins)
     const postTypes = getAllPostTypes();
     const postType = postTypes.find((t) => t.key === type);
     const typeLabel = postType?.label ?? type.charAt(0).toUpperCase() + type.slice(1);
+
+    const viewBase = type ? `/${type}/` : "/";
 
     if (activePlugins === null) {
         return (
@@ -71,13 +75,24 @@ export default function PostAddEditPage() {
                 </div>
 
                 {!isNew && (
-                    <Link
-                        href={`/admin/posts/${type}/new`}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-50 text-main hover:bg-indigo-100 transition"
-                    >
-                        <Icon icon="solar:add-circle-bold" width={16} />
-                        Add New
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <Link
+                            href={`${viewBase}${postSlug && postSlug !== "pending-id" ? postSlug : id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-50 text-main hover:bg-indigo-100 transition"
+                        >
+                            <Icon icon="solar:eye-bold" width={16} />
+                            Preview
+                        </Link>
+                        <Link
+                            href={`/admin/posts/${type}/new`}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-50 text-main hover:bg-indigo-100 transition"
+                        >
+                            <Icon icon="solar:add-circle-bold" width={16} />
+                            Add New
+                        </Link>
+                    </div>
                 )}
             </div>
 
@@ -87,6 +102,7 @@ export default function PostAddEditPage() {
                     activePlugins={activePlugins}
                     postId={postId}
                     userId={currentUser?._id}
+                    onSlugChange={setPostSlug}
                     onSuccess={(savedId) => {
                         // After creating a new post, redirect to its edit page
                         if (isNew) {

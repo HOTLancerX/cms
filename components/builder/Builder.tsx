@@ -159,14 +159,14 @@ import FloatingPanel from "./panels/FloatingPanel";
 // Hooks
 import { useBuilderActions, useContextMenuActions, useDragDrop } from "./hooks";
 
-export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
+export default function Builder({ initialMenus, builderId: builderIdProp, onClose }: { initialMenus?: any[]; builderId?: string; onClose?: () => void }) {
     if (typeof window !== "undefined" && initialMenus) {
         (window as any).__initialMenus = initialMenus;
     }
 
     const params = useParams();
     const router = useRouter();
-    const builderId = params?.id as string | undefined;
+    const builderId = builderIdProp || (params?.id as string | undefined);
 
     const [rows, setRows] = useState<Row[]>([]);
     const [selected, setSelected] = useState<Selection | null>(null);
@@ -339,11 +339,11 @@ export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
         try {
             await xFetch("/builder", {
                 method: "PUT",
-                body: JSON.stringify({ id: builderId, content: rows }),
+                body: JSON.stringify({ id: builderId, content: rows, title: title || "Untitled" }),
             });
         } catch { }
         setSaving(false);
-    }, [builderId, rows]);
+    }, [builderId, rows, title]);
 
     // ---- SELECTION ----
 
@@ -780,14 +780,20 @@ export default function Builder({ initialMenus }: { initialMenus?: any[] }) {
                                 <Icon icon="solar:settings-bold" width="14" />
                                 Settings
                             </button>
-                            {/* Back button */}
+                            {/* Back / Close button */}
                             <button
                                 type="button"
-                                onClick={() => router.push("/admin/builder")}
+                                onClick={() => {
+                                    if (onClose) {
+                                        onClose();
+                                    } else {
+                                        router.push("/admin/builder");
+                                    }
+                                }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded cursor-pointer border-none"
                             >
-                                <Icon icon="mdi:arrow-left" width="14" />
-                                Back
+                                <Icon icon={onClose ? "solar:close-circle-bold" : "mdi:arrow-left"} width="14" />
+                                {onClose ? "Close" : "Back"}
                             </button>
                             {/* Save button */}
                             {builderId && (

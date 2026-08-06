@@ -137,50 +137,12 @@ export default function GalleryEditing({
     const fullWidth = img.naturalWidth || img.width;
     const fullHeight = img.naturalHeight || img.height;
 
-    // Crop box source coordinates in pixels
-    const sx = Math.max(0, (fullWidth * cropRect.x) / 100);
-    const sy = Math.max(0, (fullHeight * cropRect.y) / 100);
-    const sw = Math.min(fullWidth - sx, (fullWidth * cropRect.width) / 100);
-    const sh = Math.min(fullHeight - sy, (fullHeight * cropRect.height) / 100);
-
-    let width = sw;
-    let height = sh;
-
-    // Apply aspect ratio adjustments if ratio selected
-    if (adjustments.aspectRatio !== "free") {
-      let targetRatio = 1;
-      switch (adjustments.aspectRatio) {
-        case "1:1":
-          targetRatio = 1;
-          break;
-        case "4:3":
-          targetRatio = 4 / 3;
-          break;
-        case "16:9":
-          targetRatio = 16 / 9;
-          break;
-        case "9:16":
-          targetRatio = 9 / 16;
-          break;
-        case "3:2":
-          targetRatio = 3 / 2;
-          break;
-      }
-
-      const currentRatio = width / height;
-      if (currentRatio > targetRatio) {
-        width = height * targetRatio;
-      } else {
-        height = width / targetRatio;
-      }
-    }
-
-    // Canvas dimensions (swap width/height if rotated 90 or 270 deg)
+    // Full canvas bounds considering rotation
     const rad = (adjustments.rotation * Math.PI) / 180;
     const absCos = Math.abs(Math.cos(rad));
     const absSin = Math.abs(Math.sin(rad));
-    const boundW = width * absCos + height * absSin;
-    const boundH = width * absSin + height * absCos;
+    const boundW = fullWidth * absCos + fullHeight * absSin;
+    const boundH = fullWidth * absSin + fullHeight * absCos;
 
     canvas.width = Math.round(boundW);
     canvas.height = Math.round(boundH);
@@ -188,13 +150,13 @@ export default function GalleryEditing({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
 
-    // Move to center for transformations
+    // Center and apply transformations
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.rotate(rad);
     ctx.scale(adjustments.flipH ? -1 : 1, adjustments.flipV ? -1 : 1);
 
     // Apply CSS filters directly to canvas context
-    const filterString = [
+    ctx.filter = [
       `brightness(${adjustments.brightness}%)`,
       `contrast(${adjustments.contrast}%)`,
       `saturate(${adjustments.saturation}%)`,
@@ -205,15 +167,123 @@ export default function GalleryEditing({
       `invert(${adjustments.invert}%)`,
     ].join(" ");
 
-    ctx.filter = filterString;
-
-    // Draw cropped region centered on canvas
-    const drawSx = sx + (sw - width) / 2;
-    const drawSy = sy + (sh - height) / 2;
-
-    ctx.drawImage(img, drawSx, drawSy, width, height, -width / 2, -height / 2, width, height);
-
+    // Draw full background image steadily
+    ctx.drawImage(img, -fullWidth / 2, -fullHeight / 2, fullWidth, fullHeight);
     ctx.restore();
+  };
+
+  const exportCanvasToFile = (): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = loadedImageRef.current;
+      if (!img) {
+        reject(new Error("Image element unavailable"));
+        return;
+      }
+
+      const fullWidth = img.naturalWidth || img.width;
+      const fullHeight = img.naturalHeight || img.height;
+
+      // Crop box source coordinates in pixels
+      const sx = Math.max(0, (fullWidth * cropRect.x) / 100);
+      const sy = Math.max(0, (fullHeight * cropRect.y) / 100);
+      const sw = Math.min(fullWidth - sx, (fullWidth * cropRect.width) / 100);
+      const sh = Math.min(fullHeight - sy, (fullHeight * cropRect.height) / 100);
+
+      let width = sw;
+      let height = sh;
+
+      if (adjustments.aspectRatio !== "free") {
+        let targetRatio = 1;
+        switch (adjustments.aspectRatio) {
+          case "1:1":
+            targetRatio = 1;
+            break;
+          case "4:3":
+            targetRatio = 4 / 3;
+            break;
+          case "16:9":
+            targetRatio = 16 / 9;
+            break;
+          case "9:16":
+            targetRatio = 9 / 16;
+            break;
+          case "3:2":
+            targetRatio = 3 / 2;
+            break;
+        }
+
+        const currentRatio = width / height;
+        if (currentRatio > targetRatio) {
+          width = height * targetRatio;
+        } else {
+          height = width / targetRatio;
+        }
+      }
+
+      const exportCanvas = document.createElement("canvas");
+
+      const rad = (adjustments.rotation * Math.PI) / 180;
+      const absCos = Math.abs(Math.cos(rad));
+      const absSin = Math.abs(Math.sin(rad));
+      const boundW = width * absCos + height * absSin;
+      const boundH = width * absSin + height * absCos;
+
+      exportCanvas.width = Math.round(boundW);
+      exportCanvas.height = Math.round(boundH);
+
+      const ctx = exportCanvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Failed to get export canvas context"));
+        return;
+      }
+
+      ctx.save();
+      ctx.translate(exportCanvas.width / 2, exportCanvas.height / 2);
+      ctx.rotate(rad);
+      ctx.scale(adjustments.flipH ? -1 : 1, adjustments.flipV ? -1 : 1);
+
+      ctx.filter = [
+        `brightness(${adjustments.brightness}%)`,
+        `contrast(${adjustments.contrast}%)`,
+        `saturate(${adjustments.saturation}%)`,
+        `blur(${adjustments.blur}px)`,
+        `hue-rotate(${adjustments.hueRotate}deg)`,
+        `grayscale(${adjustments.grayscale}%)`,
+        `sepia(${adjustments.sepia}%)`,
+        `invert(${adjustments.invert}%)`,
+      ].join(" ");
+
+      const drawSx = sx + (sw - width) / 2;
+      const drawSy = sy + (sh - height) / 2;
+
+      ctx.drawImage(img, drawSx, drawSy, width, height, -width / 2, -height / 2, width, height);
+      ctx.restore();
+
+      exportCanvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("Failed to export canvas blob"));
+            return;
+          }
+          const file = new File([blob], imageName, { type: "image/webp" });
+          resolve(file);
+        },
+        "image/webp",
+        0.92
+      );
+    });
+  };
+
+  const applyCrop = async () => {
+    if (!loadedImageRef.current || !imageSrc) return;
+    try {
+      const croppedFile = await exportCanvasToFile();
+      const newUrl = URL.createObjectURL(croppedFile);
+      setImageSrc(newUrl);
+      setCropRect(DEFAULT_CROP);
+    } catch (err) {
+      console.error("Apply crop failed:", err);
+    }
   };
 
   // Interactive Drag to Crop Event Handlers
@@ -336,29 +406,6 @@ export default function GalleryEditing({
     else if (ratio === "16:9") setCropRect({ x: 5, y: 15, width: 90, height: 70 });
     else if (ratio === "4:3") setCropRect({ x: 5, y: 10, width: 90, height: 80 });
     else setCropRect(DEFAULT_CROP);
-  };
-
-  const exportCanvasToFile = (): Promise<File> => {
-    return new Promise((resolve, reject) => {
-      const canvas = canvasRef.current;
-      if (!canvas) {
-        reject(new Error("Canvas element unavailable"));
-        return;
-      }
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error("Failed to export canvas blob"));
-            return;
-          }
-          const file = new File([blob], imageName, { type: "image/webp" });
-          resolve(file);
-        },
-        "image/webp",
-        0.9
-      );
-    });
   };
 
   const handleUpload = async (uploadType: "cloudinary" | "cloudflare") => {
@@ -507,13 +554,10 @@ export default function GalleryEditing({
 
                 {/* Interactive Drag-to-Crop Bounding Box Overlay */}
                 {isCroppingActive && (
-                  <div className="absolute inset-0 z-30 pointer-events-auto">
-                    {/* Semi-transparent dark mask */}
-                    <div className="absolute inset-0 bg-black/40 pointer-events-none" />
-
-                    {/* Active Crop Selection Box */}
+                  <div className="absolute inset-0 z-30 pointer-events-auto overflow-hidden">
+                    {/* Active Crop Selection Box with outer shadow mask */}
                     <div
-                      className="absolute border-2 border-dashed border-white shadow-2xl cursor-move bg-white/10 backdrop-brightness-110"
+                      className="absolute border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.65)] cursor-move select-none"
                       style={{
                         left: `${cropRect.x}%`,
                         top: `${cropRect.y}%`,
@@ -534,36 +578,36 @@ export default function GalleryEditing({
 
                       {/* 8 Resize Handles */}
                       <div
-                        className="absolute -top-2 -left-2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-nwse-resize shadow-md"
+                        className="absolute -top-2.5 -left-2.5 w-5 h-5 bg-blue-500 border-2 border-white rounded-full cursor-nwse-resize shadow-lg hover:scale-125 transition-transform"
                         onMouseDown={(e) => handleCropMouseDown("top-left", e)}
                       />
                       <div
-                        className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-nesw-resize shadow-md"
+                        className="absolute -top-2.5 -right-2.5 w-5 h-5 bg-blue-500 border-2 border-white rounded-full cursor-nesw-resize shadow-lg hover:scale-125 transition-transform"
                         onMouseDown={(e) => handleCropMouseDown("top-right", e)}
                       />
                       <div
-                        className="absolute -bottom-2 -left-2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-nesw-resize shadow-md"
+                        className="absolute -bottom-2.5 -left-2.5 w-5 h-5 bg-blue-500 border-2 border-white rounded-full cursor-nesw-resize shadow-lg hover:scale-125 transition-transform"
                         onMouseDown={(e) => handleCropMouseDown("bottom-left", e)}
                       />
                       <div
-                        className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-nwse-resize shadow-md"
+                        className="absolute -bottom-2.5 -right-2.5 w-5 h-5 bg-blue-500 border-2 border-white rounded-full cursor-nwse-resize shadow-lg hover:scale-125 transition-transform"
                         onMouseDown={(e) => handleCropMouseDown("bottom-right", e)}
                       />
 
                       <div
-                        className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-ns-resize shadow-md"
+                        className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-5 h-5 bg-blue-500 border-2 border-white rounded-full cursor-ns-resize shadow-lg hover:scale-125 transition-transform"
                         onMouseDown={(e) => handleCropMouseDown("top", e)}
                       />
                       <div
-                        className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-ns-resize shadow-md"
+                        className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-5 h-5 bg-blue-500 border-2 border-white rounded-full cursor-ns-resize shadow-lg hover:scale-125 transition-transform"
                         onMouseDown={(e) => handleCropMouseDown("bottom", e)}
                       />
                       <div
-                        className="absolute top-1/2 -left-2 -translate-y-1/2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-ew-resize shadow-md"
+                        className="absolute top-1/2 -left-2.5 -translate-y-1/2 w-5 h-5 bg-blue-500 border-2 border-white rounded-full cursor-ew-resize shadow-lg hover:scale-125 transition-transform"
                         onMouseDown={(e) => handleCropMouseDown("left", e)}
                       />
                       <div
-                        className="absolute top-1/2 -right-2 -translate-y-1/2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-ew-resize shadow-md"
+                        className="absolute top-1/2 -right-2.5 -translate-y-1/2 w-5 h-5 bg-blue-500 border-2 border-white rounded-full cursor-ew-resize shadow-lg hover:scale-125 transition-transform"
                         onMouseDown={(e) => handleCropMouseDown("right", e)}
                       />
                     </div>
@@ -732,14 +776,24 @@ export default function GalleryEditing({
                     </div>
                   </div>
 
-                  {/* Reset Crop Box */}
-                  <div className="flex gap-2">
+                  {/* Crop Action Buttons */}
+                  <div className="flex flex-col gap-2 pt-1">
                     <button
                       type="button"
-                      onClick={() => setCropRect(DEFAULT_CROP)}
-                      className="flex-1 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition"
+                      onClick={applyCrop}
+                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      Reset Selection (Full Image)
+                      <Icon icon="solar:check-circle-bold" width={16} /> Apply Crop Selection
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCropRect(DEFAULT_CROP);
+                        updateAdj("aspectRatio", "free");
+                      }}
+                      className="w-full py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition cursor-pointer"
+                    >
+                      Select Full Image
                     </button>
                   </div>
 

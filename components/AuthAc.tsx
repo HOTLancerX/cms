@@ -25,7 +25,7 @@ import AuthForm from "@/components/Auth";
 
 type ModalMode = "login" | "signup" | null;
 interface AuthAcProps {
-    style?: number;
+    style?: number | string;
 }
 
 const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
@@ -74,10 +74,11 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
     }
 
     // ── Logged OUT ────────────────────────────────────────────────────────────
+    const activeStyle = Number(style);
     if (!user) {
         return (
             <>
-                {style === 1 ? (
+                {activeStyle === 1 ? (
                     <div className="flex items-center gap-1.5 text-[11px] font-semibold text-inherit tracking-wide opacity-95">
                         <button
                             onClick={() => setModal("login")}
@@ -93,7 +94,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                             SIGN UP
                         </button>
                     </div>
-                ) : style === 2 ? (
+                ) : activeStyle === 2 ? (
                     <button
                         onClick={() => setModal("login")}
                         className="p-2 rounded-xl hover:bg-gray-100 text-gray-700 hover:text-indigo-600 transition cursor-pointer"

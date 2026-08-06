@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getLibrariesCollection, initializeLibrariesCollection } from '@/models/Library'
+import { uploadToCloudinary, uploadToCloudflareR2 } from '@/lib/imageUpload'
 
 export async function POST(request: NextRequest) {
     try {
@@ -69,19 +70,46 @@ async function handleUrlUploads(urls: string[], type: string) {
     const collection = await getLibrariesCollection();
     const results: any[] = []
 
-    for (const url of urls) {
-        if (!url.trim()) continue
+    for (const rawUrl of urls) {
+        const url = rawUrl.trim()
+        if (!url) continue
 
-        const imageName = extractNameFromUrl(url.trim())
+        const imageName = extractNameFromUrl(url)
 
         // Check if URL already exists
-        const existing = await collection.findOne({ url: url.trim() });
+        const existing = await collection.findOne({ url: url });
 
         if (!existing) {
+            let finalUrl = url;
+            let finalType = type;
+
+            if (type === 'cloudinary' || type === 'cloudflare') {
+                try {
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const arrayBuffer = await res.arrayBuffer();
+                        const buffer = Buffer.from(arrayBuffer);
+                        const filename = url.substring(url.lastIndexOf('/') + 1) || 'imported_file.webp';
+
+                        if (type === 'cloudinary') {
+                            const uploadResult = await uploadToCloudinary(buffer, filename);
+                            finalUrl = uploadResult.url;
+                            finalType = 'cloudinary';
+                        } else if (type === 'cloudflare') {
+                            const uploadResult = await uploadToCloudflareR2(buffer, filename);
+                            finalUrl = uploadResult.url;
+                            finalType = 'cloudflare';
+                        }
+                    }
+                } catch (err) {
+                    console.warn(`Failed to upload ${url} to ${type}, saving as direct URL:`, err);
+                }
+            }
+
             const newLibrary = {
                 name: imageName,
-                url: url.trim(),
-                type: type as 'cloudinary' | 'cloudflare' | 'url',
+                url: finalUrl,
+                type: finalType as 'cloudinary' | 'cloudflare' | 'url',
                 status: 'active' as const,
                 createdAt: new Date(),
                 updatedAt: new Date()

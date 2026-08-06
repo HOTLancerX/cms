@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Icon } from "@iconify/react";
 import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
 import { reregisterHooks } from "@/hook/PluginList";
 import { xFetch } from "@/lib/express";
 import Gallery from "@/components/Gallery";
 import Content from "@/components/Content";
+import Builder from "@/components/builder/Builder";
 import { useUser } from "@/context/Provider";
 
 export interface PostFormProps {
@@ -30,8 +33,10 @@ export interface PostFormProps {
      * Typical values: "draft" | "published"
      */
     defaultStatus?: string;
-    /** Called after a successful save with the saved post's _id */
-    onSuccess?: (postId: string) => void;
+    /** Callback fired when post creation succeeds */
+    onSuccess?: (id: string) => void;
+    /** Fired whenever the post's slug is loaded or updated */
+    onSlugChange?: (slug: string) => void;
 }
 
 const normalizeText = (text: string): string => {
@@ -54,7 +59,7 @@ const slugify = (text: string): string => {
         .replace(/(^-|-$)/g, "");
 };
 
-export default function PostForm({ type, activePlugins, postId, userId, defaultStatus, onSuccess }: PostFormProps) {
+export default function PostForm({ type, activePlugins, postId, userId, defaultStatus, onSuccess, onSlugChange }: PostFormProps) {
     const router = useRouter();
     const isEdit = Boolean(postId);
     const { user: currentUser } = useUser();
@@ -93,6 +98,77 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
     const [message, setMessage]   = useState("");
     const [notFound, setNotFound] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [hasBuilder, setHasBuilder] = useState(false);
+    const [showBuilderModal, setShowBuilderModal] = useState(false);
+    const [usersList, setUsersList] = useState<any[]>([]);
+    const [selectedUserId, setSelectedUserId] = useState<string>("");
+
+    const viewBase = useMemo(() => {
+        const p = (type || "").trim().replace(/^\/+|\/+$/g, "");
+        return p ? `/${p}/` : "/";
+    }, [type]);
+
+    useEffect(() => {
+        if (currentUser?.type === "admin") {
+            xFetch("/user", { cache: "no-store" })
+                .then((r) => r.json())
+                .then((data) => {
+                    if (Array.isArray(data.users)) {
+                        setUsersList(data.users);
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [currentUser?.type]);
+
+    useEffect(() => {
+        const targetId = info.userId || userId || currentUser?._id || "";
+        if (targetId && !selectedUserId) {
+            setSelectedUserId(targetId);
+        }
+    }, [info.userId, userId, currentUser?._id]);
+
+    useEffect(() => {
+        const bId = info.builderId || postId;
+        if (!bId) return;
+        xFetch(`/builder?id=${bId}`, { cache: "no-store" })
+            .then((r) => r.json())
+            .then((data) => {
+                if (data && data._id && Array.isArray(data.content) && data.content.length > 0) {
+                    setHasBuilder(true);
+                }
+            })
+            .catch(() => {});
+    }, [postId, info.builderId]);
+
+    const handleOpenPageBuilder = async () => {
+        // Determine existing or create single stable builder ID
+        let bId = info["builderId"] || postId;
+
+        if (!bId) {
+            bId = `builder-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        }
+
+        // Store builderId in info state so it stays fixed and consistent
+        handleInfoChange("builderId", bId);
+
+        // Ensure builder document exists on backend
+        try {
+            await xFetch("/builder", {
+                method: "POST",
+                body: JSON.stringify({
+                    _id: bId,
+                    title: title || "Page Builder",
+                    content: [],
+                }),
+            });
+        } catch (err) {
+            console.error("Error ensuring builder document:", err);
+        }
+
+        setHasBuilder(true);
+        setShowBuilderModal(true);
+    };
 
     // ── Slug availability check ─────────────────────────────────────────────
     const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
@@ -129,6 +205,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                 const p = data.post;
                 setTitle(p.title ?? "");
                 setSlug(p.slug ?? "");
+                if (onSlugChange && p.slug) onSlugChange(p.slug);
                 setStatus(p.status ?? "published");
                 setCategory(p.category ?? "");
                 setCategoryPath(p.category ? [p.category] : []);
@@ -181,9 +258,11 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                 const g = slugify(val);
                 setSlug(g);
                 checkSlug(g);
+                if (onSlugChange) onSlugChange(g);
             } else {
                 setSlug("pending-id");
                 setSlugStatus("available");
+                if (onSlugChange) onSlugChange("pending-id");
             }
         }
     };
@@ -207,8 +286,10 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
         }
 
         try {
-            // Determine effective userId from prop, info.userId, or logged in currentUser session
-            const effectiveUserId = userId || info.userId || currentUser?._id || "";
+            // Determine effective userId from admin selection, prop, info.userId, or logged in currentUser session
+            const effectiveUserId = (currentUser?.type === "admin" && selectedUserId)
+                ? selectedUserId
+                : (userId || info.userId || currentUser?._id || "");
 
             // Merge effectiveUserId into info so it's persisted in PostInfo
             // and can be used to filter posts by seller/author later.
@@ -418,6 +499,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                                 const val = e.target.value;
                                 setSlug(val);
                                 checkSlug(val);
+                                if (onSlugChange) onSlugChange(val);
                             }}
                             onPaste={(e: React.ClipboardEvent<HTMLInputElement>) => {
                                 const pastedText = e.clipboardData.getData("text");
@@ -426,11 +508,13 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                                     e.preventDefault();
                                     setSlug(cleaned);
                                     checkSlug(cleaned);
+                                    if (onSlugChange) onSlugChange(cleaned);
                                 } else {
                                     e.preventDefault();
                                     const targetSlug = isEdit && postId ? postId : "pending-id";
                                     setSlug(targetSlug);
                                     setSlugStatus("available");
+                                    if (onSlugChange) onSlugChange(targetSlug);
                                 }
                             }}
                             className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition ${
@@ -478,38 +562,102 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                         <button
                             type="submit"
                             disabled={saving || slugStatus === "taken"}
-                            className="p-2 flex-1 rounded bg-main text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed"
+                            className="p-2.5 flex-1 rounded bg-main text-sm font-semibold text-white transition hover:bg-indigo-400 hover:-translate-y-px active:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed"
                         >
                             {saving ? "Saving…" : isEdit ? "Save Changes" : "Publish"}
                         </button>
                     </div>
 
                     {/* ── User ID & Posting Info ── */}
-                    <div className="flex flex-col gap-1.5 bg-white p-3 rounded border border-gray-100 shadow-2xs">
+                    <div className="flex flex-col gap-2 bg-white p-3 rounded border border-gray-100 shadow-2xs">
                         <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Posting User Info
+                            Select Author / User:
                         </label>
-                        {currentUser?.name && (
-                            <div className="flex items-center justify-between text-xs pt-1">
-                                <span className="text-gray-400 font-medium">User Name:</span>
-                                <span className="font-semibold text-gray-900 truncate max-w-45">
-                                    {currentUser.name}
-                                </span>
+                        {currentUser?.type === "admin" ? (
+                            <div className="flex flex-col gap-1 text-xs">
+                                <select
+                                    id="post-author-select"
+                                    value={selectedUserId || currentUser?._id || ""}
+                                    onChange={(e) => {
+                                        const newId = e.target.value;
+                                        setSelectedUserId(newId);
+                                        handleInfoChange("userId", newId);
+                                    }}
+                                    className="w-full rounded border border-gray-200 bg-gray-50 p-2 text-xs font-medium outline-none focus:border-main focus:bg-white transition"
+                                >
+                                    {usersList.length > 0 ? (
+                                        usersList.map((u) => (
+                                            <option key={u._id} value={u._id}>
+                                                {u.name} ({u.type || "user"})
+                                            </option>
+                                        ))
+                                    ) : (
+                                        <option value={currentUser?._id || ""}>
+                                            {currentUser?.name || "Current Admin"} ({currentUser?.type || "admin"})
+                                        </option>
+                                    )}
+                                </select>
                             </div>
+                        ) : (
+                            <>
+                                {currentUser?.name && (
+                                    <div className="flex items-center justify-between text-xs pt-1">
+                                        <span className="text-gray-400 font-medium">User Name:</span>
+                                        <span className="font-semibold text-gray-900 truncate max-w-45">
+                                            {currentUser.name}
+                                        </span>
+                                    </div>
+                                )}
+                            </>
                         )}
-                        <div className="flex items-center justify-between text-xs pt-0.5">
-                            <span className="text-gray-400 font-medium">User ID:</span>
-                            <span className="font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded truncate max-w-45">
-                                {userId || info["userId"] || currentUser?._id || "Auto-assigned"}
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs pt-0.5">
-                            <span className="text-gray-400 font-medium">User Type / Role:</span>
-                            <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded capitalize border border-emerald-200">
-                                {currentUser?.type || type}
-                            </span>
-                        </div>
                     </div>
+
+                    {/* ── Page Builder Widget ── */}
+                    <div className="flex flex-col gap-2 bg-white p-3 rounded border border-gray-100 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                                <Icon icon="solar:widget-bold" className="text-indigo-600 w-4 h-4" />
+                                Page Builder
+                            </label>
+                            {hasBuilder && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-200">
+                                    Active
+                                </span>
+                            )}
+                        </div>
+                        <div className="hidden">
+                            <p className="text-xs text-gray-500">
+                                Create custom layout sections for this post using the interactive page builder popup.
+                            </p>
+                            {(info["builderId"] || postId) && (
+                                <div className="flex items-center justify-between text-xs bg-gray-50 p-1.5 rounded border border-gray-200">
+                                    <span className="text-gray-400 font-medium">Linked Builder ID:</span>
+                                    <span className="font-mono text-gray-700 truncate max-w-40 font-semibold">
+                                        {info["builderId"] || postId}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleOpenPageBuilder}
+                            disabled={saving}
+                            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded bg-main hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-55"
+                        >
+                            <Icon icon="solar:pen-2-bold" className="w-4 h-4" />
+                            {hasBuilder ? "Edit Page Builder" : "Create Page Builder"}
+                        </button>
+                    </div>
+
+                    {/* ── Page Builder Modal ── */}
+                    {showBuilderModal && (info["builderId"] || postId) && (
+                        <div className="fixed inset-0 z-9999 flex flex-col bg-neutral-900 animate-in fade-in duration-200">
+                            <Builder
+                                builderId={info["builderId"] || postId}
+                                onClose={() => setShowBuilderModal(false)}
+                            />
+                        </div>
+                    )}
 
                     {/* ── Default image field ── */}
                     <div className="flex flex-col gap-1.5 bg-white p-2 rounded">
