@@ -49,16 +49,29 @@ export default async function AdminDashboardPage() {
         Post.find().sort({ createdAt: -1 }).limit(5).lean(),
     ]);
 
-    // User + plugin + domain data from Express — single aggregated call
-    const initRes = await fetch(
-        `${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/api/admin-init`,
-        { cache: "no-store" }
-    );
-    const {
-        users: allUsers = [],
-        plugins: allPlugins = [],
-        domain = null,
-    } = initRes.ok ? await initRes.json() : {};
+    // User + plugin + domain data from Express
+    const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "https://cms.96s.info";
+    const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+    const headers = {
+        "x-license-key": LICENSE_KEY,
+        "Content-Type": "application/json",
+    };
+
+    const [domainRes, userRes, pluginRes] = await Promise.all([
+        fetch(`${EXPRESS_API}/auth/domain`, { headers, cache: "no-store" }).catch(() => null),
+        fetch(`${EXPRESS_API}/user`,        { headers, cache: "no-store" }).catch(() => null),
+        fetch(`${EXPRESS_API}/plugin/installed`, { headers, cache: "no-store" }).catch(() => null),
+    ]);
+
+    const [domainData, userData, pluginData] = await Promise.all([
+        domainRes && domainRes.ok ? domainRes.json().catch(() => ({})) : Promise.resolve({}),
+        userRes && userRes.ok ? userRes.json().catch(() => ({ users: [] })) : Promise.resolve({ users: [] }),
+        pluginRes && pluginRes.ok ? pluginRes.json().catch(() => ({ plugins: [] })) : Promise.resolve({ plugins: [] }),
+    ]);
+
+    const domain = domainData.domain ?? null;
+    const allUsers = userData.users ?? [];
+    const allPlugins = pluginData.plugins ?? [];
 
     const totalUsers: number = allUsers.length;
     const activeUsers: number = allUsers.filter((u: any) => u.status === "active").length;
@@ -113,12 +126,10 @@ export default async function AdminDashboardPage() {
             </div>
 
             {/* ── license ── */}
-            {domain && (
-                <LicenseBanner
-                    projectName={domain.projectName}
-                    endDate={domain.endDate}
-                />
-            )}
+            <LicenseBanner
+                domain={domain}
+                licenseKey={LICENSE_KEY}
+            />
 
             {/* ── Stat cards ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
