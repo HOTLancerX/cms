@@ -608,6 +608,14 @@ export function register(): void {
             fieldType: "gallery",
         },
         {
+            key: "header_logo_height",
+            label: "Header Logo Height (px)",
+            type: "settings",
+            style: "left",
+            position: 35,
+            component: Number,
+        },
+        {
             key: "favicon",
             label: "Favicon URL",
             type: "settings",
@@ -829,6 +837,14 @@ export function register(): void {
     // Each setting value is a menu location string, e.g. "header-1".
     // The header template reads these keys to know which menu to render where.
     addHook("setting.form", [
+        {
+            key: "header_logo_height",
+            label: "Header Logo Height (px)",
+            type: "header",
+            style: "left",
+            position: 5,
+            component: Number,
+        },
         {
             key: "header_main_menu",
             label: "Main Menu",

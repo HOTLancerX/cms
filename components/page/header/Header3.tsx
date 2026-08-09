@@ -44,7 +44,7 @@ export default function Header3({
             )}
             <div className="container h-16 flex items-center gap-6">
                 <Link href="/" className="text-xl font-extrabold text-white tracking-tight shrink-0">
-                    {settings.siteName || <><span>My</span><span className="text-violet-400">Site</span></>}
+                    {settings.siteName || <><span>Nx</span><span className="text-violet-400">CMS</span></>}
                 </Link>
                 {mainItems.length > 0 ? (
                     <div className="hidden md:flex flex-1">

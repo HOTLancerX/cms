@@ -36,9 +36,20 @@ export default function Header1({
             <div className="container h-16 flex items-center justify-between w-full gap-6">
                 <Link href="/" className="text-xl font-extrabold text-gray-900 tracking-tight shrink-0 flex items-center">
                     {settings.logo ? (
-                        <img src={settings.logo} alt={settings.siteName || 'MySite'} className="h-8 w-auto object-contain" />
+                        <img
+                            src={settings.logo}
+                            alt={settings.siteName || 'NxCMS'}
+                            className={settings.header_logo_height || settings.headerLogoHeight ? "w-auto object-contain" : "h-8 w-auto object-contain"}
+                            style={{
+                                height: settings.header_logo_height
+                                    ? `${settings.header_logo_height}px`
+                                    : settings.headerLogoHeight
+                                    ? `${settings.headerLogoHeight}px`
+                                    : undefined,
+                            }}
+                        />
                     ) : (
-                        settings.siteName || 'MySite'
+                        settings.siteName || 'NxCMS'
                     )}
                 </Link>
                 <MobileDrawer items={mobileItems} settings={settings} iconColor="#374151" />

@@ -42,7 +42,7 @@ export default function Header2({
             )}
             <div className="container h-16 flex items-center gap-6">
                 <Link href="/" className="text-xl font-extrabold text-white tracking-tight shrink-0">
-                    {settings.siteName || 'MySite'}
+                    {settings.siteName || 'NxCMS'}
                 </Link>
                 {mainItems.length > 0 ? (
                     <div className="hidden md:flex flex-1">

@@ -18,8 +18,19 @@ export default function Footer1({ settings = {} }: Footer1Props) {
                     {/* Brand column */}
                     <div className="space-y-3">
                         <Link href="/" className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center">
-                            {settings.logo ? (
-                                <img src={settings.logo} alt={settings.siteName || 'MySite'} className="h-8 w-auto object-contain" />
+                            {settings.footer_logo || settings.logo ? (
+                                <img
+                                    src={settings.footer_logo || settings.logo}
+                                    alt={settings.siteName || 'MySite'}
+                                    className={settings.footer_logo_height || settings.footerLogoHeight ? "w-auto object-contain" : "h-8 w-auto object-contain"}
+                                    style={{
+                                        height: settings.footer_logo_height
+                                            ? `${settings.footer_logo_height}px`
+                                            : settings.footerLogoHeight
+                                            ? `${settings.footerLogoHeight}px`
+                                            : undefined,
+                                    }}
+                                />
                             ) : (
                                 settings.siteName || 'MySite'
                             )}
