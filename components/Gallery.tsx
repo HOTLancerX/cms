@@ -146,7 +146,8 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
 
     const compressToWebP = (file: File): Promise<File> => {
         return new Promise((resolve) => {
-            if (!file.type.startsWith('image/')) {
+            const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif')
+            if (!file.type.startsWith('image/') || isGif) {
                 resolve(file)
                 return
             }

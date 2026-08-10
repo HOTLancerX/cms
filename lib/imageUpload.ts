@@ -31,7 +31,7 @@ export interface UploadResult {
 }
 
 export async function convertToWebP(buffer: Buffer, quality: number = 80): Promise<Buffer> {
-    return await sharp(buffer)
+    return await sharp(buffer, { animated: true })
         .webp({ quality })
         .toBuffer()
 }
@@ -74,7 +74,7 @@ export async function uploadToLocal(
         let height = undefined;
         if (!isVideo) {
             try {
-                const metadata = await sharp(finalBuffer).metadata();
+                const metadata = await sharp(finalBuffer, { animated: true }).metadata();
                 width = metadata.width;
                 height = metadata.height;
             } catch { /* silent */ }
@@ -186,7 +186,7 @@ export async function uploadToCloudflareR2(
             format = 'webp';
             
             try {
-                const metadata = await sharp(finalBuffer).metadata();
+                const metadata = await sharp(finalBuffer, { animated: true }).metadata();
                 width = metadata.width;
                 height = metadata.height;
             } catch (err) {
