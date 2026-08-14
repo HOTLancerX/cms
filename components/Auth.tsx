@@ -189,18 +189,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
     const loginType = detectLoginType(loginValue);
 
     return (
-        <div className="w-full rounded-2xl bg-white p-6 shadow-xl sm:p-8">
-            {/* Top Navigation: Return to Homepage */}
-            <div className="mb-4 flex items-center justify-between">
-                <Link
-                    href="/"
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50/80 hover:bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition active:scale-95 group cursor-pointer shadow-2xs"
-                >
-                    <Icon icon="solar:alt-arrow-left-bold" className="text-sm transition-transform group-hover:-translate-x-1 text-gray-500" />
-                    <span>Return to Homepage</span>
-                </Link>
-            </div>
-
+        <div className="w-full rounded-2xl bg-white p-6 shadow-xl sm:p-8 max-w-md mx-auto">
             {/* Header */}
             <div className="mb-6 text-center">
                 <h2 className="text-2xl font-black tracking-tight text-gray-900">
