@@ -101,6 +101,8 @@ export interface PluginMeta {
     path: string;
     icon: string;     // Iconify icon name, e.g. "solar:document-bold"
     color: string;    // Tailwind gradient classes, e.g. "from-violet-500 to-purple-600"
+    youtubeId?: string;
+    price?: number;
 }
 
 // ─── Post type definition ───

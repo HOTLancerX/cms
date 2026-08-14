@@ -17,6 +17,16 @@ export interface AvailablePlugin {
     path: string;
     icon: string;
     color: string;
+    youtubeId?: string;
+    price?: number;
+}
+
+function extractYoutubeId(urlOrId?: string): string {
+    if (!urlOrId) return "";
+    const str = urlOrId.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(str)) return str;
+    const match = str.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    return match ? match[1] : str;
 }
 
 // Maps Tailwind gradient class pairs → actual CSS gradient.
@@ -77,6 +87,7 @@ export default function PluginStoreList({ available, installed }: Props) {
     );
     const [processing, setProcessing] = useState<string | null>(null);
     const [search, setSearch] = useState("");
+    const [activeVideo, setActiveVideo] = useState<{ id: string; name: string } | null>(null);
 
     const filtered = available.filter((p) => {
         if (!search) return true;
@@ -195,6 +206,8 @@ export default function PluginStoreList({ available, installed }: Props) {
                         isNewerVersion(plugin.version, record!.version);
                     const isBusy = processing === plugin.nx;
                     const badge = record ? STATUS_BADGE[record.status] ?? STATUS_BADGE.inactive : null;
+                    const ytId = extractYoutubeId(plugin.youtubeId);
+                    const isPaid = Number(plugin.price) === 5;
 
                     return (
                         <div
@@ -230,11 +243,35 @@ export default function PluginStoreList({ available, installed }: Props) {
                                     {plugin.description}
                                 </p>
 
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                                        v{plugin.version}
-                                    </span>
-                                    <span className="text-xs text-gray-400">by {plugin.author}</span>
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                                            v{plugin.version}
+                                        </span>
+                                        <span
+                                            className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
+                                                isPaid
+                                                    ? "bg-purple-100 text-purple-700 ring-1 ring-purple-300"
+                                                    : "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
+                                            }`}
+                                        >
+                                            {isPaid ? "Paid" : "Free"}
+                                        </span>
+                                        <span className="text-xs text-gray-400">by {plugin.author}</span>
+                                    </div>
+
+                                    {/* Video Demo Button if youtubeId exists */}
+                                    {ytId && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveVideo({ id: ytId, name: plugin.name })}
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/80 transition cursor-pointer text-xs font-bold shrink-0 shadow-2xs"
+                                            title="Watch Video Preview"
+                                        >
+                                            <Icon icon="solar:play-circle-bold" width={18} className="text-red-600" />
+                                            <span>Video</span>
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* Actions */}
@@ -313,6 +350,51 @@ export default function PluginStoreList({ available, installed }: Props) {
                     );
                 })}
             </div>
+            )}
+
+            {/* Video Popup Modal Box */}
+            {activeVideo && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
+                    onClick={() => setActiveVideo(null)}
+                >
+                    <div
+                        className="relative w-full max-w-3xl bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-800 shadow-2xl space-y-4"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 rounded-xl bg-red-500/20 text-red-400">
+                                    <Icon icon="solar:play-circle-bold" width={24} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-white leading-tight">
+                                        {activeVideo.name}
+                                    </h3>
+                                    <p className="text-xs text-slate-400">Video Demo Preview</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setActiveVideo(null)}
+                                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                                title="Close Video"
+                            >
+                                <Icon icon="solar:close-circle-bold" width={26} />
+                            </button>
+                        </div>
+
+                        <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black shadow-inner">
+                            <iframe
+                                src={`https://www.youtube-nocookie.com/embed/${activeVideo.id}?autoplay=1`}
+                                title={activeVideo.name}
+                                className="h-full w-full border-0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                            />
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

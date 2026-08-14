@@ -19,15 +19,19 @@
  * these errors and surface them to the UI.
  */
 
-export const API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+export const API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "https://cms.96s.info";
 
-const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+export function getLicenseKey(): string {
+    return process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+}
 
-/** Base headers sent with every request to Express */
-const baseHeaders: HeadersInit = {
-    "Content-Type": "application/json",
-    "x-license-key": LICENSE_KEY,
-};
+/** Dynamic base headers sent with every request to Express */
+export function getBaseHeaders(): HeadersInit {
+    return {
+        "Content-Type": "application/json",
+        "x-license-key": getLicenseKey(),
+    };
+}
 
 // ── Plugin-block error types ───────────────────────────────────────────────────
 export type PluginBlockError = "plugin_expired" | "plugin_not_started" | "plugin_inactive";
@@ -87,14 +91,16 @@ export async function isPluginBlockedResponse(
  * Drop-in fetcher for SWR.
  * Usage: useSWR("/auth/me", fetcher)
  */
-export const fetcher = (path: string): Promise<unknown> =>
-    fetch(`${API}/${path}`, {
+export const fetcher = (path: string): Promise<unknown> => {
+    const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+    return fetch(`${API}/${cleanPath}`, {
         credentials: "include",
-        headers: baseHeaders,
+        headers: getBaseHeaders(),
     }).then((r) => {
         if (!r.ok) throw new Error(`Request failed: ${r.status}`);
         return r.json();
     });
+};
 
 // ── General-purpose fetch wrapper ─────────────────────────────────────────────
 /**
@@ -111,10 +117,11 @@ export async function apiFetch<T = unknown>(
     method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" = "GET",
     payload?: unknown
 ): Promise<{ res: Response; data: T }> {
-    const res = await fetch(`${API}/${path}`, {
+    const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+    const res = await fetch(`${API}/${cleanPath}`, {
         method,
         credentials: "include",
-        headers: baseHeaders,
+        headers: getBaseHeaders(),
         body:
             method !== "GET" && method !== "DELETE" && payload !== undefined
                 ? JSON.stringify(payload)

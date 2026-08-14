@@ -19,8 +19,10 @@ import { useUser } from "@/context/Provider";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 
-const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
-const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "https://cms.96s.info";
+function getLicenseKey(): string {
+    return process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+}
 import AuthForm from "@/components/Auth";
 
 type ModalMode = "login" | "signup" | null;
@@ -323,7 +325,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                                     credentials: "include",
                                     headers: {
                                         "Content-Type": "application/json",
-                                        "x-license-key": LICENSE_KEY,
+                                        "x-license-key": getLicenseKey(),
                                     },
                                 }).catch(() => {});
                                 // Sign out of NextAuth — this clears the JWT session cookie

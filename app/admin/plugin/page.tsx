@@ -45,6 +45,8 @@ export default async function PluginPage() {
             author: meta.author || dbRecord?.author || "System",
             icon: meta.icon || dbRecord?.icon || "solar:plugin-bold",
             color: meta.color || dbRecord?.color || "from-violet-500 to-purple-600",
+            youtubeId: meta.youtubeId || dbRecord?.youtubeId || "",
+            price: meta.price ?? dbRecord?.price ?? 0,
             startDate: dbRecord?.startDate ?? null,
             endDate: dbRecord?.endDate ?? null,
             isExpired: dbRecord?.isExpired ?? false,

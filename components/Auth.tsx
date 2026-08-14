@@ -16,13 +16,18 @@ import { Icon } from "@iconify/react";
 import { signIn } from "next-auth/react";
 import { useUser } from "@/context/Provider";
 
-const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
-const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "https://cms.96s.info";
 
-const authHeaders = {
-    "Content-Type": "application/json",
-    "x-license-key": LICENSE_KEY,
-};
+function getLicenseKey(): string {
+    return process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+}
+
+function getAuthHeaders() {
+    return {
+        "Content-Type": "application/json",
+        "x-license-key": getLicenseKey(),
+    };
+}
 
 // ─── Detect what the user typed ───────────────────────────────────────────────
 type LoginType = "email" | "phone" | "slug";
@@ -74,39 +79,53 @@ export default function AuthForm({ mode }: AuthFormProps) {
 
     // ── Login ─────────────────────────────────────────────────────────────────
     const handleLogin = async (loginVal: string, pass: string): Promise<any | null> => {
-        // 1. Validate against Express (license check + password check)
-        const res = await fetch(`${EXPRESS_API}/auth/login`, {
-            method: "POST",
-            credentials: "include",
-            headers: authHeaders,
-            body: JSON.stringify({ login: loginVal.trim(), password: pass }),
-        });
+        try {
+            // 1. Validate against Express (license check + password check + origin verification)
+            const res = await fetch(`${EXPRESS_API}/auth/login`, {
+                method: "POST",
+                credentials: "include",
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ login: loginVal.trim(), password: pass }),
+            });
 
-        const data = await res.json() as { error?: string; message?: string; user?: any; token?: string };
+            const data = await res.json().catch(() => ({})) as { error?: string; message?: string; user?: any; token?: string };
 
-        if (!res.ok) {
-            setError(data.message ?? data.error ?? "No account found or password incorrect.");
+            if (!res.ok) {
+                if (res.status === 401 || res.status === 403) {
+                    const msg = data.message || data.error || "";
+                    if (msg.includes("license") || msg.includes("disabled") || msg.includes("expired") || msg.includes("origin")) {
+                        setError("Domain origin verification or license check failed. Please check your domain registration in CMS dashboard.");
+                    } else {
+                        setError(msg || "No account found or password incorrect.");
+                    }
+                } else {
+                    setError(data.message ?? data.error ?? "No account found or password incorrect.");
+                }
+                return null;
+            }
+
+            if (!data.user?._id) {
+                setError("Login failed. User profile data missing.");
+                return null;
+            }
+
+            // 2. Pass already-validated user + Express token to NextAuth
+            const result = await signIn("credentials", {
+                redirect: false,
+                userData: JSON.stringify({ ...data.user, expressToken: data.token ?? "" }),
+            });
+
+            if (result?.error) {
+                setError("Session creation failed. Please try logging in again.");
+                return null;
+            }
+
+            return data.user;
+        } catch (err: unknown) {
+            console.error("Login fetch error:", err);
+            setError("Connection to Express Server or Domain origin failed. Please verify your network or domain configuration.");
             return null;
         }
-
-        if (!data.user?._id) {
-            setError("Login failed. Please try again.");
-            return null;
-        }
-
-        // 2. Pass the already-validated user + Express token to NextAuth.
-        //    expressToken lets server-side code call Express with Bearer auth.
-        const result = await signIn("credentials", {
-            redirect:  false,
-            userData:  JSON.stringify({ ...data.user, expressToken: data.token ?? "" }),
-        });
-
-        if (result?.error) {
-            setError("Session creation failed. Please try again.");
-            return null;
-        }
-
-        return data.user;
     };
 
     // ── Submit ────────────────────────────────────────────────────────────────
@@ -131,7 +150,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
                 const res = await fetch(`${EXPRESS_API}/auth/signup`, {
                     method: "POST",
                     credentials: "include",
-                    headers: authHeaders,
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         name,
                         email: signupTab === "email" ? email : undefined,
@@ -140,10 +159,10 @@ export default function AuthForm({ mode }: AuthFormProps) {
                     }),
                 });
 
-                const data = await res.json() as { error?: string; message?: string };
+                const data = await res.json().catch(() => ({})) as { error?: string; message?: string };
 
                 if (!res.ok) {
-                    setError(data.error ?? data.message ?? "Signup failed.");
+                    setError(data.error ?? data.message ?? "Signup failed. Domain origin or license key may be invalid.");
                     return;
                 }
 
@@ -159,239 +178,218 @@ export default function AuthForm({ mode }: AuthFormProps) {
                     }
                 }
             }
-        } catch {
-            setError("Something went wrong. Please try again.");
+        } catch (err) {
+            console.error("Submit error:", err);
+            setError("Network or domain origin connection error. Please try again.");
         } finally {
             setLoading(false);
         }
     };
 
-    // ── Detected type hint for login field ────────────────────────────────────
-    const loginHint = loginValue.trim() ? detectLoginType(loginValue) : null;
-
-    const hintIcon: Record<LoginType, string> = {
-        email: "solar:letter-bold",
-        phone: "solar:phone-bold",
-        slug: "solar:user-bold",
-    };
-    const hintLabel: Record<LoginType, string> = {
-        email: "Email",
-        phone: "Phone",
-        slug: "Username",
-    };
+    const loginType = detectLoginType(loginValue);
 
     return (
-        <div className="w-full max-w-md">
-            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8">
-
-                {/* Header */}
-                <div className="mb-8 text-center">
-                    <h1 className="text-2xl font-bold text-gray-900">
-                        {isLogin ? "Welcome back" : "Create account"}
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-1">
-                        {isLogin
-                            ? "Sign in to continue"
-                            : "Fill in the details below to get started"}
-                    </p>
-                </div>
-
-                {/* Google */}
-                <button
-                    type="button"
-                    onClick={handleGoogle}
-                    disabled={googleLoading}
-                    className="w-full flex items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 mb-6"
+        <div className="w-full rounded-2xl bg-white p-6 shadow-xl sm:p-8">
+            {/* Top Navigation: Return to Homepage */}
+            <div className="mb-4 flex items-center justify-between">
+                <Link
+                    href="/"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50/80 hover:bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition active:scale-95 group cursor-pointer shadow-2xs"
                 >
-                    {googleLoading
-                        ? <Icon icon="svg-spinners:ring-resize" width={18} />
-                        : <Icon icon="flat-color-icons:google" width={18} />
-                    }
-                    Continue with Google
-                </button>
+                    <Icon icon="solar:alt-arrow-left-bold" className="text-sm transition-transform group-hover:-translate-x-1 text-gray-500" />
+                    <span>Return to Homepage</span>
+                </Link>
+            </div>
 
-                {/* Divider */}
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="flex-1 h-px bg-gray-200" />
-                    <span className="text-xs text-gray-400 font-medium">or</span>
-                    <div className="flex-1 h-px bg-gray-200" />
+            {/* Header */}
+            <div className="mb-6 text-center">
+                <h2 className="text-2xl font-black tracking-tight text-gray-900">
+                    {isLogin ? "Welcome back" : "Create an account"}
+                </h2>
+                <p className="mt-1 text-xs text-gray-500">
+                    {isLogin
+                        ? "Sign in using email, phone, or username"
+                        : "Join us and start exploring"}
+                </p>
+            </div>
+
+            {/* Error banner */}
+            {error && (
+                <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-600 border border-red-100">
+                    <Icon icon="solar:danger-bold" className="text-base shrink-0" />
+                    <span>{error}</span>
                 </div>
+            )}
 
-                {/* Signup tab switcher (email / phone) */}
-                {!isLogin && (
-                    <div className="flex rounded-xl bg-gray-100 p-1 mb-6">
-                        {(["email", "phone"] as SignupTab[]).map((t) => (
-                            <button
-                                key={t}
-                                type="button"
-                                onClick={() => { setSignupTab(t); setError(""); }}
-                                className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition ${signupTab === t
-                                    ? "bg-white text-gray-900 shadow-sm"
-                                    : "text-gray-500 hover:text-gray-700"
-                                    }`}
-                            >
-                                <Icon
-                                    icon={t === "email" ? "solar:letter-bold" : "solar:phone-bold"}
-                                    width={15}
-                                />
-                                {t === "email" ? "Email" : "Phone"}
-                            </button>
-                        ))}
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-
-                    {/* ── LOGIN: single smart field ── */}
-                    {isLogin && (
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-semibold text-gray-700">
-                                Email, phone or username
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    value={loginValue}
-                                    onChange={(e) => { setLoginValue(e.target.value); setError(""); }}
-                                    className={`${inputCls} ${loginHint ? "pr-28" : ""}`}
-                                    placeholder="you@example.com"
-                                    required
-                                    autoComplete="username"
-                                    autoFocus
-                                />
-                                {/* Auto-detected type badge */}
-                                {loginHint && (
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs font-medium text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full pointer-events-none">
-                                        <Icon icon={hintIcon[loginHint]} width={12} />
-                                        {hintLabel[loginHint]}
-                                    </span>
-                                )}
-                            </div>
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+                {isLogin ? (
+                    // ── LOGIN FIELD ───────────────────────────────────────────
+                    <div>
+                        <label className="mb-1 block text-xs font-semibold text-gray-700">
+                            Email, Phone, or Username
+                        </label>
+                        <div className="relative flex items-center">
+                            <input
+                                type="text"
+                                required
+                                value={loginValue}
+                                onChange={(e) => setLoginValue(e.target.value)}
+                                placeholder="name@domain.com, +123456..., or username"
+                                className={inputCls}
+                            />
+                            {loginValue.trim() && (
+                                <span className="absolute right-3 rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500 uppercase">
+                                    {loginType}
+                                </span>
+                            )}
                         </div>
-                    )}
+                    </div>
+                ) : (
+                    // ── SIGNUP FIELDS ─────────────────────────────────────────
+                    <>
+                        <div>
+                            <label className="mb-1 block text-xs font-semibold text-gray-700">Full Name</label>
+                            <input
+                                type="text"
+                                required
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="John Doe"
+                                className={inputCls}
+                            />
+                        </div>
 
-                    {/* ── SIGNUP: name + email or phone ── */}
-                    {!isLogin && (
-                        <>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-semibold text-gray-700">
-                                    Full Name
-                                </label>
-                                <input
-                                    type="text"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className={inputCls}
-                                    placeholder="John Doe"
-                                    required
-                                    autoComplete="name"
-                                />
+                        {/* Tab switcher: Email vs Phone */}
+                        <div>
+                            <div className="mb-2 flex rounded-xl bg-gray-100 p-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setSignupTab("email")}
+                                    className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
+                                        signupTab === "email" ? "bg-white text-gray-900 shadow-2xs" : "text-gray-500"
+                                    }`}
+                                >
+                                    Email
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSignupTab("phone")}
+                                    className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
+                                        signupTab === "phone" ? "bg-white text-gray-900 shadow-2xs" : "text-gray-500"
+                                    }`}
+                                >
+                                    Phone
+                                </button>
                             </div>
 
                             {signupTab === "email" ? (
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-semibold text-gray-700">
-                                        Email
-                                    </label>
-                                    <input
-                                        type="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        className={inputCls}
-                                        placeholder="you@example.com"
-                                        required
-                                        autoComplete="email"
-                                    />
-                                </div>
-                            ) : (
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-semibold text-gray-700">
-                                        Phone Number
-                                    </label>
-                                    <input
-                                        type="tel"
-                                        value={phone}
-                                        onChange={(e) => setPhone(e.target.value)}
-                                        className={inputCls}
-                                        placeholder="+1 555 000 0000"
-                                        required
-                                        autoComplete="tel"
-                                    />
-                                </div>
-                            )}
-                        </>
-                    )}
-
-                    {/* Password */}
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold text-gray-700">
-                            Password
-                        </label>
-                        <div className="relative">
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className={`${inputCls} pr-11`}
-                                placeholder="••••••••"
-                                required
-                                minLength={6}
-                                autoComplete={isLogin ? "current-password" : "new-password"}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword((v) => !v)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
-                                tabIndex={-1}
-                            >
-                                <Icon
-                                    icon={showPassword ? "solar:eye-closed-bold" : "solar:eye-bold"}
-                                    width={18}
+                                <input
+                                    type="email"
+                                    required
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="name@domain.com"
+                                    className={inputCls}
                                 />
-                            </button>
+                            ) : (
+                                <input
+                                    type="tel"
+                                    required
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    placeholder="+1234567890"
+                                    className={inputCls}
+                                />
+                            )}
                         </div>
+                    </>
+                )}
+
+                {/* Password */}
+                <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-700">Password</label>
+                    <div className="relative flex items-center">
+                        <input
+                            type={showPassword ? "text" : "password"}
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className={inputCls}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 text-gray-400 hover:text-gray-600 transition p-1"
+                        >
+                            <Icon icon={showPassword ? "solar:eye-closed-bold" : "solar:eye-bold"} className="text-base" />
+                        </button>
                     </div>
+                </div>
 
-                    {/* Error */}
-                    {error && (
-                        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
-                            {error}
+                {/* Submit button */}
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-500 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                    {loading ? (
+                        <div className="flex items-center justify-center gap-2">
+                            <Icon icon="solar:spinner-bold" className="animate-spin text-base" />
+                            <span>{isLogin ? "Signing in..." : "Creating account..."}</span>
                         </div>
-                    )}
-
-                    {/* Submit */}
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="mt-1 w-full rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                        {loading ? (
-                            <span className="flex items-center justify-center gap-2">
-                                <Icon icon="svg-spinners:ring-resize" width={16} />
-                                {isLogin ? "Signing in…" : "Creating account…"}
-                            </span>
-                        ) : isLogin ? "Sign in" : "Create account"}
-                    </button>
-                </form>
-
-                {/* Footer */}
-                <p className="mt-6 text-center text-sm text-gray-500">
-                    {isLogin ? (
-                        <>
-                            Don&apos;t have an account?{" "}
-                            <Link href="/signup" className="font-semibold text-indigo-600 hover:underline">
-                                Sign up
-                            </Link>
-                        </>
                     ) : (
-                        <>
-                            Already have an account?{" "}
-                            <Link href="/login" className="font-semibold text-indigo-600 hover:underline">
-                                Sign in
-                            </Link>
-                        </>
+                        <span>{isLogin ? "Sign In" : "Create Account"}</span>
                     )}
-                </p>
+                </button>
+            </form>
+
+            {/* Social Divider */}
+            <div className="my-5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-gray-200" />
+                <span className="text-[11px] font-semibold text-gray-400 uppercase">Or continue with</span>
+                <div className="h-px flex-1 bg-gray-200" />
+            </div>
+
+            {/* Google button */}
+            <button
+                type="button"
+                onClick={handleGoogle}
+                disabled={googleLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+            >
+                <Icon icon="flat-color-icons:google" className="text-base" />
+                <span>{googleLoading ? "Redirecting..." : "Sign in with Google"}</span>
+            </button>
+
+            {/* Footer switcher */}
+            <div className="mt-6 text-center text-xs text-gray-500 space-y-3">
+                {isLogin ? (
+                    <p>
+                        Don&apos;t have an account?{" "}
+                        <Link href="/signup" className="font-bold text-indigo-600 hover:underline">
+                            Sign up
+                        </Link>
+                    </p>
+                ) : (
+                    <p>
+                        Already have an account?{" "}
+                        <Link href="/login" className="font-bold text-indigo-600 hover:underline">
+                            Sign in
+                        </Link>
+                    </p>
+                )}
+
+                <div className="pt-2 border-t border-gray-100">
+                    <Link
+                        href="/"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-indigo-600 transition"
+                    >
+                        <Icon icon="solar:home-2-bold" className="text-sm text-gray-400" />
+                        <span>Back to Home</span>
+                    </Link>
+                </div>
             </div>
         </div>
     );

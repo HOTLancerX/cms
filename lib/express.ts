@@ -16,19 +16,41 @@
  */
 
 export const EXPRESS_API =
-    process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
+    process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "https://cms.96s.info";
 
-export const LICENSE_KEY =
-    process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+export function getLicenseKey(): string {
+    return process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
+}
 
-/** Base headers for every Express request */
-export const xHeaders = {
-    "Content-Type": "application/json",
-    "x-license-key": LICENSE_KEY,
-} as const;
+export const LICENSE_KEY = getLicenseKey();
 
-// ── Plugin-block helpers ───────────────────────────────────────────────────────
+/** Base headers for every Express request, dynamically reading latest license key */
+export function getXHeaders(): Record<string, string> {
+    return {
+        "Content-Type": "application/json",
+        "x-license-key": getLicenseKey(),
+    };
+}
+
+export const xHeaders = getXHeaders();
+
+// ── License & Plugin-block helpers ─────────────────────────────────────────────
 export type PluginBlockError = "plugin_expired" | "plugin_not_started" | "plugin_inactive";
+export type LicenseError = "not_found" | "disabled" | "not_started" | "expired";
+
+/**
+ * User-facing messages shown when a license is blocked or invalid.
+ */
+export const licenseErrorMessages: Record<LicenseError, string> = {
+    not_found:
+        "License Key not found. Please verify your NEXT_PUBLIC_LICENSE_KEY configuration.",
+    disabled:
+        "Your project license has been disabled by the administrator. Please reach out to support.",
+    not_started:
+        "Your project license is not active yet. Access will be available once the start date begins.",
+    expired:
+        "Your project license has expired and access is suspended. Please renew your project subscription to continue.",
+};
 
 /**
  * User-facing messages shown when a plugin is blocked.
@@ -88,11 +110,12 @@ export async function isPluginBlocked(res: Response): Promise<PluginBlockResult 
  * @param init     Standard RequestInit (method, body, cache, etc.)
  */
 export function xFetch(path: string, init: RequestInit = {}): Promise<Response> {
-    return fetch(`${EXPRESS_API}${path}`, {
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+    return fetch(`${EXPRESS_API}${cleanPath}`, {
         credentials: "include",
         ...init,
         headers: {
-            ...xHeaders,
+            ...getXHeaders(),
             ...((init.headers as Record<string, string>) ?? {}),
         },
     });

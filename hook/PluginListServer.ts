@@ -53,6 +53,8 @@ export async function getInstalledPluginMetas(): Promise<PluginMeta[]> {
             path: d.path ?? "",
             icon: d.icon ?? "solar:plugin-bold",
             color: d.color ?? "from-violet-500 to-purple-600",
+            youtubeId: d.youtubeId ?? "",
+            price: d.price ?? 0,
         }));
     } catch {
         return [];
