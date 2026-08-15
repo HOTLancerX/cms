@@ -14,7 +14,6 @@ import AccountClientLayout from "./AccountClientLayout";
 export const dynamic = "force-dynamic";
 
 const CORE_NX = "com.system.core";
-const BUILDER_NX = "com.system.builder";
 
 /**
  * Resolve the active layout component for "header" or "footer".

@@ -13,7 +13,7 @@
  *
  *   import { addBuilderElement } from "@/hook";
  *   import myElement from "./my-element";
- *   addBuilderElement(myElement, "com.system.myplugin");
+ *   addBuilderElement(myElement, "myplugin");
  */
 
 import { addBuilderElement } from "@/hook";

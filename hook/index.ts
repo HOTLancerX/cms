@@ -93,7 +93,7 @@ export type FormHooks = FormHookField[];
 
 // ─── Plugin metadata shape ───
 export interface PluginMeta {
-    nx: string;       // canonical unique identifier, e.g. "com.system.blog"
+    nx: string;       // canonical unique identifier, e.g. "blog"
     name: string;
     version: string;
     description: string;
