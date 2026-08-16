@@ -27,6 +27,9 @@ export interface MenuItem {
     url: string;
     referenceId?: string;
     image?: string;
+    icon?: string;
+    /** How to display the menu item in the navbar: 'both' (default: icon/image + text), 'text' (text only), 'icon' (icon/image only) */
+    showMode?: 'both' | 'text' | 'icon';
     displayStyle?: MenuDisplayStyle;
     gridNumber?: number;
     /**
@@ -35,6 +38,21 @@ export interface MenuItem {
      * a standard grid of child links.
      */
     builderId?: string;
+    /** Whether to fetch and render posts in category ratio / subpanel */
+    showPosts?: boolean;
+    /** Specific category ID or slug for filtering posts */
+    postCategory?: string;
+    /** Post type (e.g. "blog", "news", "post") */
+    postType?: string;
+    /** Total posts to fetch and display (e.g. 4, 6, 8, 12) */
+    postLimit?: number;
+    /** Display posts as a responsive Grid or interactive Embla Slider */
+    layoutType?: 'grid' | 'slider';
+    /** Carousel slider settings */
+    sliderAutoplay?: boolean;
+    sliderSpeed?: number;
+    sliderArrows?: boolean;
+    sliderDots?: boolean;
     customFields?: Record<string, unknown>;
     children?: MenuItem[];
     order: number;

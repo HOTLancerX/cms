@@ -9,6 +9,7 @@ import { withCache } from "@/lib/cache";
 import type { MenuItem } from "@/models/Menu";
 import { ActivePluginsProvider } from "@/context/ActivePluginsContext";
 import Builder from "@/components/Builder";
+import { collectPostItems, fetchMenuPosts } from "@/components/Menus";
 
 // Remove force-dynamic so Next.js Data Cache can take effect in production.
 // In development (NEXT_PUBLIC_CACHE !== "production") withCache is a no-op
@@ -161,6 +162,15 @@ export default async function RootLayout({
         );
     }
 
+    // Pre-fetch category posts for items configured with showPosts
+    const allPostItems = [
+        ...collectPostItems(topItems),
+        ...collectPostItems(mainItems),
+        ...collectPostItems(rightItems),
+        ...collectPostItems(mobileItems),
+    ];
+    const postContent = await fetchMenuPosts(allPostItems);
+
     // ── root.root widgets (floating / global — rendered after footer) ──────────
     // Plugins register components with addHook("root.root", [...], nx).
     // Only entries with slug "root" and an active plugin are included.
@@ -185,6 +195,7 @@ export default async function RootLayout({
                     rightItems={rightItems}
                     mobileItems={mobileItems}
                     builderContent={builderContent}
+                    postContent={postContent}
                 />
             ) : null}
             <ActivePluginsProvider initialPlugins={activeNxList}>

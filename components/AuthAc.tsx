@@ -70,7 +70,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
     if (loading) {
         return (
             <div className="w-8 h-8 flex items-center justify-center text-gray-400">
-                <Icon icon="svg-spinners:ring-resize" width={20} />
+                <Icon icon="svg-spinners:ring-resize" className="w-5 h-5" />
             </div>
         );
     }
@@ -102,7 +102,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                         className="p-2 rounded-xl hover:bg-gray-100 text-gray-700 hover:text-indigo-600 transition cursor-pointer"
                         title="Sign in"
                     >
-                        <Icon icon="solar:user-bold" width={22} />
+                        <Icon icon="solar:user-bold" className="text-xl" />
                     </button>
                 ) : (
                     <div className="flex items-center gap-2">
@@ -135,7 +135,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                                 onClick={() => setModal(null)}
                                 className="absolute -top-3 -right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-md text-gray-500 hover:text-gray-800 transition cursor-pointer"
                             >
-                                <Icon icon="material-symbols:close" width={16} />
+                                <Icon icon="material-symbols:close" className="text-base" />
                             </button>
 
                             <AuthForm mode={modal} />
@@ -185,8 +185,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                     MY ACCOUNT
                     <Icon
                         icon="solar:alt-arrow-down-bold"
-                        width={10}
-                        className={`opacity-70 transition-transform ${popupOpen ? "rotate-180" : ""}`}
+                        className={`w-2.5 h-2.5 opacity-70 transition-transform ${popupOpen ? "rotate-180" : ""}`}
                     />
                 </button>
             ) : style === 2 ? (
@@ -227,8 +226,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                     </span>
                     <Icon
                         icon="solar:alt-arrow-down-bold"
-                        width={14}
-                        className={`text-gray-400 transition-transform ${popupOpen ? "rotate-180" : ""}`}
+                        className={`w-3.5 h-3.5 text-gray-400 transition-transform ${popupOpen ? "rotate-180" : ""}`}
                     />
                 </button>
             )}
@@ -269,7 +267,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                             onClick={() => setPopupOpen(false)}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                         >
-                            <Icon icon="solar:settings-bold" width={16} className="text-gray-400" />
+                            <Icon icon="solar:settings-bold" className="w-4 h-4 text-gray-400" />
                             My Account
                         </Link>
                         <Link
@@ -277,7 +275,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                             onClick={() => setPopupOpen(false)}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                         >
-                            <Icon icon="solar:settings-bold" width={16} className="text-gray-400" />
+                            <Icon icon="solar:settings-bold" className="w-4 h-4 text-gray-400" />
                             Account Settings
                         </Link>
 
@@ -288,7 +286,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                                     onClick={() => setPopupOpen(false)}
                                     className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                                 >
-                                    <Icon icon="solar:shield-bold" width={16} className="text-violet-500" />
+                                    <Icon icon="solar:shield-bold" className="w-4 h-4 text-violet-500" />
                                     Seller Product
                                 </Link>
                                 <Link
@@ -296,7 +294,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                                     onClick={() => setPopupOpen(false)}
                                     className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                                 >
-                                    <Icon icon="solar:shield-bold" width={16} className="text-violet-500" />
+                                    <Icon icon="solar:shield-bold" className="w-4 h-4 text-violet-500" />
                                     Seller Orders
                                 </Link>
                             </>
@@ -308,7 +306,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                                 onClick={() => setPopupOpen(false)}
                                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                             >
-                                <Icon icon="solar:shield-bold" width={16} className="text-violet-500" />
+                                <Icon icon="solar:shield-bold" className="w-4 h-4 text-violet-500" />
                                 Admin Panel
                             </Link>
                         )}
@@ -334,7 +332,7 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                             }}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition cursor-pointer"
                         >
-                            <Icon icon="solar:logout-bold" width={16} />
+                            <Icon icon="solar:logout-bold" className="w-4 h-4" />
                             Sign out
                         </button>
                     </div>

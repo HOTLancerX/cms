@@ -197,6 +197,9 @@ function MobileDrawerItem({
   const canExpand = hasChildren || isBuilderItem;
   const isActive = isItemOrChildActive(item, pathname);
 
+  const showIcon = item.showMode !== 'text';
+  const showText = item.showMode !== 'icon' || (!item.icon && !item.image);
+
   return (
     <li>
       <div
@@ -205,21 +208,27 @@ function MobileDrawerItem({
         }`}
         style={{ paddingLeft: depth > 0 ? `${12 + depth * 16}px` : undefined }}
       >
-        {item.image && (
-          <img
-            src={item.image}
-            alt={item.label}
-            className="w-5 h-5 object-cover rounded shrink-0"
-          />
+        {showIcon && (
+          item.icon ? (
+            <Icon icon={item.icon} width={18} height={18} className="shrink-0" />
+          ) : item.image ? (
+            <img
+              src={item.image}
+              alt={item.label}
+              className="w-5 h-5 object-cover rounded shrink-0"
+            />
+          ) : null
         )}
-        <Link
-          href={item.url}
-          onClick={onClose}
-          className="flex-1 text-sm font-medium transition-colors hover:opacity-80"
-          style={{ color: isActive ? activeColor : textColor }}
-        >
-          {item.label}
-        </Link>
+        {showText && (
+          <Link
+            href={item.url}
+            onClick={onClose}
+            className="flex-1 text-sm font-medium transition-colors hover:opacity-80"
+            style={{ color: isActive ? activeColor : textColor }}
+          >
+            {item.label}
+          </Link>
+        )}
         {canExpand && (
           <button
             type="button"

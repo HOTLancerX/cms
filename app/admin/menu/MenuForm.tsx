@@ -14,6 +14,8 @@
  *    set displayStyle = 'builder' and builderId = the builder document _id.
  *    The front-end MenuClients will then render that builder content as the
  *    hover panel instead of a standard child list.
+ *  • Category Posts: Menu items can display posts in category ratio as
+ *    either a responsive Grid or interactive Embla Slider (with configurable posts per line).
  *  • No type is hardcoded — adding a plugin automatically adds its sections here
  */
 
@@ -26,6 +28,7 @@ import { getAllPostTypes, getAllCatTypes } from '@/hook';
 import type { PostTypeField, CatTypeField } from '@/hook';
 import { xFetch } from '@/lib/express';
 import Gallery from '@/components/Gallery';
+import IconifyPicker from '@/components/ui/Iconify';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,10 +44,28 @@ export interface MenuItem {
     url: string;
     referenceId?: string;
     image?: string;
+    icon?: string;
+    /** 'both' (default: icon/image + text), 'text' (text only), 'icon' (icon/image only) */
+    showMode?: 'both' | 'text' | 'icon';
     displayStyle?: MenuDisplayStyle;
     gridNumber?: number;
     /** Set when displayStyle === 'builder' — the Builder document _id to render */
     builderId?: string;
+    /** Whether to fetch and render posts in category ratio / subpanel */
+    showPosts?: boolean;
+    /** Specific category ID or slug for filtering posts */
+    postCategory?: string;
+    /** Post type (e.g. "blog", "news", "post") */
+    postType?: string;
+    /** Total posts to fetch and display (e.g. 4, 6, 8, 12) */
+    postLimit?: number;
+    /** Display posts as a responsive Grid or interactive Embla Slider */
+    layoutType?: 'grid' | 'slider';
+    /** Carousel slider settings */
+    sliderAutoplay?: boolean;
+    sliderSpeed?: number;
+    sliderArrows?: boolean;
+    sliderDots?: boolean;
     children?: MenuItem[];
     order: number;
 }
@@ -155,13 +176,25 @@ export default function MenuForm({ menuId }: MenuFormProps) {
     const [selectedMenuItems, setSelectedMenuItems] = useState<Set<string>>(new Set());
 
     // ── Edit modal ────────────────────────────────────────────────────────────
-    const [editingItem,      setEditingItem]      = useState<MenuItem | null>(null);
-    const [editLabel,        setEditLabel]        = useState('');
-    const [editUrl,          setEditUrl]          = useState('');
-    const [editImage,        setEditImage]        = useState('');
-    const [editDisplayStyle, setEditDisplayStyle] = useState<MenuDisplayStyle>('none');
-    const [editGridNumber,   setEditGridNumber]   = useState<number>(3);
-    const [editBuilderId,    setEditBuilderId]    = useState<string>('');
+    const [editingItem,         setEditingItem]         = useState<MenuItem | null>(null);
+    const [editLabel,           setEditLabel]           = useState('');
+    const [editUrl,             setEditUrl]             = useState('');
+    const [editImage,           setEditImage]           = useState('');
+    const [editDisplayStyle,    setEditDisplayStyle]    = useState<MenuDisplayStyle>('none');
+    const [editGridNumber,      setEditGridNumber]      = useState<number>(4);
+    const [editBuilderId,       setEditBuilderId]       = useState<string>('');
+    const [editIcon,            setEditIcon]            = useState<string>('');
+    const [editShowMode,        setEditShowMode]        = useState<'both' | 'text' | 'icon'>('both');
+    // Category Posts Mega Menu states
+    const [editShowPosts,       setEditShowPosts]       = useState<boolean>(false);
+    const [editPostCategory,    setEditPostCategory]    = useState<string>('');
+    const [editPostType,        setEditPostType]        = useState<string>('blog');
+    const [editPostLimit,       setEditPostLimit]       = useState<number>(6);
+    const [editLayoutType,      setEditLayoutType]      = useState<'grid' | 'slider'>('grid');
+    const [editSliderAutoplay,  setEditSliderAutoplay]  = useState<boolean>(true);
+    const [editSliderSpeed,     setEditSliderSpeed]     = useState<number>(3000);
+    const [editSliderArrows,    setEditSliderArrows]    = useState<boolean>(true);
+    const [editSliderDots,      setEditSliderDots]      = useState<boolean>(true);
 
     // ── Step 1: load permalinks ───────────────────────────────────────────────
     useEffect(() => {
@@ -249,7 +282,6 @@ export default function MenuForm({ menuId }: MenuFormProps) {
             const res = await xFetch('/builder');
             if (res.ok) {
                 const data = await res.json();
-                // controller returns an array directly (not wrapped)
                 setBuilderDocs(Array.isArray(data) ? data : []);
             }
         } catch { /* silent */ }
@@ -406,9 +438,22 @@ export default function MenuForm({ menuId }: MenuFormProps) {
         setEditLabel(item.label);
         setEditUrl(item.url);
         setEditImage(item.image ?? '');
+        setEditIcon(item.icon ?? '');
+        setEditShowMode(item.showMode ?? 'both');
         setEditDisplayStyle(item.displayStyle ?? 'none');
-        setEditGridNumber(item.gridNumber ?? 3);
+        setEditGridNumber(item.gridNumber ?? 4);
         setEditBuilderId(item.builderId ?? '');
+        // Category posts settings
+        setEditShowPosts(item.showPosts ?? false);
+        setEditPostCategory(item.postCategory ?? item.referenceId ?? '');
+        setEditPostType(item.postType ?? 'blog');
+        setEditPostLimit(item.postLimit ?? 6);
+        setEditLayoutType(item.layoutType ?? 'grid');
+        setEditSliderAutoplay(item.sliderAutoplay !== false);
+        setEditSliderSpeed(item.sliderSpeed ?? 3000);
+        setEditSliderArrows(item.sliderArrows !== false);
+        setEditSliderDots(item.sliderDots !== false);
+
         // Pre-load builder docs so the dropdown is ready
         loadBuilderDocs();
     };
@@ -416,18 +461,32 @@ export default function MenuForm({ menuId }: MenuFormProps) {
     const closeEditModal = () => {
         setEditingItem(null);
         setEditLabel(''); setEditUrl(''); setEditImage('');
-        setEditDisplayStyle('none'); setEditGridNumber(3); setEditBuilderId('');
+        setEditIcon(''); setEditShowMode('both');
+        setEditDisplayStyle('none'); setEditGridNumber(4); setEditBuilderId('');
+        setEditShowPosts(false); setEditPostCategory(''); setEditPostType('blog');
+        setEditPostLimit(6); setEditLayoutType('grid');
     };
 
     const saveEdit = () => {
         if (!editingItem) return;
         updateMenuItem(editingItem.id, {
-            label:        editLabel,
-            url:          editUrl,
-            image:        editImage || undefined,
-            displayStyle: editDisplayStyle,
-            gridNumber:   editDisplayStyle.startsWith('style-') ? editGridNumber : undefined,
-            builderId:    editDisplayStyle === 'builder' ? (editBuilderId || undefined) : undefined,
+            label:          editLabel,
+            url:            editUrl,
+            image:          editImage || undefined,
+            icon:           editIcon || undefined,
+            showMode:       editShowMode,
+            displayStyle:   editDisplayStyle,
+            gridNumber:     editGridNumber,
+            builderId:      editDisplayStyle === 'builder' ? (editBuilderId || undefined) : undefined,
+            showPosts:      editShowPosts,
+            postCategory:   editShowPosts ? (editPostCategory || undefined) : undefined,
+            postType:       editShowPosts ? editPostType : undefined,
+            postLimit:      editShowPosts ? editPostLimit : undefined,
+            layoutType:     editShowPosts ? editLayoutType : undefined,
+            sliderAutoplay: editShowPosts && editLayoutType === 'slider' ? editSliderAutoplay : undefined,
+            sliderSpeed:    editShowPosts && editLayoutType === 'slider' ? editSliderSpeed : undefined,
+            sliderArrows:   editShowPosts && editLayoutType === 'slider' ? editSliderArrows : undefined,
+            sliderDots:     editShowPosts && editLayoutType === 'slider' ? editSliderDots : undefined,
         });
         closeEditModal();
     };
@@ -517,6 +576,7 @@ export default function MenuForm({ menuId }: MenuFormProps) {
         const isDropped   = dropTarget?.id === item.id;
         const hasChildren = (item.children?.length ?? 0) > 0;
         const isBuilder   = item.type === 'builder' || item.displayStyle === 'builder';
+        const hasPosts    = Boolean(item.showPosts);
 
         return (
             <div key={item.id} className="w-full">
@@ -554,9 +614,13 @@ export default function MenuForm({ menuId }: MenuFormProps) {
                         </button>
                     )}
 
-                    {item.image && (
-                        <img src={item.image} alt={item.label} className="w-8 h-8 object-cover rounded shrink-0" />
-                    )}
+                    {item.icon ? (
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                            <Icon icon={item.icon} width={18} />
+                        </div>
+                    ) : item.image ? (
+                        <img src={item.image} alt={item.label} className="w-8 h-8 object-cover rounded-lg border shrink-0" />
+                    ) : null}
 
                     <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{item.label}</div>
@@ -568,13 +632,42 @@ export default function MenuForm({ menuId }: MenuFormProps) {
                                 </span>
                             </div>
                         )}
+                        {hasPosts && (
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <Icon
+                                    icon={item.layoutType === 'slider' ? 'solar:slider-minimalistic-horizontal-bold' : 'solar:widget-4-bold'}
+                                    width={12}
+                                    className="text-emerald-500 shrink-0"
+                                />
+                                <span className="text-xs text-emerald-600 font-medium truncate">
+                                    Posts: {item.layoutType === 'slider' ? 'Slider' : 'Grid'} ({item.gridNumber ?? 4}/line, limit: {item.postLimit ?? 6})
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {level > 0 && <span className="text-xs text-gray-400 italic shrink-0">Level {level}</span>}
 
+                    {item.showMode === 'icon' && (
+                        <span className="shrink-0 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
+                            Icon Only
+                        </span>
+                    )}
+                    {item.showMode === 'text' && (
+                        <span className="shrink-0 text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-medium">
+                            Text Only
+                        </span>
+                    )}
+
                     {isBuilder && (
                         <span className="shrink-0 text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-medium">
                             Builder
+                        </span>
+                    )}
+
+                    {hasPosts && (
+                        <span className="shrink-0 text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
+                            {item.layoutType === 'slider' ? 'Slider Posts' : 'Grid Posts'}
                         </span>
                     )}
 
@@ -773,142 +866,6 @@ export default function MenuForm({ menuId }: MenuFormProps) {
         );
     };
 
-    // ── Edit modal portal ─────────────────────────────────────────────────────
-    const EditModal = () => {
-        if (!editingItem) return null;
-        const content = (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <div className="p-6 border-b sticky top-0 bg-white flex justify-between items-center">
-                        <h2 className="text-xl font-bold">Edit Menu Item</h2>
-                        <button type="button" onClick={closeEditModal} className="text-gray-500 hover:text-gray-700 text-2xl leading-none">✕</button>
-                    </div>
-
-                    <div className="p-6 space-y-4">
-                        <div>
-                            <label className="block mb-2 font-medium text-sm">Menu Label</label>
-                            <input type="text" value={editLabel} onChange={(e) => setEditLabel(e.target.value)}
-                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                placeholder="Enter menu label" />
-                        </div>
-                        <div>
-                            <label className="block mb-2 font-medium text-sm">URL</label>
-                            <input type="text" value={editUrl} onChange={(e) => setEditUrl(e.target.value)}
-                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                placeholder="/page-url or # for panel-only items" />
-                        </div>
-                        <div>
-                            <label className="block mb-2 font-medium text-sm">Menu Icon / Image (Optional)</label>
-                            <Gallery multiple={false} value={editImage}
-                                onChange={(v) => setEditImage(typeof v === 'string' ? v : v[0] ?? '')}
-                                placeholder="Select an image for this menu item" />
-                        </div>
-
-                        {/* Display style */}
-                        <div>
-                            <label className="block mb-2 font-medium text-sm">Display Style (For Parent Menu)</label>
-                            <select value={editDisplayStyle} onChange={(e) => setEditDisplayStyle(e.target.value as MenuDisplayStyle)}
-                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500">
-                                <option value="none">None (Default Dropdown)</option>
-                                <option value="left">Menu Left Side</option>
-                                <option value="right">Menu Right Side</option>
-                                <option value="mega">Mega Menu</option>
-                                <option value="style-1">Style 1 — Image top, title below</option>
-                                <option value="style-2">Style 2 — Image left, title right</option>
-                                <option value="style-3">Style 3 — Title only, clean list</option>
-                                <option value="style-4">Style 4 — Image left, title + url</option>
-                                <option value="style-5">Style 5 — Icon + title, compact</option>
-                                <option value="builder">Builder Panel</option>
-                            </select>
-
-                            {/* Grid columns (style-1 … style-5) */}
-                            {editDisplayStyle.startsWith('style-') && (
-                                <div className="mt-3">
-                                    <label className="block mb-2 font-medium text-sm">Grid Columns</label>
-                                    <div className="flex gap-2 flex-wrap">
-                                        {[1,2,3,4,5,6,7,8,9,10].map((n) => (
-                                            <button key={n} type="button" onClick={() => setEditGridNumber(n)}
-                                                className={`w-10 h-10 rounded-lg border-2 text-sm font-semibold transition-colors ${
-                                                    editGridNumber === n
-                                                        ? 'border-blue-500 bg-blue-500 text-white'
-                                                        : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400'
-                                                }`}>{n}</button>
-                                        ))}
-                                    </div>
-                                    <p className="text-xs text-gray-500 mt-1">Number of grid columns for sub-items layout</p>
-                                </div>
-                            )}
-
-                            {/* Builder ID picker */}
-                            {editDisplayStyle === 'builder' && (
-                                <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-                                    <label className="block mb-2 font-medium text-sm text-indigo-800">
-                                        Builder Page
-                                    </label>
-                                    {builderDocsLoading ? (
-                                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                                            <Icon icon="svg-spinners:ring-resize" width={16} />
-                                            Loading builder pages…
-                                        </div>
-                                    ) : builderDocs.length === 0 ? (
-                                        <p className="text-sm text-gray-500">No builder pages available.</p>
-                                    ) : (
-                                        <select
-                                            value={editBuilderId}
-                                            onChange={(e) => setEditBuilderId(e.target.value)}
-                                            className="w-full p-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-400 bg-white"
-                                        >
-                                            <option value="">— Select a builder page —</option>
-                                            {builderDocs.map((doc) => (
-                                                <option key={doc._id} value={doc._id}>
-                                                    {doc.title}
-                                                    {doc.status !== 'active' ? ` (${doc.status})` : ''}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    )}
-                                    <p className="text-xs text-indigo-600 mt-2">
-                                        When a visitor hovers this menu item, the selected builder page
-                                        will render as the dropdown panel instead of a child list.
-                                    </p>
-                                    {editBuilderId && (
-                                        <p className="text-xs text-gray-400 font-mono mt-1">ID: {editBuilderId}</p>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Item info */}
-                        <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 space-y-1">
-                            <p className="font-medium text-gray-800 mb-1">Item Information</p>
-                            <p><span className="font-medium">Type:</span> {editingItem.type}</p>
-                            {editingItem.referenceId && (
-                                <p><span className="font-medium">Reference ID:</span> {editingItem.referenceId}</p>
-                            )}
-                            {editingItem.builderId && (
-                                <p><span className="font-medium">Builder ID:</span> {editingItem.builderId}</p>
-                            )}
-                            {(editingItem.children?.length ?? 0) > 0 && (
-                                <p><span className="font-medium">Children:</span> {editingItem.children!.length} sub-items</p>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="p-6 border-t bg-gray-50 flex justify-end gap-3 sticky bottom-0">
-                        <button type="button" onClick={closeEditModal}
-                            className="px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                            Cancel
-                        </button>
-                        <button type="button" onClick={saveEdit} disabled={!editLabel || !editUrl}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                            Save Changes
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-        return typeof window !== 'undefined' ? createPortal(content, document.body) : null;
-    };
 
     // ── Loading gates ─────────────────────────────────────────────────────────
     if (loading) return <div className="p-8">Loading...</div>;
@@ -924,7 +881,423 @@ export default function MenuForm({ menuId }: MenuFormProps) {
     // ─── Main render ──────────────────────────────────────────────────────────
     return (
         <>
-            <EditModal />
+            {/* Edit modal portal - rendered inline to preserve input focus & cursor state */}
+            {editingItem && typeof window !== 'undefined' && createPortal(
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                        <div className="p-5 border-b sticky top-0 bg-white flex justify-between items-center z-10">
+                            <div className="flex items-center gap-2">
+                                <Icon icon="solar:pen-new-square-bold" className="text-blue-600 text-xl" />
+                                <h2 className="text-lg font-bold text-gray-800">Edit Menu Item: {editingItem.label}</h2>
+                            </div>
+                            <button type="button" onClick={closeEditModal} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">✕</button>
+                        </div>
+
+                        <div className="p-6 space-y-5">
+                            {/* Label & URL */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block mb-1.5 font-medium text-xs text-gray-700">Menu Label</label>
+                                    <input type="text" value={editLabel} onChange={(e) => setEditLabel(e.target.value)}
+                                        className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                                        placeholder="Enter menu label" />
+                                </div>
+                                <div>
+                                    <label className="block mb-1.5 font-medium text-xs text-gray-700">URL</label>
+                                    <input type="text" value={editUrl} onChange={(e) => setEditUrl(e.target.value)}
+                                        className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                                        placeholder="/category-url or # for panel-only" />
+                                </div>
+                            </div>
+
+                            {/* Icon & Image selection */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block mb-1.5 font-medium text-xs text-gray-700">Menu Icon (Iconify)</label>
+                                    <IconifyPicker
+                                        value={editIcon}
+                                        onChange={setEditIcon}
+                                        placeholder="Pick an Iconify icon"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block mb-1.5 font-medium text-xs text-gray-700">Menu Image (Optional)</label>
+                                    <Gallery
+                                        multiple={false}
+                                        value={editImage}
+                                        onChange={(v) => setEditImage(typeof v === 'string' ? v : v[0] ?? '')}
+                                        placeholder="Select an image"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Display mode: Show Icon, Text, or Both */}
+                            <div className="p-3.5 bg-gray-50/90 border border-gray-200 rounded-xl space-y-2">
+                                <label className="block font-bold text-xs text-gray-800">
+                                    Navbar Item Display Mode (Show Icon, Text, or Both)
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditShowMode('both')}
+                                        className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border-2 text-xs font-semibold transition-all ${
+                                            editShowMode === 'both'
+                                                ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-xs'
+                                                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <Icon icon="solar:widget-2-bold" width={16} />
+                                        <span>Both (Default)</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditShowMode('text')}
+                                        className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border-2 text-xs font-semibold transition-all ${
+                                            editShowMode === 'text'
+                                                ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-xs'
+                                                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <Icon icon="solar:text-bold" width={16} />
+                                        <span>Text Only</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditShowMode('icon')}
+                                        className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border-2 text-xs font-semibold transition-all ${
+                                            editShowMode === 'icon'
+                                                ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-xs'
+                                                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <Icon icon="solar:sticker-smile-circle-2-bold" width={16} />
+                                        <span>Icon Only</span>
+                                    </button>
+                                </div>
+                                <p className="text-[11px] text-gray-500">
+                                    Default is <strong>Both</strong>. You can choose Text Only or Icon Only even if an icon or image is provided.
+                                </p>
+                            </div>
+
+                            {/* ── Category Posts in Mega Menu / Submenu ── */}
+                            <div className="p-4 border rounded-xl bg-emerald-50/40 border-emerald-200/80 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <label className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
+                                            <Icon icon="solar:document-text-bold-duotone" className="text-emerald-600 text-lg" />
+                                            Show Posts in Dropdown / Mega Panel
+                                        </label>
+                                        <p className="text-xs text-gray-500 mt-0.5">
+                                            Dynamically fetch and display posts under this menu item (in category ratio).
+                                        </p>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={editShowPosts}
+                                        onChange={(e) => setEditShowPosts(e.target.checked)}
+                                        className="w-5 h-5 accent-emerald-600 rounded cursor-pointer"
+                                    />
+                                </div>
+
+                                {editShowPosts && (
+                                    <div className="pt-3 border-t border-emerald-200/60 space-y-4 bg-white p-3.5 rounded-lg border">
+                                        {/* Category / Source Selector */}
+                                        <div>
+                                            <label className="block mb-1 font-medium text-xs text-gray-700">Category Source</label>
+                                            <select
+                                                value={editPostCategory}
+                                                onChange={(e) => setEditPostCategory(e.target.value)}
+                                                className="w-full p-2.5 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500"
+                                            >
+                                                <option value="">
+                                                    {editingItem.referenceId ? `Current Linked Category (${editingItem.label})` : 'All / Auto-detected Category'}
+                                                </option>
+                                                {groups
+                                                    .filter((g) => g.kind === 'cat')
+                                                    .flatMap((g) => g.items)
+                                                    .map((cat) => (
+                                                        <option key={cat.id} value={cat.id}>
+                                                            {cat.title} ({cat.slug})
+                                                        </option>
+                                                    ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Layout Style: Grid vs Slider */}
+                                        <div>
+                                            <label className="block mb-1.5 font-medium text-xs text-gray-700">
+                                                Display Layout Style (Slider or Grid)
+                                            </label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditLayoutType('grid')}
+                                                    className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border-2 text-sm font-semibold transition-all ${
+                                                        editLayoutType === 'grid'
+                                                            ? 'border-emerald-600 bg-emerald-50 text-emerald-700 shadow-xs'
+                                                            : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
+                                                    }`}
+                                                >
+                                                    <Icon icon="solar:widget-4-bold" width={18} />
+                                                    <span>Grid Style</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditLayoutType('slider')}
+                                                    className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border-2 text-sm font-semibold transition-all ${
+                                                        editLayoutType === 'slider'
+                                                            ? 'border-emerald-600 bg-emerald-50 text-emerald-700 shadow-xs'
+                                                            : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
+                                                    }`}
+                                                >
+                                                    <Icon icon="solar:slider-minimalistic-horizontal-bold" width={18} />
+                                                    <span>Slider Style (Carousel)</span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Posts Per Line (Columns / Visible Slides) */}
+                                        <div>
+                                            <label className="block mb-1.5 font-medium text-xs text-gray-700">
+                                                How many total posts will be shown in one line? ({editLayoutType === 'slider' ? 'Slides visible per view' : 'Grid Columns'})
+                                            </label>
+                                            <div className="flex gap-2 flex-wrap">
+                                                {[1, 2, 3, 4, 5, 6].map((n) => (
+                                                    <button
+                                                        key={n}
+                                                        type="button"
+                                                        onClick={() => setEditGridNumber(n)}
+                                                        className={`w-10 h-10 rounded-lg border-2 text-sm font-semibold transition-all ${
+                                                            editGridNumber === n
+                                                                ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs scale-105'
+                                                                : 'border-gray-300 bg-white text-gray-700 hover:border-emerald-400'
+                                                        }`}
+                                                    >
+                                                        {n}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {editLayoutType === 'slider'
+                                                    ? `Slider will show ${editGridNumber} slide(s) at once with smooth touch/drag scrolling.`
+                                                    : `Grid will arrange posts into a ${editGridNumber}-column row.`}
+                                            </p>
+                                        </div>
+
+                                        {/* Total Posts Limit */}
+                                        <div>
+                                            <label className="block mb-1.5 font-medium text-xs text-gray-700">Total Posts to Fetch / Show</label>
+                                            <div className="flex gap-2 flex-wrap items-center">
+                                                {[3, 4, 5, 6, 8, 10, 12, 16, 20].map((count) => (
+                                                    <button
+                                                        key={count}
+                                                        type="button"
+                                                        onClick={() => setEditPostLimit(count)}
+                                                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                                                            editPostLimit === count
+                                                                ? 'border-emerald-600 bg-emerald-600 text-white'
+                                                                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                                                        }`}
+                                                    >
+                                                        {count} Posts
+                                                    </button>
+                                                ))}
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={50}
+                                                    value={editPostLimit}
+                                                    onChange={(e) => setEditPostLimit(Math.max(1, parseInt(e.target.value) || 6))}
+                                                    className="w-18 p-1.5 border rounded-lg text-xs text-center"
+                                                    title="Custom limit"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Card Style for Posts */}
+                                        <div>
+                                            <label className="block mb-1.5 font-medium text-xs text-gray-700">Post Card Style</label>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                {[
+                                                    { num: 1, name: 'Style 1', desc: 'Featured image top' },
+                                                    { num: 2, name: 'Style 2', desc: 'Thumbnail left' },
+                                                    { num: 3, name: 'Style 3', desc: 'Minimal title list' },
+                                                    { num: 4, name: 'Style 4', desc: 'Image left + excerpt' },
+                                                    { num: 5, name: 'Style 5', desc: 'Compact tag card' },
+                                                ].map((s) => (
+                                                    <button
+                                                        key={s.num}
+                                                        type="button"
+                                                        onClick={() => setEditDisplayStyle(`style-${s.num}` as MenuDisplayStyle)}
+                                                        className={`p-2 rounded-lg border-2 text-left transition-all ${
+                                                            editDisplayStyle === `style-${s.num}` || (editDisplayStyle === 'none' && s.num === 1)
+                                                                ? 'border-emerald-600 bg-emerald-50 text-emerald-800 shadow-xs'
+                                                                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                                                        }`}
+                                                    >
+                                                        <div className="font-bold text-xs">{s.name}</div>
+                                                        <div className="text-[10px] text-gray-500 mt-0.5">{s.desc}</div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Slider-specific settings */}
+                                        {editLayoutType === 'slider' && (
+                                            <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-lg space-y-3">
+                                                <p className="text-xs font-bold text-emerald-800 flex items-center gap-1">
+                                                    <Icon icon="solar:settings-bold" width={14} />
+                                                    Carousel Controls (Embla Carousel)
+                                                </p>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                    <label className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={editSliderAutoplay}
+                                                            onChange={(e) => setEditSliderAutoplay(e.target.checked)}
+                                                            className="w-4 h-4 accent-emerald-600 rounded"
+                                                        />
+                                                        Autoplay Carousel
+                                                    </label>
+                                                    <label className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={editSliderArrows}
+                                                            onChange={(e) => setEditSliderArrows(e.target.checked)}
+                                                            className="w-4 h-4 accent-emerald-600 rounded"
+                                                        />
+                                                        Nav Arrows (‹ ›)
+                                                    </label>
+                                                    <label className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={editSliderDots}
+                                                            onChange={(e) => setEditSliderDots(e.target.checked)}
+                                                            className="w-4 h-4 accent-emerald-600 rounded"
+                                                        />
+                                                        Pagination Dots
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Dropdown display style */}
+                            {!editShowPosts && (
+                                <div>
+                                    <label className="block mb-2 font-medium text-sm">Dropdown Display Style</label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {[
+                                            { style: 'none',    label: 'Default', desc: 'Simple list' },
+                                            { style: 'left',    label: 'Left',    desc: 'Align left' },
+                                            { style: 'right',   label: 'Right',   desc: 'Align right' },
+                                            { style: 'mega',    label: 'Mega',    desc: 'Full width' },
+                                            { style: 'style-1', label: 'Style 1', desc: 'Image top' },
+                                            { style: 'style-2', label: 'Style 2', desc: 'Image left' },
+                                            { style: 'style-3', label: 'Style 3', desc: 'Title only' },
+                                            { style: 'style-4', label: 'Style 4', desc: 'Image left+url' },
+                                            { style: 'style-5', label: 'Style 5', desc: 'Icon card' },
+                                            { style: 'builder', label: 'Builder', desc: 'Page Builder' },
+                                        ].map(({ style, label, desc }) => (
+                                            <button key={style} type="button"
+                                                onClick={() => setEditDisplayStyle(style as MenuDisplayStyle)}
+                                                className={`p-2.5 rounded-lg border-2 text-left transition-all ${
+                                                    editDisplayStyle === style
+                                                        ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
+                                                        : 'border-gray-200 hover:border-gray-300'
+                                                }`}>
+                                                <div className="font-semibold text-xs">{label}</div>
+                                                <div className="text-[11px] text-gray-500">{desc}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Grid number (for multi-column styles) */}
+                            {['mega', 'style-1', 'style-2', 'style-3', 'style-4', 'style-5'].includes(editDisplayStyle) && !editShowPosts && (
+                                <div>
+                                    <label className="block mb-1.5 font-medium text-xs text-gray-700">Grid Columns</label>
+                                    <div className="flex gap-2">
+                                        {[2, 3, 4, 5, 6, 8].map((n) => (
+                                            <button key={n} type="button" onClick={() => setEditGridNumber(n)}
+                                                className={`w-9 h-9 rounded border font-semibold text-sm ${editGridNumber === n ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+                                                {n}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Builder page picker */}
+                            {editDisplayStyle === 'builder' && (
+                                <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-3">
+                                    <label className="block font-semibold text-sm text-indigo-900">
+                                        Select Builder Page Content
+                                    </label>
+                                    {builderDocsLoading ? (
+                                        <div className="flex items-center gap-2 text-xs text-indigo-600">
+                                            <Icon icon="svg-spinners:ring-resize" width={16} />
+                                            Loading builder pages...
+                                        </div>
+                                    ) : builderDocs.length === 0 ? (
+                                        <p className="text-xs text-gray-500">No builder pages found.</p>
+                                    ) : (
+                                        <select
+                                            value={editBuilderId}
+                                            onChange={(e) => setEditBuilderId(e.target.value)}
+                                            className="w-full p-2 border border-indigo-300 rounded text-sm bg-white focus:ring-2 focus:ring-indigo-500"
+                                        >
+                                            <option value="">-- Choose a Builder Page --</option>
+                                            {builderDocs.map((doc) => (
+                                                <option key={doc._id} value={doc._id}>
+                                                    {doc.title} ({doc.status})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    <p className="text-xs text-indigo-600 mt-2">
+                                        When a visitor hovers this menu item, the selected builder page
+                                        will render as the dropdown panel instead of a child list.
+                                    </p>
+                                    {editBuilderId && (
+                                        <p className="text-xs text-gray-400 font-mono mt-1">ID: {editBuilderId}</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Item info */}
+                            <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 space-y-1">
+                                <p className="font-medium text-gray-800 mb-1">Item Information</p>
+                                <p><span className="font-medium">Type:</span> {editingItem.type}</p>
+                                {editingItem.referenceId && (
+                                    <p><span className="font-medium">Reference ID:</span> {editingItem.referenceId}</p>
+                                )}
+                                {editingItem.builderId && (
+                                    <p><span className="font-medium">Builder ID:</span> {editingItem.builderId}</p>
+                                )}
+                                {(editingItem.children?.length ?? 0) > 0 && (
+                                    <p><span className="font-medium">Children:</span> {editingItem.children!.length} sub-items</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="p-5 border-t bg-gray-50 flex justify-end gap-3 sticky bottom-0 z-10">
+                            <button type="button" onClick={closeEditModal}
+                                className="px-5 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium">
+                                Cancel
+                            </button>
+                            <button type="button" onClick={saveEdit} disabled={!editLabel || !editUrl}
+                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium">
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
             <form onSubmit={handleSubmit}>
                 {/* Title + Save */}
                 <div className="mb-6 flex items-end gap-2">
@@ -1007,8 +1380,7 @@ export default function MenuForm({ menuId }: MenuFormProps) {
                         <h2 className="font-bold mb-4 text-lg">Menu Structure</h2>
                         <p className="text-sm text-gray-500 mb-4">
                             Drag items to reorder. Drop in the middle to nest (up to {MAX_LEVELS} levels).
-                            Items with a <span className="text-indigo-600 font-medium">Builder</span> badge
-                            will render their linked page-builder content as the hover panel.
+                            Items can render <span className="text-emerald-600 font-medium">Category Posts (Grid/Slider)</span> or <span className="text-indigo-600 font-medium">Builder Panels</span> on hover.
                         </p>
 
                         {menuItems.length === 0 ? (
