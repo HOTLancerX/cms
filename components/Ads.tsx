@@ -25,12 +25,16 @@ export interface AdsProps {
         | 'bottom'
         | 'left'
         | 'right'
+        | 'logoLeft'
+        | 'logoRight'
         | 'leftTop'
         | 'leftBottom'
         | 'rightTop'
-        | 'rightBottom';
+        | 'rightBottom'
+        | (string & {});
     settings?: Record<string, any>;
     className?: string;
+    fallback?: React.ReactNode;
 }
 
 export default function Ads(props: AdsProps) {
