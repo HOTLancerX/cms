@@ -250,12 +250,19 @@ export function formatDateValue({
 
   // 2. Custom date-fns format pattern provided
   if (customFormat) {
-    const dateFnsLoc = getDateFnsLocale(localeTag);
-    let result = formatDateFns(d, customFormat, { locale: dateFnsLoc });
-    if (localeTag.startsWith('bn')) {
-      result = toBnDigits(result);
+    const isLangCode = /^(en|bn|hi|ar|fr|de|es|ja|zh|BD|IN|US|GB)$/i.test(customFormat.trim());
+    if (!isLangCode) {
+      try {
+        const dateFnsLoc = getDateFnsLocale(localeTag);
+        let result = formatDateFns(d, customFormat, { locale: dateFnsLoc });
+        if (localeTag.startsWith('bn')) {
+          result = toBnDigits(result);
+        }
+        return result;
+      } catch {
+        // Fallback to Intl formatter below
+      }
     }
-    return result;
   }
 
   // 3. International native Intl.DateTimeFormat (Default & recommended)

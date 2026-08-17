@@ -187,9 +187,11 @@ registerServerDataHook("blog", async (_id, _slug, data) => {
     }
 
     // Fetch latest & popular posts for sidebar widgets
-    const [latestDocs, popularDocs] = await Promise.all([
+    const [latestDocs, popularDocs, activeBoxRelated, activeBoxDefault] = await Promise.all([
         Post.find({ status: "published" }).sort({ createdAt: -1 }).limit(15).lean(),
         Post.find({ status: "published" }).sort({ createdAt: -1 }).limit(15).lean(),
+        getActiveBoxTemplate("blog-related"),
+        getActiveBoxTemplate("blog-box"),
     ]);
 
     const latestPosts = latestDocs.map((p: any) => ({
@@ -204,6 +206,8 @@ registerServerDataHook("blog", async (_id, _slug, data) => {
         slug: String(p.slug ?? ''),
     }));
 
-    return { categoryAncestors, relatedPosts, author, latestPosts, popularPosts };
+    const activeBox = activeBoxRelated || activeBoxDefault || null;
+
+    return { categoryAncestors, relatedPosts, author, latestPosts, popularPosts, activeBox };
 });
 
