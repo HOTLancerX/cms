@@ -229,7 +229,7 @@ export default function ShapeDivider({ value, onChange }: any) {
           {/* Type Selector Grid */}
           <div className="space-y-1.5">
             <span className="text-xs text-gray-500 font-medium">Type</span>
-            <div className="grid grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-2 max-h-55 overflow-y-auto pr-1">
               {Object.entries(SHAPES).map(([key, shape]) => (
                 <button
                   key={key}

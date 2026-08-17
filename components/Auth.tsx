@@ -66,8 +66,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
 
-    const inputCls =
-        "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10";
+    const inputCls = "w-full rounded-xl border text-black border-gray-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10";
 
     // ── Google OAuth ──────────────────────────────────────────────────────────
     const handleGoogle = async () => {
