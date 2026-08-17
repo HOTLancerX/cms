@@ -19,6 +19,7 @@ import { runServerDataHook } from "@/hook/serverDataHooks";
 import { resolveLazyComponent } from "@/hook/pluginHooks";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import mongoose from "mongoose";
 
 export const dynamic = "force-dynamic";
 
@@ -340,7 +341,12 @@ export async function generateMetadata({ params }: RootPageProps): Promise<Metad
         if (postData.userId) {
             const author = await withCache(`user:id:${postData.userId}`, async () => {
                 await connectDB();
-                return User.findOne({ _id: postData.userId }).lean() as Promise<any>;
+                if (mongoose.Types.ObjectId.isValid(postData.userId)) {
+                    return User.findOne({ _id: postData.userId }).lean() as Promise<any>;
+                }
+                return User.findOne({
+                    $or: [{ slug: postData.userId }, { email: postData.userId }],
+                }).lean() as Promise<any>;
             })();
             publisher = author?.name ?? "";
         }
