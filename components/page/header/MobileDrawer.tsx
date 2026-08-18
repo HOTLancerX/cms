@@ -37,9 +37,19 @@ interface MobileDrawerProps {
     items: MenuItem[];
     settings?: Record<string, any>;
     iconColor?: string;
+    icon?: string;
+    iconSize?: number;
+    className?: string;
 }
 
-export default function MobileDrawer({ items, settings = {}, iconColor = 'currentColor' }: MobileDrawerProps) {
+export default function MobileDrawer({
+    items,
+    settings = {},
+    iconColor = 'currentColor',
+    icon = 'ep:menu',
+    iconSize = 30,
+    className = '',
+}: MobileDrawerProps) {
     const [open, setOpen] = useState(false);
 
     // Prevent body scroll when drawer is open
@@ -55,22 +65,22 @@ export default function MobileDrawer({ items, settings = {}, iconColor = 'curren
                 type="button"
                 onClick={() => setOpen(true)}
                 aria-label="Open mobile menu"
-                className="md:hidden p-2 rounded-lg hover:bg-black/10 transition"
+                className={`p-2 rounded-lg hover:bg-black/10 transition ${className || 'md:hidden'}`}
             >
-                <Icon icon="ep:menu" width={30} style={{ color: iconColor }} />
+                <Icon icon={icon} width={iconSize} style={{ color: iconColor }} />
             </button>
 
             {/* Backdrop */}
             {open && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-9998 md:hidden"
+                    className="fixed inset-0 bg-black/50 z-9998"
                     onClick={() => setOpen(false)}
                 />
             )}
 
             {/* Drawer */}
             <div
-                className={`fixed inset-y-0 left-0 z-9999 w-[85vw] max-w-sm bg-white shadow-2xl flex flex-col transition-transform duration-300 md:hidden ${
+                className={`fixed inset-y-0 left-0 z-9999 w-[85vw] max-w-sm bg-white shadow-2xl flex flex-col transition-transform duration-300 ${
                     open ? 'translate-x-0' : '-translate-x-full'
                 }`}
             >
