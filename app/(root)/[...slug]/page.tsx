@@ -64,7 +64,7 @@ async function getPermalinkMap(
             })),
             ...catTypes.map((ct) => ({
                 contentType: ct.key,
-                prefix: `${ct.postType}/category`,
+                prefix: ct.postType ? `${ct.postType}/category` : (ct.key === "location" ? "category/location" : `category/${ct.key}`),
             })),
         ];
         if (toInsert.length > 0) {
@@ -177,7 +177,7 @@ async function getCat(slug: string, type: string) {
         const cat = await Cat.findOne({
             slug,
             type,
-            status: "published",
+            status: { $ne: "trash" },
         }).lean() as any;
 
         if (!cat) return null;
