@@ -1074,7 +1074,7 @@ interface SimpleDropdownProps {
 function SimpleDropdown({ item, colors, onMouseEnter, onMouseLeave }: SimpleDropdownProps) {
     const pathname = usePathname();
     return (
-        <ul className="absolute left-0 top-full mt-1 rounded-xl shadow-xl border min-w-55 z-50 py-2"
+        <ul className="absolute left-0 top-full min-w-55 z-50"
             style={{ background: colors.navBoxBg, borderColor: colors.navBorderColor, color: colors.navBoxText }}
             onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
             {(item.children ?? []).map((child) => {
@@ -1082,7 +1082,7 @@ function SimpleDropdown({ item, colors, onMouseEnter, onMouseLeave }: SimpleDrop
                 return (
                     <li key={child.id}>
                         <Link href={child.url}
-                            className="flex items-center gap-2.5 px-4 py-2.5 transition-colors"
+                            className="flex items-center gap-2.5 p-2 transition-colors"
                             style={{ color: isActive ? colors.navHoverText : colors.navBoxText, background: isActive ? colors.navHoverBg : 'transparent', fontSize: colors.navFontSize }}
                             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.navHoverBg; (e.currentTarget as HTMLElement).style.color = colors.navHoverText; }}
                             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isActive ? colors.navHoverBg : 'transparent'; (e.currentTarget as HTMLElement).style.color = isActive ? colors.navHoverText : colors.navBoxText; }}>

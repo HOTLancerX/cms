@@ -284,8 +284,8 @@ function VideoFrontend({ element }: { element: any }) {
         {/* Video Player Render */}
         {source === "self_hosted" ? (
           <video
-            src={selfHostedUrl || externalMp4Url}
-            poster={imageOverlay}
+            src={selfHostedUrl || externalMp4Url || undefined}
+            poster={imageOverlay || undefined}
             controls={controls}
             autoPlay={autoplay || isPlayingOverlay}
             muted={muted}
@@ -293,7 +293,7 @@ function VideoFrontend({ element }: { element: any }) {
             playsInline={playsInline}
             className="absolute inset-0 w-full h-full object-cover z-10"
           />
-        ) : (
+        ) : embedUrl ? (
           <iframe
             src={embedUrl}
             title="Video Player"
@@ -301,6 +301,10 @@ function VideoFrontend({ element }: { element: any }) {
             allowFullScreen
             className="absolute inset-0 w-full h-full z-10 border-0"
           />
+        ) : (
+          <div className="absolute inset-0 w-full h-full z-10 flex items-center justify-center text-gray-500 bg-neutral-900">
+            <span className="text-xs">No video URL configured</span>
+          </div>
         )}
       </div>
 

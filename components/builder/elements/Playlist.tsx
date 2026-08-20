@@ -211,7 +211,7 @@ function PlaylistFrontend({ element }: { element: any }) {
             <div className="lg:col-span-8 bg-black flex items-center justify-center relative">
               <div className={`w-full ${aspectClass} relative overflow-hidden`}>
                 <iframe
-                  src={embedUrl}
+                  src={embedUrl || undefined}
                   title={currentVideo?.title || "Video Player"}
                   className="absolute inset-0 w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -290,7 +290,7 @@ function PlaylistFrontend({ element }: { element: any }) {
             {/* Top Stage */}
             <div className={`w-full ${aspectClass} relative rounded-xl overflow-hidden bg-black`}>
               <iframe
-                src={embedUrl}
+                src={embedUrl || undefined}
                 title={currentVideo?.title || "Video Player"}
                 className="absolute inset-0 w-full h-full border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -344,7 +344,7 @@ function PlaylistFrontend({ element }: { element: any }) {
           <div className="p-4 sm:p-6 space-y-6">
             <div className={`w-full ${aspectClass} relative rounded-xl overflow-hidden bg-black`}>
               <iframe
-                src={embedUrl}
+                src={embedUrl || undefined}
                 title={currentVideo?.title || "Video Player"}
                 className="absolute inset-0 w-full h-full border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -396,7 +396,7 @@ function PlaylistFrontend({ element }: { element: any }) {
           <div className="p-4 sm:p-6 space-y-6">
             <div className={`w-full ${aspectClass} relative rounded-xl overflow-hidden bg-black`}>
               <iframe
-                src={embedUrl}
+                src={embedUrl || undefined}
                 title={currentVideo?.title || "Video Player"}
                 className="absolute inset-0 w-full h-full border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
