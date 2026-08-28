@@ -27,7 +27,7 @@ async function resolveLayout(
     const candidates = rootPages.filter(
         (p) =>
             p.type === type &&
-            p.slug === "layout" &&
+            (p.slug === "layout" || p.slug === "dynamic") &&
             (p.pluginNx === CORE_NX || activeNxSet.has(p.pluginNx!))
     );
 

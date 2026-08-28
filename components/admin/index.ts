@@ -409,6 +409,34 @@ export function register(): void {
         },
     ], CORE_NX);
 
+    // ─── Location cat form fields ───────────────────────────────────────────
+    addHook("cat.form", [
+        {
+            key: "location_image",
+            label: "Location Cover Image",
+            type: "location",
+            style: "right",
+            position: 5,
+            fieldType: "gallery",
+        },
+        {
+            key: "state",
+            label: "State / Division / Region",
+            type: "location",
+            style: "right",
+            position: 10,
+            component: Text,
+        },
+        {
+            key: "country",
+            label: "Country",
+            type: "location",
+            style: "right",
+            position: 15,
+            component: Text,
+        },
+    ], CORE_NX);
+
     // ─── Blog post page templates ────────────────────────────────────────────
     addHook("root.pages", [
         {

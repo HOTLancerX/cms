@@ -79,7 +79,9 @@ async function getPermalinkMap(
 
         const docs = await Permalink.find({}).lean();
         const map: Record<string, string> = {};
-        (docs as any[]).forEach((d: any) => { map[d.contentType] = d.prefix ?? ""; });
+        postTypes.forEach((pt) => { map[pt.key] = pt.key; });
+        catTypes.forEach((ct) => { map[ct.key] = ct.postType ? `${ct.postType}/category` : (ct.key === "location" ? "category/location" : `category/${ct.key}`); });
+        (docs as any[]).forEach((d: any) => { map[d.contentType] = d.prefix ?? d.contentType ?? ""; });
         return map;
     })();
 }
@@ -94,7 +96,27 @@ async function getPost(slug: string, type: string) {
             status: "published",
         }).lean() as any;
 
-        if (!post) return null;
+        if (!post) {
+            // Also check if there's a User with this slug
+            const userDoc = await User.findOne({ slug, status: "active" }).select("-password").lean() as any;
+            if (userDoc) {
+                const userInfoDocs = await UserInfo.find({ userId: userDoc._id }).lean() as any[];
+                const infoMap: Record<string, string> = {};
+                userInfoDocs.forEach((d: any) => { infoMap[d.name] = String(d.value ?? ""); });
+                return {
+                    _id: String(userDoc._id),
+                    title: String(userDoc.name ?? ""),
+                    slug: String(userDoc.slug ?? ""),
+                    type: type,
+                    status: "published",
+                    userId: String(userDoc._id),
+                    createdAt: userDoc.createdAt instanceof Date ? userDoc.createdAt.toISOString() : String(userDoc.createdAt ?? ""),
+                    updatedAt: userDoc.updatedAt instanceof Date ? userDoc.updatedAt.toISOString() : String(userDoc.updatedAt ?? ""),
+                    info: infoMap,
+                };
+            }
+            return null;
+        }
 
         const infoRecords = await PostInfo.find({ postId: post._id }).lean() as any[];
         const infoMap = infoRecords.reduce<Record<string, string>>((acc, r) => {
@@ -338,7 +360,7 @@ export async function generateMetadata({ params }: RootPageProps): Promise<Metad
 
     // ── Try post types ──
     for (const postType of postTypes) {
-        const prefix = permalinkMap[postType.key] ?? "";
+        const prefix = permalinkMap[postType.key] !== undefined ? permalinkMap[postType.key] : postType.key;
         const contentSlug = matchPrefix(slug, prefix);
         if (contentSlug === null) continue;
         const postData = await getPost(contentSlug, postType.key);
@@ -446,8 +468,8 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
         const staticPage = rootPages.find(
             (p) =>
                 ((p.slug === "single" && p.key === slug[0]) ||
-                 (p.type === "single" && (p.key === slug[0] || p.slug === slug[0])) ||
-                 (p.slug === slug[0] && p.type !== "builder" && p.type !== "header" && p.type !== "footer")) &&
+                    (p.type === "single" && (p.key === slug[0] || p.slug === slug[0])) ||
+                    (p.slug === slug[0] && p.type !== "builder" && p.type !== "header" && p.type !== "footer")) &&
                 (p.pluginNx === CORE_NX || activeNxSet.size === 0 || activeNxSet.has(p.pluginNx!))
         );
         if (staticPage) {
@@ -487,7 +509,7 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
 
     // ─── Post types ───────────────────────────────────────────────────────────
     for (const postType of postTypes) {
-        const prefix = permalinkMap[postType.key] ?? "";
+        const prefix = permalinkMap[postType.key] !== undefined ? permalinkMap[postType.key] : postType.key;
         const contentSlug = matchPrefix(slug, prefix);
         if (contentSlug === null) continue;
 

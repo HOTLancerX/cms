@@ -10,3 +10,4 @@ export { ColorPicker } from "./ColorPicker";
 export { CategorySelect } from "./CategorySelect";
 export { CategoryHierarchicalSelect } from "./CategoryHierarchicalSelect";
 export { BuilderSelect } from "./Builder";
+export { default as Iconify } from "./Iconify";
