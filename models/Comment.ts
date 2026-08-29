@@ -3,6 +3,8 @@ import mongoose, { Schema, type Document } from "mongoose";
 export interface ICommentReply {
     content: string;
     createdAt?: Date;
+    authorName?: string;
+    authorRole?: "seller" | "admin";
 }
 
 export interface IComment extends Document {
@@ -17,6 +19,9 @@ export interface IComment extends Document {
     content: string; // main description/comment text (preserves line-by-line whitespace)
     images?: string[]; // uploaded image URLs
     videos?: string[]; // uploaded video URLs
+    orderNumber?: string; // linked order number
+    orderId?: string; // linked order ID
+    verifiedPurchase?: boolean; // true if reviewed by an order purchaser
     status: "pending" | "approved" | "rejected";
     reply?: ICommentReply;
     createdAt: Date;
@@ -36,6 +41,9 @@ const CommentSchema = new Schema<IComment>(
         content: { type: String, required: true },
         images: { type: [String], default: [] },
         videos: { type: [String], default: [] },
+        orderNumber: { type: String, default: "", index: true },
+        orderId: { type: String, default: "" },
+        verifiedPurchase: { type: Boolean, default: false },
         status: {
             type: String,
             enum: ["pending", "approved", "rejected"],
@@ -45,6 +53,8 @@ const CommentSchema = new Schema<IComment>(
         reply: {
             content: { type: String, default: "" },
             createdAt: { type: Date, default: Date.now },
+            authorName: { type: String, default: "" },
+            authorRole: { type: String, enum: ["seller", "admin", ""], default: "" },
         },
     },
     { timestamps: true }
@@ -53,6 +63,8 @@ const CommentSchema = new Schema<IComment>(
 // Compound indexes for fast querying & summary statistics
 CommentSchema.index({ targetId: 1, status: 1, createdAt: -1 });
 CommentSchema.index({ ownerId: 1, status: 1 });
+CommentSchema.index({ userId: 1, orderNumber: 1 });
+CommentSchema.index({ targetType: 1, status: 1, createdAt: -1 });
 
 export default (mongoose.models.Comment as mongoose.Model<IComment>) ||
     mongoose.model<IComment>("Comment", CommentSchema);
