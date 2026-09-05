@@ -70,6 +70,13 @@ const CORE_TABS: Tab[] = [
         settingType: "category",
         description: "Configure responsive desktop, tablet, and mobile grid columns & gaps for category pages.",
     },
+    {
+        key: "openai",
+        label: "OpenAI",
+        icon: "simple-icons:openai",
+        settingType: "openai",
+        description: "Configure OpenAI-compatible API endpoint (URL, model name, and API key).",
+    },
 ];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -181,6 +188,14 @@ export default function AdminSettingsPage() {
                     activePlugins={activePlugins}
                     initialValues={settings}
                     onSuccess={refresh}
+                />
+            )}
+
+            {activeTab === "openai" && (
+                <OpenAITab
+                    activePlugins={activePlugins}
+                    initialValues={settings}
+                    onSaved={refresh}
                 />
             )}
         </div>
@@ -1834,6 +1849,87 @@ function NavTab({
                 type="nav"
                 activePlugins={activePlugins}
                 initialValues={live}
+                onSuccess={onSaved}
+            />
+        </div>
+    );
+}
+
+// ─── OpenAI tab ─────────────────────────────────────────────────────────────
+
+function OpenAITab({
+    activePlugins,
+    initialValues,
+    onSaved,
+}: {
+    activePlugins: string[];
+    initialValues: Record<string, any>;
+    onSaved?: () => void;
+}) {
+    const rawKey = (initialValues.openai_api_key as string) || "";
+    const maskedKey = rawKey.length > 8
+        ? `${rawKey.slice(0, 7)}...${rawKey.slice(-4)}`
+        : rawKey ? "••••••••" : "";
+    const baseUrl = (initialValues.openai_base_url as string) || "";
+    const currentModel = (initialValues.openai_model as string) || "";
+    const isConfigured = Boolean(baseUrl && currentModel && rawKey);
+
+    return (
+        <div className="space-y-8">
+            {/* Overview / Status banner */}
+            <div className="rounded-2xl border border-gray-200 bg-linear-to-r from-gray-50 via-white to-gray-50 p-6 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gray-900 text-white flex items-center justify-center shadow-sm shrink-0">
+                            <Icon icon="simple-icons:openai" width={22} height={22} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-sm font-bold text-gray-900">OpenAI Compatible API</h3>
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                                    isConfigured
+                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                        : "bg-amber-50 text-amber-700 border border-amber-200"
+                                }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isConfigured ? "bg-emerald-500" : "bg-amber-500"}`} />
+                                    {isConfigured ? "Configured" : "Incomplete Setup"}
+                                </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                Connect any OpenAI-compatible provider (OpenAI, OpenRouter, Groq, DeepSeek, Ollama, etc.) with just URL, model name, and API key.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Status metrics bar */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-gray-100">
+                    <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-2xs">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 block">API Base URL</span>
+                        <p className={`text-xs font-bold mt-0.5 font-mono truncate ${baseUrl ? "text-gray-800" : "text-gray-400"}`}>
+                            {baseUrl || "e.g. https://api.openai.com/v1"}
+                        </p>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-2xs">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 block">Model Name</span>
+                        <p className={`text-xs font-bold mt-0.5 font-mono truncate ${currentModel ? "text-gray-800" : "text-gray-400"}`}>
+                            {currentModel || "e.g. gpt-4o"}
+                        </p>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-2xs">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 block">API Key</span>
+                        <p className={`text-xs font-bold mt-0.5 font-mono truncate ${rawKey ? "text-gray-800" : "text-red-500"}`}>
+                            {maskedKey || "Not configured"}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Form settings */}
+            <FormSettings
+                type="openai"
+                activePlugins={activePlugins}
+                initialValues={initialValues}
                 onSuccess={onSaved}
             />
         </div>

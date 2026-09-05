@@ -1055,4 +1055,33 @@ export function register(): void {
             component: Number,
         },
     ], CORE_NX);
+
+    // ─── OpenAI Compatible API settings ──────────────────────────────────────
+    // type: "openai" → appears on the OpenAI tab of the Settings page
+    addHook("setting.form", [
+        {
+            key: "openai_base_url",
+            label: "API Base URL",
+            type: "openai",
+            style: "left",
+            position: 10,
+            component: Text,
+        },
+        {
+            key: "openai_model",
+            label: "Model Name",
+            type: "openai",
+            style: "left",
+            position: 20,
+            component: Text,
+        },
+        {
+            key: "openai_api_key",
+            label: "API Key",
+            type: "openai",
+            style: "right",
+            position: 10,
+            component: Text,
+        },
+    ], CORE_NX);
 }

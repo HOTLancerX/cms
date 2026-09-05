@@ -29,6 +29,7 @@ import type { PostTypeField, CatTypeField } from '@/hook';
 import { xFetch } from '@/lib/express';
 import Gallery from '@/components/Gallery';
 import IconifyPicker from '@/components/ui/Iconify';
+import AiMenuModal from './AiMenuModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ export interface MenuItem {
     order: number;
 }
 
-interface AvailableItem {
+export interface AvailableItem {
     id: string;
     title: string;
     slug: string;
@@ -78,13 +79,13 @@ interface AvailableItem {
     parentId?: string | null;
 }
 
-interface BuilderDoc {
+export interface BuilderDoc {
     _id: string;
     title: string;
     status: string;
 }
 
-interface ItemGroup {
+export interface ItemGroup {
     label: string;
     pluginNx: string;
     kind: 'post' | 'cat';
@@ -147,6 +148,22 @@ export default function MenuForm({ menuId }: MenuFormProps) {
     const [loading,   setLoading]   = useState(false);
     const [saving,    setSaving]    = useState(false);
     const [saved,     setSaved]     = useState(false);
+
+    // ── AI Modal state ────────────────────────────────────────────────────────
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+
+    const handleApplyAiMenu = (
+        items: MenuItem[],
+        options: { title?: string; location?: string; mode: 'replace' | 'append' }
+    ) => {
+        if (options.title) setTitle(options.title);
+        if (options.location) setLocations((prev) => Array.from(new Set([...prev, options.location!])));
+        if (options.mode === 'replace') {
+            setMenuItems(items);
+        } else {
+            setMenuItems((prev) => [...prev, ...items.map((it, idx) => ({ ...it, order: prev.length + idx }))]);
+        }
+    };
 
     // ── Dynamic item groups ───────────────────────────────────────────────────
     const [groups,      setGroups]      = useState<ItemGroup[]>([]);
@@ -881,6 +898,15 @@ export default function MenuForm({ menuId }: MenuFormProps) {
     // ─── Main render ──────────────────────────────────────────────────────────
     return (
         <>
+            {/* AI Menu Generator Modal Component */}
+            <AiMenuModal
+                isOpen={isAiModalOpen}
+                onClose={() => setIsAiModalOpen(false)}
+                onApply={handleApplyAiMenu}
+                groups={groups}
+                existingMenuItemsCount={menuItems.length}
+            />
+
             {/* Edit modal portal - rendered inline to preserve input focus & cursor state */}
             {editingItem && typeof window !== 'undefined' && createPortal(
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1299,17 +1325,27 @@ export default function MenuForm({ menuId }: MenuFormProps) {
                 document.body
             )}
             <form onSubmit={handleSubmit}>
-                {/* Title + Save */}
-                <div className="mb-6 flex items-end gap-2">
-                    <div className="flex-1">
+                {/* Title + Save + AI button */}
+                <div className="mb-6 flex flex-wrap items-end gap-3 justify-between">
+                    <div className="flex-1 min-w-[240px]">
                         <label className="block mb-2 font-medium">{menuId ? 'Edit Title' : 'Create Title'}</label>
                         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
                             className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 bg-white" required />
                     </div>
-                    <button type="submit" disabled={saving}
-                        className={`px-6 py-2 rounded transition-colors text-white ${saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-gray-400`}>
-                        {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Menu'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsAiModalOpen(true)}
+                            className="px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold text-sm transition shadow-sm flex items-center gap-2 cursor-pointer"
+                        >
+                            <Icon icon="solar:stars-bold" width={18} className="text-amber-300" />
+                            <span>AI Menu Generator</span>
+                        </button>
+                        <button type="submit" disabled={saving}
+                            className={`px-6 py-2 rounded-lg transition-colors text-white ${saved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-gray-400 font-semibold text-sm`}>
+                            {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Menu'}
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1384,8 +1420,22 @@ export default function MenuForm({ menuId }: MenuFormProps) {
                         </p>
 
                         {menuItems.length === 0 ? (
-                            <div className="text-center py-12 bg-gray-50 rounded-lg">
-                                <p className="text-gray-400">No menu items yet. Add items from the left panel.</p>
+                            <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300 p-6 space-y-3">
+                                <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+                                    <Icon icon="solar:stars-bold" width={24} />
+                                </div>
+                                <div>
+                                    <p className="text-gray-600 font-semibold">No menu items yet</p>
+                                    <p className="text-gray-400 text-xs mt-1">Add items from the left panel or generate a complete responsive menu with AI.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAiModalOpen(true)}
+                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-semibold hover:opacity-95 transition shadow-xs cursor-pointer"
+                                >
+                                    <Icon icon="solar:magic-stick-3-bold" width={16} />
+                                    <span>Create Menu with AI</span>
+                                </button>
                             </div>
                         ) : (
                             <>

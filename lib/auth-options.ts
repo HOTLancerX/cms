@@ -24,6 +24,17 @@ export const authOptions: AuthOptions = {
         error:  "/login",
     },
 
+    logger: {
+        error(code, metadata) {
+            // Suppress harmless decryption failures caused by stale or rotated cookies
+            if (code === "JWT_SESSION_ERROR") return;
+            console.error(`[next-auth][${code}]`, metadata);
+        },
+        warn(code) {
+            console.warn(`[next-auth][${code}]`);
+        },
+    },
+
     providers: [
         CredentialsProvider({
             name: "Credentials",
