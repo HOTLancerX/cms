@@ -22,13 +22,6 @@ export const DEFAULT_USER_NAV: UserNavItem[] = [
         position: 1,
     },
     {
-        key:      "account-orders",
-        label:    "My Orders",
-        icon:     "solar:bag-bold",
-        href:     "/account/orders",
-        position: 2,
-    },
-    {
         key:      "account-messages",
         label:    "Messages",
         icon:     "solar:chat-round-dots-bold",
