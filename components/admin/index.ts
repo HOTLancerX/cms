@@ -480,7 +480,7 @@ export function register(): void {
             slug: "dynamic",
             style: "left",
             position: 20,
-            active: false,
+            active: true,
             component: BlogCategoryLayout2,
         },
     ], CORE_NX);
@@ -515,7 +515,7 @@ export function register(): void {
     addHook("root.pages", [
         {
             key: "page",
-            label: "Page Layout 1",
+            label: "Page 1",
             type: "page",
             slug: "dynamic",
             style: "left",
@@ -525,12 +525,12 @@ export function register(): void {
         },
         {
             key: "page",
-            label: "Page Layout 2",
+            label: "Page 2",
             type: "page",
             slug: "dynamic",
             style: "left",
             position: 20,
-            active: false,
+            active: true,
             component: PageLayout2,
         },
     ], CORE_NX);
