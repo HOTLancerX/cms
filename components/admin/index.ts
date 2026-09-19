@@ -500,13 +500,13 @@ export function register(): void {
             component: BlogBox1,
         },
         {
-            key: "blog-box",
+            key: "blog-boxs",
             label: "Blog Box 2",
             type: "blog-box",
             slug: "dynamic",
             style: "left",
             position: 20,
-            active: false,
+            active: true,
             component: BlogBox2,
         },
     ], CORE_NX);
@@ -524,7 +524,7 @@ export function register(): void {
             component: PageLayout1,
         },
         {
-            key: "page",
+            key: "pages",
             label: "Page 2",
             type: "page",
             slug: "dynamic",
