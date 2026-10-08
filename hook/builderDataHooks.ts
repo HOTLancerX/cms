@@ -6,8 +6,6 @@
 import React from "react";
 import type { ReactNode } from "react";
 import Menus from "@/components/Menus";
-import "@/plugin/events/lib/builderData";
-import "@/plugin/chaldal/lib/builderData";
 
 // A server component factory: receives the element's schema and optional page data, returns JSX.
 type BuilderElementComponent = (schema: any, data?: any) => ReactNode | Promise<ReactNode>;
