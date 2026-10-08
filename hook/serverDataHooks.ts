@@ -159,7 +159,11 @@ const serverHookContext = require.context(
     /^\.\/[^/]+\/lib\/serverHooks\.(ts|js)$/
 );
 serverHookContext.keys().forEach((key: string) => {
-    serverHookContext(key);
+    try {
+        serverHookContext(key);
+    } catch {
+        // Silently tolerate uninstantiated or stale HMR modules during dev
+    }
 });
 
 // Plugin action hooks (server-only Mongoose action handlers)
@@ -172,7 +176,11 @@ const actionHookContext = require.context(
     /^\.\/[^/]+\/lib\/actionHooks\.(ts|js)$/
 );
 actionHookContext.keys().forEach((key: string) => {
-    actionHookContext(key);
+    try {
+        actionHookContext(key);
+    } catch {
+        // Silently tolerate uninstantiated or stale HMR modules during dev
+    }
 });
 
 // Core server hooks — always registered regardless of active plugins

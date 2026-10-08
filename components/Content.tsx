@@ -1,15 +1,12 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import 'suneditor/dist/css/suneditor.min.css';
 import { GalleryModal } from './Gallery';
 import { Icon } from '@iconify/react';
 import { useToast } from './ui/Toast';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { xFetch } from '@/lib/express';
-
-const SunEditor = dynamic(() => import("suneditor-react"), { ssr: false });
 
 interface ContentProps {
     content: string;
@@ -19,10 +16,13 @@ interface ContentProps {
     slug?: string; // auto-select prompt by slug (unique per type)
 }
 
-
 export default function Content({ content, onChange, label = "Content", title, slug }: ContentProps) {
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [editorInstance, setEditorInstance] = useState<any>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
+
     const { error: toastError, warning } = useToast();
 
     // Gemini AI states
@@ -59,31 +59,98 @@ export default function Content({ content, onChange, label = "Content", title, s
             .catch(() => { });
     }, [slug]);
 
-    // Clean up empty paragraph tags when editor loads
+    // Initialize SunEditor with English language
     useEffect(() => {
-        if (editorInstance && content) {
-            // Create a temporary div to parse HTML and check if there's actual text content
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
-            const textContent = tempDiv.textContent || tempDiv.innerText || '';
+        let editor: any;
+        let isMounted = true;
 
-            // Only clear if there's no actual text content (just empty tags)
-            if (textContent.trim() === '') {
-                editorInstance.setContents('');
+        async function initEditor() {
+            if (!textareaRef.current) return;
+            const suneditor = (await import('suneditor')).default;
+            const pluginsMod = await import('suneditor/src/plugins');
+            const langMod = await import('suneditor/src/lang/en');
+
+            const plugins = pluginsMod.default || pluginsMod;
+            const lang = langMod.default || langMod;
+
+            if (!isMounted || !textareaRef.current) return;
+
+            editor = suneditor.create(textareaRef.current, {
+                plugins: plugins as any,
+                lang: lang as any,
+                width: '100%',
+                buttonList: [
+                    [
+                        "formatBlock",
+                        "bold",
+                        "underline",
+                        "italic",
+                        "blockquote",
+                        "fontColor",
+                        "hiliteColor",
+                        "textStyle",
+                        "removeFormat",
+                        "align",
+                        "horizontalRule",
+                        "list",
+                        "lineHeight",
+                        "table",
+                        "link",
+                        "image",
+                        "video",
+                        "audio",
+                        "codeView",
+                    ],
+                ],
+                mode: 'classic',
+                placeholder: 'Start writing...',
+            });
+
+            if (content) {
+                editor.setContents(content);
+            }
+
+            editor.onChange = (contents: string) => {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = contents || '';
+                const textContent = tempDiv.textContent || tempDiv.innerText || '';
+                const cleanContent = textContent.trim() === '' ? '' : contents;
+                onChangeRef.current(cleanContent);
+            };
+
+            editor.onSave = (contents: string) => {
+                onChangeRef.current(contents);
+            };
+
+            setEditorInstance(editor);
+        }
+
+        initEditor();
+
+        return () => {
+            isMounted = false;
+            if (editor) {
+                editor.destroy();
+            }
+        };
+    }, []);
+
+    // Sync external content changes if editor already initialized and value is different
+    useEffect(() => {
+        if (editorInstance && content !== undefined) {
+            const currentContents = editorInstance.getContents() || '';
+            if (content !== currentContents) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = content;
+                const textContent = tempDiv.textContent || tempDiv.innerText || '';
+                if (textContent.trim() === '') {
+                    editorInstance.setContents('');
+                } else {
+                    editorInstance.setContents(content);
+                }
             }
         }
-    }, [editorInstance]);
-
-    const handleChange = (content: string) => {
-        // Create a temporary div to parse HTML and check if there's actual text content
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = content || '';
-        const textContent = tempDiv.textContent || tempDiv.innerText || '';
-
-        // Only clear if there's no actual text content (just empty tags)
-        const cleanContent = textContent.trim() === '' ? '' : content;
-        onChange(cleanContent);
-    };
+    }, [content, editorInstance]);
 
     const handleImageSelect = (images: string | string[]) => {
         const imageUrls = Array.isArray(images) ? images : [images];
@@ -99,63 +166,6 @@ export default function Content({ content, onChange, label = "Content", title, s
         }
 
         setIsGalleryOpen(false);
-    };
-
-    const editorOptions = {
-        buttonList: [
-            [
-                "formatBlock",
-                "bold",
-                "underline",
-                "italic",
-                "blockquote",
-                "fontColor",
-                "hiliteColor",
-                "textStyle",
-                "removeFormat",
-                "align",
-                "horizontalRule",
-                "list",
-                "lineHeight",
-                "table",
-                "link",
-                "image",
-                "video",
-                "audio",
-                "codeView",
-            ],
-        ],
-        callBackSave: function (contents: string) {
-            onChange(contents);
-        },
-        imageUploadHandler: () => {
-            setIsGalleryOpen(true);
-            return false;
-        },
-        onImageUploadBefore: () => {
-            setIsGalleryOpen(true);
-            return false;
-        },
-        imageUrlInput: false,
-        defaultTag: '',
-        mode: 'classic' as const,
-        rtl: false,
-        placeholder: 'Start writing...',
-        onLoad: function (core: any) {
-            // Automatically clear empty paragraph on load
-            setTimeout(() => {
-                const currentContent = core.getContents();
-                // Create a temporary div to parse HTML and check if there's actual text content
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = currentContent || '';
-                const textContent = tempDiv.textContent || tempDiv.innerText || '';
-
-                // Only clear if there's no actual text content (just empty tags)
-                if (textContent.trim() === '') {
-                    core.setContents('');
-                }
-            }, 0);
-        },
     };
 
     // Generate content with Gemini (streaming via server route)
@@ -271,12 +281,6 @@ export default function Content({ content, onChange, label = "Content", title, s
                             ) : 'Generate'}
                         </button>
                     </div>
-                    {/*
-                    <p className="text-xs text-gray-600">
-                        <strong>Title:</strong>{' '}
-                        <span className="truncate block max-w-full" title={title}>{title}</span>
-                    </p>
-                    */}
                 </div>
             )}
 
@@ -299,14 +303,8 @@ export default function Content({ content, onChange, label = "Content", title, s
                 </div>
             )}
 
-            <SunEditor
-                defaultValue={content || ''}
-                onChange={handleChange}
-                setOptions={editorOptions}
-                getSunEditorInstance={(sunEditor) => {
-                    setEditorInstance(sunEditor);
-                }}
-            />
+            {/* SunEditor v3 mount point */}
+            <textarea ref={textareaRef} style={{ display: 'none' }} />
 
             {/* Reuse GalleryModal from Gallery component - DRY principle */}
             <GalleryModal

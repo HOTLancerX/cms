@@ -173,6 +173,8 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
 
     // ── Logged IN ─────────────────────────────────────────────────────────────
     const badge = ROLE_BADGE[user.type] ?? ROLE_BADGE.user;
+    const displayName = user.name || user.email?.split("@")[0] || "User";
+    const initial = (displayName.charAt(0) || "U").toUpperCase();
 
     return (
         <div className="relative" ref={popupRef}>
@@ -196,12 +198,12 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                     {user.image ? (
                         <img
                             src={user.image}
-                            alt={user.name}
+                            alt={displayName}
                             className="w-8 h-8 rounded-full object-cover"
                         />
                     ) : (
                         <div className="w-8 h-8 rounded-full bg-indigo-150 flex items-center justify-center text-indigo-750 font-bold text-xs">
-                            {user.name.charAt(0).toUpperCase()}
+                            {initial}
                         </div>
                     )}
                 </button>
@@ -213,16 +215,16 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                     {user.image ? (
                         <img
                             src={user.image}
-                            alt={user.name}
+                            alt={displayName}
                             className="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-200"
                         />
                     ) : (
                         <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm ring-2 ring-indigo-200">
-                            {user.name.charAt(0).toUpperCase()}
+                            {initial}
                         </div>
                     )}
                     <span className="hidden sm:block text-sm font-medium text-gray-700 max-w-30 truncate">
-                        {user.name}
+                        {displayName}
                     </span>
                     <Icon
                         icon="solar:alt-arrow-down-bold"
@@ -240,22 +242,22 @@ export default function AuthAc({ style = 0 }: AuthAcProps) {
                             {user.image ? (
                                 <img
                                     src={user.image}
-                                    alt={user.name}
+                                    alt={displayName}
                                     className="w-10 h-10 rounded-full object-cover"
                                 />
                             ) : (
                                 <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                                    {user.name.charAt(0).toUpperCase()}
+                                    {initial}
                                 </div>
                             )}
                             <div className="min-w-0">
                                 <p className="text-sm font-semibold text-gray-900 truncate">
-                                    {user.name}
+                                    {displayName}
                                     <span className={`ml-1 inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${badge.cls}`}>
                                         {badge.label}
                                     </span>
                                 </p>
-                                <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                                <p className="text-xs text-gray-500 truncate">{user.email || ""}</p>
                             </div>
                         </div>
                     </div>

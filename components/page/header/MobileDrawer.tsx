@@ -129,18 +129,25 @@ export default function MobileDrawer({
 function DrawerItems({ items, onClose, depth }: { items: MenuItem[]; onClose: () => void; depth: number }) {
     return (
         <ul className="divide-y divide-gray-200">
-            {items.map((item) => (
-                <DrawerItem key={item.id} item={item} onClose={onClose} depth={depth} />
+            {items.map((item, idx) => (
+                <DrawerItem
+                    key={(item as any).id || (item as any)._id || item.url || (item as any).label || (item as any).title || `drawer-item-${depth}-${idx}`}
+                    item={item}
+                    onClose={onClose}
+                    depth={depth}
+                />
             ))}
         </ul>
     );
 }
 
 function DrawerItem({ item, onClose, depth }: { item: MenuItem; onClose: () => void; depth: number }) {
-    const pathname = usePathname();
+    const pathname = usePathname() || '';
     const [expanded, setExpanded] = useState(false);
     const hasChildren = (item.children?.length ?? 0) > 0;
     const isActive = isItemOrChildActive(item, pathname);
+    const label = item.label || (item as any).title || 'Menu Item';
+    const url = item.url || (item as any).link?.url || (item as any).href || '#';
 
     return (
         <li>
@@ -151,17 +158,17 @@ function DrawerItem({ item, onClose, depth }: { item: MenuItem; onClose: () => v
                 style={{ paddingLeft: depth > 0 ? `${12 + depth * 16}px` : undefined }}
             >
                 {item.image && (
-                    <Image width={24} height={24} src={item.image} alt={item.label}
+                    <Image width={24} height={24} src={item.image} alt={label}
                         className="w-6 h-6 object-cover rounded shrink-0" unoptimized />
                 )}
                 <Link
-                    href={item.url}
+                    href={url}
                     onClick={onClose}
                     className={`flex-1 text-sm font-medium transition-colors ${
                         isActive ? 'text-emerald-700 font-bold' : 'text-gray-800'
                     }`}
                 >
-                    {item.label}
+                    {label}
                 </Link>
                 {hasChildren && (
                     <button

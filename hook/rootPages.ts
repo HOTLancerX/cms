@@ -37,9 +37,13 @@ registerCoreHooks(coreRegister);
 // Call register() on every plugin — addHook("root.pages") writes to the
 // permanent store which deduplicates, so repeated calls are safe.
 pluginContext.keys().forEach((key: string) => {
-    const mod = pluginContext(key);
-    if (typeof mod.register === "function") {
-        mod.register();
+    try {
+        const mod = pluginContext(key);
+        if (mod && typeof mod.register === "function") {
+            mod.register();
+        }
+    } catch (err) {
+        // Silently tolerate uninstantiated or stale HMR modules during dev
     }
 });
 
@@ -48,9 +52,13 @@ pluginContext.keys().forEach((key: string) => {
  */
 export function getRootPages(): FormHookField[] {
     pluginContext.keys().forEach((key: string) => {
-        const mod = pluginContext(key);
-        if (typeof mod.register === "function") {
-            mod.register();
+        try {
+            const mod = pluginContext(key);
+            if (mod && typeof mod.register === "function") {
+                mod.register();
+            }
+        } catch (err) {
+            // Silently tolerate uninstantiated or stale HMR modules during dev
         }
     });
     return getRegisteredRootPages();

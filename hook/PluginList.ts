@@ -39,9 +39,13 @@ interface PluginModule {
 const pluginModules: PluginModule[] = [];
 
 pluginContext.keys().forEach((key: string) => {
-    const mod = pluginContext(key);
-    if (mod.PLUGINS && typeof mod.register === "function") {
-        pluginModules.push(mod as PluginModule);
+    try {
+        const mod = pluginContext(key);
+        if (mod && mod.PLUGINS && typeof mod.register === "function") {
+            pluginModules.push(mod as PluginModule);
+        }
+    } catch (err) {
+        // Silently tolerate uninstantiated or stale HMR modules during dev
     }
 });
 
