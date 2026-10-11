@@ -11,11 +11,50 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Type is required" }, { status: 400 });
         }
 
+        const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+        const limit = Math.max(1, Math.min(100, parseInt(searchParams.get("limit") || "100", 10)));
+        const search = searchParams.get("search")?.trim() || "";
+        const status = searchParams.get("status") || "all";
+        const category = searchParams.get("category") || "all";
+        const seller = searchParams.get("seller") || "all";
+        const sortBy = searchParams.get("sortBy") || "newest";
+
         await connectDB();
 
-        const postsData = await Post.find({ type }).sort({ createdAt: -1 }).lean();
+        const query: any = { type };
+
+        if (status && status !== "all") {
+            query.status = status;
+        }
+        if (category && category !== "all") {
+            query.category = category;
+        }
+        if (seller && seller !== "all") {
+            query.userId = seller;
+        }
+        if (search) {
+            const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            query.$or = [
+                { title: { $regex: escapedSearch, $options: "i" } },
+                { slug: { $regex: escapedSearch, $options: "i" } }
+            ];
+        }
+
+        let sortOptions: any = { createdAt: -1 };
+        if (sortBy === "oldest") {
+            sortOptions = { createdAt: 1 };
+        } else if (sortBy === "title") {
+            sortOptions = { title: 1 };
+        }
+
+        const total = await Post.countDocuments(query);
+        const skip = (page - 1) * limit;
+
+        const postsData = await Post.find(query).sort(sortOptions).skip(skip).limit(limit).lean();
         const postIds = postsData.map(p => p._id);
-        const infosData = await PostInfo.find({ postId: { $in: postIds } }).lean();
+        const infosData = postIds.length > 0
+            ? await PostInfo.find({ postId: { $in: postIds } }).lean()
+            : [];
 
         return NextResponse.json({
             posts: postsData.map(p => ({
@@ -29,7 +68,11 @@ export async function GET(request: NextRequest) {
                 ...i,
                 _id: i._id.toString(),
                 postId: i.postId.toString()
-            }))
+            })),
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
         });
     } catch (error) {
         console.error("API Error:", error);

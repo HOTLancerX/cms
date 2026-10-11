@@ -35,7 +35,7 @@ interface RouteParams {
 /** Resolve the canonical base URL from env or a safe fallback. */
 function baseUrl(): string {
     const raw =
-        process.env.NEXT_PUBLIC_APP_URL ??
+        process.env.NEXTAUTH_URL ??
         "http://localhost:3000";
     return raw.startsWith("http") ? raw.replace(/\/$/, "") : `https://${raw}`;
 }

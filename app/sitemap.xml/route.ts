@@ -26,7 +26,7 @@ const URLS_PER_PAGE = 500;
 /** Resolve the canonical base URL from env or a safe fallback. */
 function baseUrl(): string {
     const raw =
-        process.env.NEXT_PUBLIC_APP_URL ??
+        process.env.NEXTAUTH_URL ??
         "http://localhost:3000";
     // VERCEL_URL has no protocol
     return raw.startsWith("http") ? raw.replace(/\/$/, "") : `https://${raw}`;

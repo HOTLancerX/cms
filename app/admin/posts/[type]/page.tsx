@@ -13,6 +13,8 @@ const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost
 const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";
 const xHeaders = { "x-license-key": LICENSE_KEY };
 
+const PAGE_SIZE = 20;
+
 interface PostsListPageProps {
     params: Promise<{ type: string }>;
 }
@@ -27,14 +29,17 @@ export default async function PostsListPage({ params }: PostsListPageProps) {
     // Direct database connection for backend synchronization
     await connectDB();
 
-    const postsData = await Post.find({ type }).sort({ createdAt: -1 }).lean();
-    const postIds = postsData.map(p => p._id);
-    const infosData = await PostInfo.find({ postId: { $in: postIds } }).lean();
-
-    const [catsData, usersData] = await Promise.all([
+    const [totalPosts, postsData, catsData, usersData] = await Promise.all([
+        Post.countDocuments({ type }),
+        Post.find({ type }).sort({ createdAt: -1 }).limit(PAGE_SIZE).lean(),
         Cat.find().lean(),
         User.find().select("-password").lean()
     ]);
+
+    const postIds = postsData.map(p => p._id);
+    const infosData = postIds.length > 0 
+        ? await PostInfo.find({ postId: { $in: postIds } }).lean()
+        : [];
 
     const permalinkRes = await fetch(`${EXPRESS_API}/permalink`, { headers: xHeaders, cache: "no-store" });
     const permalinkMap: Record<string, string> = permalinkRes.ok ? await permalinkRes.json() : {};
@@ -72,6 +77,8 @@ export default async function PostsListPage({ params }: PostsListPageProps) {
         <PostsListClient
             initialPosts={posts as any}
             initialInfos={infos as any}
+            initialTotal={totalPosts}
+            initialLimit={PAGE_SIZE}
             type={type}
             postType={postType}
             viewBase={viewBase}
@@ -82,3 +89,4 @@ export default async function PostsListPage({ params }: PostsListPageProps) {
         />
     );
 }
+

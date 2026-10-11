@@ -211,7 +211,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const title = `${formattedQuery} - Search Results`;
   const description = `Browse search results for ${formattedQuery}.`;
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
   const canonicalUrl = `${baseUrl}/search/${slug}${type !== 'all' ? `?type=${type}` : ''}`;
 
   return {
@@ -260,7 +260,7 @@ export default async function SearchPage({ params, searchParams }: PageProps) {
   });
 
   const formattedQuery = query.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
   // Flatten results for JSON-LD
   const allResults: any[] = [];

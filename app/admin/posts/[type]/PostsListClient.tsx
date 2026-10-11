@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
+import useSettings from "@/lib/useSettings";
 
 interface User {
     _id: string;
@@ -37,6 +38,8 @@ interface PostInfo {
 interface PostsListClientProps {
     initialPosts: Post[];
     initialInfos: PostInfo[];
+    initialTotal: number;
+    initialLimit?: number;
     type: string;
     postType: { key: string; label: string; icon?: string };
     viewBase: string;
@@ -67,6 +70,8 @@ const STATUS_BADGES: Record<string, { label: string; cls: string; icon: string }
 export default function PostsListClient({
     initialPosts,
     initialInfos,
+    initialTotal,
+    initialLimit = 20,
     type,
     postType,
     viewBase,
@@ -75,10 +80,18 @@ export default function PostsListClient({
     expressApi,
     xHeaders,
 }: PostsListClientProps) {
+    const { settings } = useSettings();
+    const currencySymbol = settings?.product_currency_symbol || settings?.product_currency_symbol || "$";
+
     const [posts, setPosts] = useState<Post[]>(initialPosts);
     const [infos, setInfos] = useState<PostInfo[]>(initialInfos);
+    const [total, setTotal] = useState<number>(initialTotal);
+    const [page, setPage] = useState<number>(1);
+    const [limit, setLimit] = useState<number>(initialLimit);
+    const [loading, setLoading] = useState<boolean>(false);
 
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [sellerFilter, setSellerFilter] = useState("all");
@@ -90,6 +103,16 @@ export default function PostsListClient({
     const [deleteConfirmPost, setDeleteConfirmPost] = useState<Post | null>(null);
     const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
+    const isInitialMount = useRef(true);
+
+    // Debounce search term to avoid spamming the server
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [search]);
+
     // Automatically dismiss notification
     useEffect(() => {
         if (notification) {
@@ -98,20 +121,66 @@ export default function PostsListClient({
         }
     }, [notification]);
 
+    // Fetch paginated data from backend API
+    const loadPosts = useCallback(
+        async (targetPage: number, targetLimit: number, targetSearch: string, targetStatus: string, targetCategory: string, targetSeller: string, targetSort: string) => {
+            setLoading(true);
+            try {
+                const query = new URLSearchParams({
+                    type,
+                    page: targetPage.toString(),
+                    limit: targetLimit.toString(),
+                    search: targetSearch,
+                    status: targetStatus,
+                    category: targetCategory,
+                    seller: targetSeller,
+                    sortBy: targetSort,
+                });
+
+                const res = await fetch(`/api/admin-posts?${query.toString()}`, {
+                    cache: "no-store",
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    setPosts(data.posts || []);
+                    setInfos(data.infos || []);
+                    setTotal(data.total ?? 0);
+                }
+            } catch (err) {
+                console.error("Error fetching posts:", err);
+            } finally {
+                setLoading(false);
+            }
+        },
+        [type]
+    );
+
+    // Trigger data fetching when filters, search, sort, or limit change (resets to page 1)
+    useEffect(() => {
+        if (isInitialMount.current) {
+            return;
+        }
+        setPage(1);
+        loadPosts(1, limit, debouncedSearch, statusFilter, categoryFilter, sellerFilter, sortBy);
+    }, [debouncedSearch, statusFilter, categoryFilter, sellerFilter, sortBy, limit, loadPosts]);
+
+    // Trigger data fetching when page changes specifically
+    const handlePageChange = (newPage: number) => {
+        const maxPage = Math.max(1, Math.ceil(total / limit));
+        if (newPage < 1 || newPage === page || newPage > maxPage) return;
+        setPage(newPage);
+        loadPosts(newPage, limit, debouncedSearch, statusFilter, categoryFilter, sellerFilter, sortBy);
+    };
+
+    // Mark initial mount as completed
+    useEffect(() => {
+        isInitialMount.current = false;
+    }, []);
+
     // Re-fetch helper to keep UI state in sync
     const refreshData = async () => {
-        try {
-            const res = await fetch(`/api/admin-posts?type=${encodeURIComponent(type)}`, {
-                cache: "no-store",
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setPosts(data.posts || []);
-                setInfos(data.infos || []);
-            }
-        } catch (err) {
-            console.error("Error refreshing data:", err);
-        }
+        await loadPosts(page, limit, debouncedSearch, statusFilter, categoryFilter, sellerFilter, sortBy);
     };
 
     // Helper: Map user ID to User
@@ -159,6 +228,14 @@ export default function PostsListClient({
             return null;
         }
         return null;
+    };
+
+    // Helper: Format price with commas (e.g., 65999 -> 65,999)
+    const formatPrice = (val: string | number | undefined | null) => {
+        if (val === undefined || val === null || val === "") return "";
+        const num = typeof val === "number" ? val : parseFloat(String(val).replace(/,/g, ""));
+        if (isNaN(num)) return String(val);
+        return num.toLocaleString();
     };
 
     // Helper: Parse Featured Image from images/image info fields with variant fallback
@@ -293,52 +370,46 @@ export default function PostsListClient({
         }
     };
 
-    // Filter and Sort Logic
-    const filteredPosts = useMemo(() => {
-        return posts
-            .filter((p) => {
-                const searchLower = search.toLowerCase();
-                const matchesSearch =
-                    p.title.toLowerCase().includes(searchLower) ||
-                    p.slug.toLowerCase().includes(searchLower);
-
-                const matchesStatus = statusFilter === "all" || p.status === statusFilter;
-                const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
-                const matchesSeller = sellerFilter === "all" || p.userId === sellerFilter;
-
-                return matchesSearch && matchesStatus && matchesCategory && matchesSeller;
-            })
-            .sort((a, b) => {
-                if (sortBy === "newest") {
-                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                } else if (sortBy === "oldest") {
-                    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-                } else if (sortBy === "title") {
-                    return a.title.localeCompare(b.title);
-                }
-                return 0;
-            });
-    }, [posts, search, statusFilter, categoryFilter, sellerFilter, sortBy]);
-
-    // Collect all unique category IDs used in current post list for dynamic selection
+    // Filter categories relevant for this type
     const availableCategories = useMemo(() => {
-        const ids = new Set(posts.map((p) => p.category).filter(Boolean));
-        return categories.filter((c) => ids.has(c._id));
-    }, [posts, categories]);
-
-    // Collect all unique users used in current posts list
-    const availableSellers = useMemo(() => {
-        const ids = new Set(posts.map((p) => p.userId).filter(Boolean));
-        return users.filter((u) => ids.has(u._id));
-    }, [posts, users]);
+        return categories.filter((c) => !c.type || c.type === type);
+    }, [categories, type]);
 
     // Reset filters helper
     const handleResetFilters = () => {
         setSearch("");
+        setDebouncedSearch("");
         setStatusFilter("all");
         setCategoryFilter("all");
         setSellerFilter("all");
         setSortBy("newest");
+    };
+
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const startItem = total === 0 ? 0 : (page - 1) * limit + 1;
+    const endItem = Math.min(page * limit, total);
+
+    // Generate page buttons with ellipsis
+    const getPageNumbers = () => {
+        const pages: (number | string)[] = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            if (page > 3) {
+                pages.push("...");
+            }
+            const start = Math.max(2, page - 1);
+            const end = Math.min(totalPages - 1, page + 1);
+            for (let i = start; i <= end; i++) {
+                pages.push(i);
+            }
+            if (page < totalPages - 2) {
+                pages.push("...");
+            }
+            pages.push(totalPages);
+        }
+        return pages;
     };
 
     return (
@@ -374,19 +445,19 @@ export default function PostsListClient({
                             </div>
                         </div>
                         <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-                            Are you sure you want to delete <strong className="text-gray-800">"{deleteConfirmPost.title}"</strong>? This action cannot be undone and will delete all custom information associated with it.
+                            Are you sure you want to delete <strong className="text-gray-800">&quot;{deleteConfirmPost.title}&quot;</strong>? This action cannot be undone and will delete all custom information associated with it.
                         </p>
                         <div className="flex items-center justify-end gap-3">
                             <button
                                 onClick={() => setDeleteConfirmPost(null)}
-                                className="px-4.5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-bold transition"
+                                className="px-4.5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-bold transition cursor-pointer"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={() => handleDelete(deleteConfirmPost._id)}
                                 disabled={deletingId === deleteConfirmPost._id}
-                                className="px-4.5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition flex items-center gap-1.5"
+                                className="px-4.5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                             >
                                 {deletingId === deleteConfirmPost._id ? (
                                     <Icon icon="line-md:loading-twotone-loop" width={14} />
@@ -413,17 +484,17 @@ export default function PostsListClient({
                         <div>
                             <h1 className="text-2xl font-bold tracking-tight">{postType.label} Management</h1>
                             <p className="text-indigo-200/70 text-xs mt-0.5 font-medium">
-                                {posts.length} total entries • {filteredPosts.length} matches
+                                {total} total entries {total > 0 && `• Showing ${startItem}–${endItem}`}
                             </p>
                         </div>
                     </div>
                 </div>
                 <div className="z-10 flex items-center gap-3">
                     {/* Reset filter button (if any filter is set) */}
-                    {(search || statusFilter !== "all" || categoryFilter !== "all" || sellerFilter !== "all") && (
+                    {(search || statusFilter !== "all" || categoryFilter !== "all" || sellerFilter !== "all" || sortBy !== "newest") && (
                         <button
                             onClick={handleResetFilters}
-                            className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white px-3.5 py-2.5 rounded-xl text-xs font-semibold backdrop-blur-xs transition"
+                            className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white px-3.5 py-2.5 rounded-xl text-xs font-semibold backdrop-blur-xs transition cursor-pointer"
                             title="Reset all search queries and active filters"
                         >
                             <Icon icon="solar:restart-bold" width={14} />
@@ -458,7 +529,7 @@ export default function PostsListClient({
                         {search && (
                             <button
                                 onClick={() => setSearch("")}
-                                className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-gray-400 hover:text-gray-600 transition"
+                                className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-gray-400 hover:text-gray-600 transition cursor-pointer"
                             >
                                 <Icon icon="solar:close-circle-bold" width={16} />
                             </button>
@@ -470,7 +541,7 @@ export default function PostsListClient({
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3.5 py-2 rounded-xl text-sm focus:outline-hidden focus:border-main focus:bg-white transition text-gray-700 font-medium"
+                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3.5 py-2 rounded-xl text-sm focus:outline-hidden focus:border-main focus:bg-white transition text-gray-700 font-medium cursor-pointer"
                         >
                             <option value="all">All Statuses</option>
                             <option value="published">Published</option>
@@ -487,7 +558,7 @@ export default function PostsListClient({
                         <select
                             value={categoryFilter}
                             onChange={(e) => setCategoryFilter(e.target.value)}
-                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3.5 py-2 rounded-xl text-sm focus:outline-hidden focus:border-main focus:bg-white transition text-gray-700 font-medium"
+                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3.5 py-2 rounded-xl text-sm focus:outline-hidden focus:border-main focus:bg-white transition text-gray-700 font-medium cursor-pointer"
                         >
                             <option value="all">All Categories</option>
                             {availableCategories.map((c) => (
@@ -506,10 +577,10 @@ export default function PostsListClient({
                         <select
                             value={sellerFilter}
                             onChange={(e) => setSellerFilter(e.target.value)}
-                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3.5 py-2 rounded-xl text-sm focus:outline-hidden focus:border-main focus:bg-white transition text-gray-700 font-medium"
+                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3.5 py-2 rounded-xl text-sm focus:outline-hidden focus:border-main focus:bg-white transition text-gray-700 font-medium cursor-pointer"
                         >
                             <option value="all">All Sellers</option>
-                            {availableSellers.map((u) => (
+                            {users.map((u) => (
                                 <option key={u._id} value={u._id}>
                                     {u.name}
                                 </option>
@@ -525,7 +596,7 @@ export default function PostsListClient({
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
-                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-xl text-sm focus:outline-hidden focus:border-main focus:bg-white transition text-gray-700 font-medium"
+                            className="appearance-none w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-xl text-sm focus:outline-hidden focus:border-main focus:bg-white transition text-gray-700 font-medium cursor-pointer"
                             title="Sort Results"
                         >
                             <option value="newest">Newest</option>
@@ -545,7 +616,7 @@ export default function PostsListClient({
                         {search && (
                             <span className="inline-flex items-center gap-1 bg-indigo-50 text-main px-2.5 py-1 rounded-lg">
                                 Search: &quot;{search}&quot;
-                                <button onClick={() => setSearch("")} className="hover:text-indigo-900">
+                                <button onClick={() => setSearch("")} className="hover:text-indigo-900 cursor-pointer">
                                     <Icon icon="solar:close-circle-bold" width={14} />
                                 </button>
                             </span>
@@ -553,7 +624,7 @@ export default function PostsListClient({
                         {statusFilter !== "all" && (
                             <span className="inline-flex items-center gap-1 bg-indigo-50 text-main px-2.5 py-1 rounded-lg">
                                 Status: {statusFilter}
-                                <button onClick={() => setStatusFilter("all")} className="hover:text-indigo-900">
+                                <button onClick={() => setStatusFilter("all")} className="hover:text-indigo-900 cursor-pointer">
                                     <Icon icon="solar:close-circle-bold" width={14} />
                                 </button>
                             </span>
@@ -561,7 +632,7 @@ export default function PostsListClient({
                         {categoryFilter !== "all" && (
                             <span className="inline-flex items-center gap-1 bg-indigo-50 text-main px-2.5 py-1 rounded-lg">
                                 Category: {categoryMap.get(categoryFilter)?.title || categoryFilter}
-                                <button onClick={() => setCategoryFilter("all")} className="hover:text-indigo-900">
+                                <button onClick={() => setCategoryFilter("all")} className="hover:text-indigo-900 cursor-pointer">
                                     <Icon icon="solar:close-circle-bold" width={14} />
                                 </button>
                             </span>
@@ -569,7 +640,7 @@ export default function PostsListClient({
                         {sellerFilter !== "all" && (
                             <span className="inline-flex items-center gap-1 bg-indigo-50 text-main px-2.5 py-1 rounded-lg">
                                 Seller: {userMap.get(sellerFilter)?.name || sellerFilter}
-                                <button onClick={() => setSellerFilter("all")} className="hover:text-indigo-900">
+                                <button onClick={() => setSellerFilter("all")} className="hover:text-indigo-900 cursor-pointer">
                                     <Icon icon="solar:close-circle-bold" width={14} />
                                 </button>
                             </span>
@@ -578,214 +649,333 @@ export default function PostsListClient({
                 )}
             </div>
 
-            {/* Posts Grid/Table */}
-            {filteredPosts.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-xs text-gray-400">
-                    <Icon
-                        icon={postType.icon ?? "solar:document-bold"}
-                        width={54}
-                        className="mx-auto mb-3 opacity-30 text-indigo-400"
-                    />
-                    <p className="font-semibold text-gray-700 text-sm">No {postType.label.toLowerCase()} items found.</p>
-                    <p className="text-xs text-gray-400 mt-1">Try tweaking your search keywords or filter settings.</p>
-                    <button
-                        onClick={handleResetFilters}
-                        className="mt-4 inline-flex items-center gap-1.5 text-xs text-main hover:text-main font-bold bg-indigo-50 hover:bg-indigo-100/70 px-3.5 py-2 rounded-xl transition"
-                    >
-                        <Icon icon="solar:restart-bold" width={14} />
-                        Clear All Filters
-                    </button>
-                </div>
-            ) : (
-                <div className="overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left border-collapse">
-                            <thead>
-                                <tr className="bg-gray-50/75 border-b border-gray-100 text-xs text-gray-500 uppercase font-bold tracking-wider">
-                                    <th className="px-5 py-4 w-20">Item</th>
-                                    <th className="px-5 py-4">Title & Slug</th>
-                                    <th className="px-5 py-4">Category</th>
-                                    <th className="px-5 py-4">Seller</th>
-                                    <th className="px-5 py-4 text-right">Price</th>
-                                    <th className="px-5 py-4">Status</th>
-                                    <th className="px-5 py-4">Created</th>
-                                    <th className="px-5 py-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredPosts.map((post) => {
-                                    const badge = STATUS_BADGES[post.status] ?? STATUS_BADGES.draft;
-                                    const seller = userMap.get(post.userId);
-                                    const category = categoryMap.get(post.category || "");
-                                    const featuredImage = getFeaturedImage(post._id);
-                                    const priceInfo = getPriceInfo(post._id);
-
-                                    return (
-                                        <tr key={post._id} className="hover:bg-gray-50/70 transition-colors">
-                                            {/* Featured Image */}
-                                            <td className="px-5 py-3.5">
-                                                {featuredImage ? (
-                                                    <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-gray-100 shadow-xs shrink-0 group">
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img
-                                                            src={featuredImage}
-                                                            alt={post.title}
-                                                            className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-300"
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <div className="w-12 h-12 rounded-xl bg-gray-100 border border-dashed border-gray-200 flex items-center justify-center text-gray-400 shrink-0">
-                                                        <Icon icon="solar:camera-minimalistic-linear" width={20} />
-                                                    </div>
-                                                )}
-                                            </td>
-
-                                            {/* Title & Slug */}
-                                            <td className="px-5 py-3.5">
-                                                <div className="max-w-70">
-                                                    <p className="font-bold text-gray-800 line-clamp-1 truncate" title={post.title}>
-                                                        {post.title}
-                                                    </p>
-                                                    <p className="text-[10px] text-gray-400 font-mono line-clamp-1 mt-0.5">
-                                                        {post.slug}
-                                                    </p>
-                                                </div>
-                                            </td>
-
-                                            {/* Category */}
-                                            <td className="px-5 py-3.5 text-gray-600 font-medium">
-                                                {category ? (
-                                                    <span className="inline-flex items-center gap-1">
-                                                        <Icon icon="solar:folder-with-files-bold" width={14} className="text-gray-400" />
-                                                        {category.title}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-gray-300 italic text-xs">Uncategorized</span>
-                                                )}
-                                            </td>
-
-                                            {/* Seller / Author */}
-                                            <td className="px-5 py-3.5">
-                                                {seller ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700 shrink-0">
-                                                            {seller.name.substring(0, 2).toUpperCase()}
-                                                        </div>
-                                                        <div className="text-xs">
-                                                            <p className="font-semibold text-gray-700 line-clamp-1">{seller.name}</p>
-                                                            <p className="text-[9px] text-gray-400 line-clamp-1">{seller.email}</p>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-gray-300 italic text-xs">No Seller</span>
-                                                )}
-                                            </td>
-
-                                            {/* Pricing */}
-                                            <td className="px-5 py-3.5 text-right font-semibold">
-                                                {priceInfo ? (
-                                                    <div>
-                                                        {priceInfo.type === "single" ? (
-                                                            <div className="text-xs">
-                                                                {priceInfo.selling ? (
-                                                                    <>
-                                                                        <span className="text-main font-bold">${priceInfo.selling}</span>
-                                                                        {priceInfo.regular && (
-                                                                            <span className="text-[10px] text-gray-400 line-through ml-1.5">${priceInfo.regular}</span>
-                                                                        )}
-                                                                    </>
-                                                                ) : (
-                                                                    <span className="text-gray-800">${priceInfo.regular}</span>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="text-xs text-main font-bold">
-                                                                ${priceInfo.min} - ${priceInfo.max}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-gray-300 italic text-xs">—</span>
-                                                )}
-                                            </td>
-
-                                            {/* Status Badge */}
-                                            <td className="px-5 py-3.5">
-                                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${badge.cls}`}>
-                                                    <Icon icon={badge.icon} width={13} />
-                                                    {badge.label}
-                                                </span>
-                                            </td>
-
-                                            {/* Date Created */}
-                                            <td className="px-5 py-3.5 text-gray-400 text-xs font-medium">
-                                                {new Date(post.createdAt).toLocaleDateString(undefined, {
-                                                    year: "numeric",
-                                                    month: "short",
-                                                    day: "numeric"
-                                                })}
-                                            </td>
-
-                                            {/* Action Buttons with Icon + Text */}
-                                            <td className="px-5 py-3.5 text-right">
-                                                <div className="flex flex-wrap items-center justify-end gap-2">
-                                                    {/* View */}
-                                                    <Link
-                                                        href={`${viewBase}${post.slug}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition ${
-                                                            post.status === "published"
-                                                                ? "bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100"
-                                                                : "pointer-events-none opacity-40 bg-gray-50 text-gray-400 border-gray-100"
-                                                        }`}
-                                                    >
-                                                        <Icon icon="solar:eye-bold" width={13} />
-                                                        View
-                                                    </Link>
-
-                                                    {/* Edit */}
-                                                    <Link
-                                                        href={`/admin/posts/${type}/${post._id}`}
-                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 transition"
-                                                    >
-                                                        <Icon icon="solar:pen-bold" width={13} />
-                                                        Edit
-                                                    </Link>
-
-                                                    {/* Duplicate / Clone */}
-                                                    <button
-                                                        onClick={() => handleClone(post)}
-                                                        disabled={cloningId === post._id}
-                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-violet-50 text-violet-700 border border-violet-100 hover:bg-violet-100 disabled:opacity-40 disabled:hover:bg-transparent transition"
-                                                    >
-                                                        {cloningId === post._id ? (
-                                                            <Icon icon="line-md:loading-twotone-loop" width={13} className="text-violet-700" />
-                                                        ) : (
-                                                            <Icon icon="solar:copy-bold" width={13} />
-                                                        )}
-                                                        Clone
-                                                    </button>
-
-                                                    {/* Delete */}
-                                                    <button
-                                                        onClick={() => setDeleteConfirmPost(post)}
-                                                        disabled={deletingId === post._id}
-                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-100 hover:bg-rose-100 disabled:opacity-40 disabled:hover:bg-transparent transition"
-                                                    >
-                                                        <Icon icon="solar:trash-can-minimalistic-bold" width={13} />
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+            {/* Posts Grid/Table Container */}
+            <div className="relative">
+                {/* Loading indicator overlay */}
+                {loading && (
+                    <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-20 flex items-center justify-center rounded-2xl min-h-50">
+                        <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white rounded-xl shadow-md border border-gray-100 text-indigo-700 font-semibold text-xs">
+                            <Icon icon="line-md:loading-twotone-loop" width={20} className="text-indigo-600" />
+                            <span>Loading {postType.label}...</span>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+
+                {posts.length === 0 && !loading ? (
+                    <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-xs text-gray-400">
+                        <Icon
+                            icon={postType.icon ?? "solar:document-bold"}
+                            width={54}
+                            className="mx-auto mb-3 opacity-30 text-indigo-400"
+                        />
+                        <p className="font-semibold text-gray-700 text-sm">No {postType.label.toLowerCase()} items found.</p>
+                        <p className="text-xs text-gray-400 mt-1">Try tweaking your search keywords or filter settings.</p>
+                        <button
+                            onClick={handleResetFilters}
+                            className="mt-4 inline-flex items-center gap-1.5 text-xs text-main hover:text-main font-bold bg-indigo-50 hover:bg-indigo-100/70 px-3.5 py-2 rounded-xl transition cursor-pointer"
+                        >
+                            <Icon icon="solar:restart-bold" width={14} />
+                            Clear All Filters
+                        </button>
+                    </div>
+                ) : (
+                    <div className="overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50/75 border-b border-gray-100 text-xs text-gray-500 uppercase font-bold tracking-wider">
+                                        <th className="px-5 py-4 w-20">Item</th>
+                                        <th className="px-5 py-4">Title & Slug</th>
+                                        <th className="px-5 py-4">Category</th>
+                                        <th className="px-5 py-4">Seller</th>
+                                        <th className="px-5 py-4 text-right">Price</th>
+                                        <th className="px-5 py-4">Created</th>
+                                        <th className="px-5 py-4 text-right">Actions</th>
+                                        <th className="px-5 py-4">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {posts.map((post) => {
+                                        const badge = STATUS_BADGES[post.status] ?? STATUS_BADGES.draft;
+                                        const seller = userMap.get(post.userId);
+                                        const category = categoryMap.get(post.category || "");
+                                        const featuredImage = getFeaturedImage(post._id);
+                                        const priceInfo = getPriceInfo(post._id);
+
+                                        return (
+                                            <tr key={post._id} className="hover:bg-gray-50/70 transition-colors">
+                                                {/* Featured Image */}
+                                                <td className="px-5 py-3.5">
+                                                    {featuredImage ? (
+                                                        <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-gray-100 shadow-xs shrink-0 group">
+                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                            <img
+                                                                src={featuredImage}
+                                                                alt={post.title}
+                                                                className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-300"
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-12 h-12 rounded-xl bg-gray-100 border border-dashed border-gray-200 flex items-center justify-center text-gray-400 shrink-0">
+                                                            <Icon icon="solar:camera-minimalistic-linear" width={20} />
+                                                        </div>
+                                                    )}
+                                                </td>
+
+                                                {/* Title & Slug */}
+                                                <td className="px-5 py-3.5">
+                                                    <div className="max-w-70">
+                                                        <p className="font-bold text-gray-800 line-clamp-1 truncate" title={post.title}>
+                                                            {post.title}
+                                                        </p>
+                                                    </div>
+                                                </td>
+
+                                                {/* Category */}
+                                                <td className="px-5 py-3.5 text-gray-600 font-medium">
+                                                    {category ? (
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <Icon icon="solar:folder-with-files-bold" width={14} className="text-gray-400" />
+                                                            {category.title}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-gray-300 italic text-xs">Uncategorized</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Seller / Author */}
+                                                <td className="px-5 py-3.5">
+                                                    {seller ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700 shrink-0">
+                                                                {seller.name.substring(0, 2).toUpperCase()}
+                                                            </div>
+                                                            <div className="text-xs">
+                                                                <p className="font-semibold text-gray-700 line-clamp-1">{seller.name}</p>
+                                                                <p className="text-[9px] text-gray-400 line-clamp-1">{seller.email}</p>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-gray-300 italic text-xs">No Seller</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Pricing */}
+                                                <td className="px-5 py-3.5 text-right font-semibold">
+                                                    {priceInfo ? (
+                                                        <div>
+                                                            {priceInfo.type === "single" ? (
+                                                                <div className="text-xs">
+                                                                    {priceInfo.selling ? (
+                                                                        <>
+                                                                            <span className="text-main font-bold">
+                                                                                {currencySymbol} {formatPrice(priceInfo.selling)}
+                                                                            </span>
+                                                                            {priceInfo.regular && (
+                                                                                <span className="text-[10px] text-gray-400 line-through ml-1.5">
+                                                                                    {currencySymbol} {formatPrice(priceInfo.regular)}
+                                                                                </span>
+                                                                            )}
+                                                                        </>
+                                                                    ) : (
+                                                                        <span className="text-gray-800">
+                                                                            {currencySymbol} {formatPrice(priceInfo.regular)}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-xs text-main font-bold">
+                                                                    {currencySymbol} {formatPrice(priceInfo.min)} - {currencySymbol}{formatPrice(priceInfo.max)}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-gray-300 italic text-xs">—</span>
+                                                    )}
+                                                </td>
+
+                                                
+
+                                                {/* Date Created */}
+                                                <td className="px-5 py-3.5 text-gray-400 text-xs font-medium">
+                                                    {new Date(post.createdAt).toLocaleDateString(undefined, {
+                                                        year: "numeric",
+                                                        month: "short",
+                                                        day: "numeric"
+                                                    })}
+                                                </td>
+
+                                                {/* Action Buttons with Icon + Text */}
+                                                <td className="px-5 py-3.5 text-right">
+                                                    <div className="flex flex-wrap items-center justify-end gap-2">
+                                                        {/* View */}
+                                                        <Link
+                                                            href={`${viewBase}${post.slug}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition ${
+                                                                post.status === "published"
+                                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100"
+                                                                    : "pointer-events-none opacity-40 bg-gray-50 text-gray-400 border-gray-100"
+                                                            }`}
+                                                        >
+                                                            <Icon icon="solar:eye-bold" width={13} />
+                                                            View
+                                                        </Link>
+
+                                                        {/* Edit */}
+                                                        <Link
+                                                            href={`/admin/posts/${type}/${post._id}`}
+                                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 transition"
+                                                        >
+                                                            <Icon icon="solar:pen-bold" width={13} />
+                                                            Edit
+                                                        </Link>
+
+                                                        {/* Duplicate / Clone */}
+                                                        <button
+                                                            onClick={() => handleClone(post)}
+                                                            disabled={cloningId === post._id}
+                                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-violet-50 text-violet-700 border border-violet-100 hover:bg-violet-100 disabled:opacity-40 disabled:hover:bg-transparent transition cursor-pointer"
+                                                        >
+                                                            {cloningId === post._id ? (
+                                                                <Icon icon="line-md:loading-twotone-loop" width={13} className="text-violet-700" />
+                                                            ) : (
+                                                                <Icon icon="solar:copy-bold" width={13} />
+                                                            )}
+                                                            Clone
+                                                        </button>
+
+                                                        {/* Delete */}
+                                                        <button
+                                                            onClick={() => setDeleteConfirmPost(post)}
+                                                            disabled={deletingId === post._id}
+                                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-100 hover:bg-rose-100 disabled:opacity-40 disabled:hover:bg-transparent transition cursor-pointer"
+                                                        >
+                                                            <Icon icon="ant-design:delete-twotone" width={13} />
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                                {/* Status Badge */}
+                                                <td className="px-5 py-3.5">
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${badge.cls}`}>
+                                                        <Icon icon={badge.icon} width={13} />
+                                                        {badge.label}
+                                                    </span>
+                                                </td>
+
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Pagination footer bar */}
+                        {total > 0 && (
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
+                                {/* Page size selector and results count */}
+                                <div className="flex items-center gap-4 text-xs text-gray-500 font-medium">
+                                    <span>
+                                        Showing <span className="font-bold text-gray-700">{startItem}</span> to{" "}
+                                        <span className="font-bold text-gray-700">{endItem}</span> of{" "}
+                                        <span className="font-bold text-gray-700">{total}</span> items
+                                    </span>
+                                    <div className="flex items-center gap-1.5 border-l border-gray-200 pl-4">
+                                        <span className="text-gray-400">Rows:</span>
+                                        <select
+                                            value={limit}
+                                            onChange={(e) => {
+                                                const newLimit = parseInt(e.target.value, 10);
+                                                setLimit(newLimit);
+                                            }}
+                                            className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-semibold text-gray-700 focus:outline-hidden focus:border-main cursor-pointer"
+                                        >
+                                            <option value={10}>10</option>
+                                            <option value={20}>20</option>
+                                            <option value={50}>50</option>
+                                            <option value={100}>100</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Pagination Controls */}
+                                <div className="flex items-center gap-1">
+                                    {/* First Page */}
+                                    <button
+                                        onClick={() => handlePageChange(1)}
+                                        disabled={page === 1 || loading}
+                                        className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 transition cursor-pointer"
+                                        title="First Page"
+                                    >
+                                        <Icon icon="solar:double-alt-arrow-left-bold" width={16} />
+                                    </button>
+
+                                    {/* Prev Page */}
+                                    <button
+                                        onClick={() => handlePageChange(page - 1)}
+                                        disabled={page === 1 || loading}
+                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-600 transition cursor-pointer"
+                                    >
+                                        <Icon icon="solar:alt-arrow-left-bold" width={14} />
+                                        Prev
+                                    </button>
+
+                                    {/* Page Numbers */}
+                                    <div className="flex items-center gap-1 mx-1">
+                                        {getPageNumbers().map((p, idx) => {
+                                            if (p === "...") {
+                                                return (
+                                                    <span key={`ellipsis-${idx}`} className="px-2 text-xs text-gray-400 select-none">
+                                                        ...
+                                                    </span>
+                                                );
+                                            }
+                                            const pageNum = Number(p);
+                                            const isActive = pageNum === page;
+                                            return (
+                                                <button
+                                                    key={pageNum}
+                                                    onClick={() => handlePageChange(pageNum)}
+                                                    disabled={loading}
+                                                    className={`min-w-8 h-8 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center ${
+                                                        isActive
+                                                            ? "bg-indigo-600 text-white shadow-xs"
+                                                            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                                                    }`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Next Page */}
+                                    <button
+                                        onClick={() => handlePageChange(page + 1)}
+                                        disabled={page === totalPages || loading}
+                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-600 transition cursor-pointer"
+                                    >
+                                        Next
+                                        <Icon icon="solar:alt-arrow-right-bold" width={14} />
+                                    </button>
+
+                                    {/* Last Page */}
+                                    <button
+                                        onClick={() => handlePageChange(totalPages)}
+                                        disabled={page === totalPages || loading}
+                                        className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 transition cursor-pointer"
+                                        title="Last Page"
+                                    >
+                                        <Icon icon="solar:double-alt-arrow-right-bold" width={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

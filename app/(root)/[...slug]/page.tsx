@@ -286,7 +286,7 @@ export async function generateMetadata({ params }: RootPageProps): Promise<Metad
     const defTitle = String(settings.site_title ?? settings.siteName ?? "");
     const defDesc = String(settings.seo_description ?? settings.siteDescription ?? "");
     const defImg = String(settings.seo_meta_image ?? "");
-    const baseUrl = String(process.env.NEXT_PUBLIC_APP_URL ?? "");
+    const baseUrl = String(process.env.NEXTAUTH_URL ?? "");
     const pageUrl = baseUrl ? `${baseUrl.replace(/\/+$/, "")}/${slug.join("/")}` : "";
 
     const buildMeta = (info: Record<string, string>, contentTitle: string = "", publisher: string = ""): Metadata => {

@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const siteTitle = settings.site_title || "NxCMS";
   const favicon = settings.favicon || "";
   const description = settings.site_description || "";
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+  const baseUrl = process.env.NEXTAUTH_URL || "";
 
   // Dynamic webmaster & platform verification tokens from settings
   const otherVerification: Record<string, string> = {};
@@ -156,7 +156,7 @@ export default async function RootLayout({
             --color-main: ${settings.color_main || "#00aaa6"};
             --color-secondary: ${settings.color_secondary || "#ffc800"};
             --color-primary: ${settings.color_primary || "#10846f"};
-            --color-ff: ${settings.color_ff || "#fff9f3"};
+            --color-ff: ${settings.color_ff || "#eeeeee"};
           }`
         }} />
 
