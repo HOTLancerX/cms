@@ -65,7 +65,7 @@ export default async function Builder({ id, data }: Props) {
             const firstEl = registered[0]?.schema?.content;
             const postType = firstEl?.postType || firstEl?.type || "blog";
             const categoryType = firstEl?.categoryType || `${postType}-category`;
-            const categoryIds = firstEl?.categoryIds ?? [];
+            const categoryIds = firstEl?.categoryIds ?? (firstEl?.categoryId ? [firstEl.categoryId] : []);
             const limit = firstEl?.limit ?? 6;
 
             enrichedModelContext = await fetchEnrichedBuilderData({

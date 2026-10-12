@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { getInstalledPluginMetas } from "@/hook/PluginListServer";
 import PluginList from "./Plugin";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+    title: "Installed Plugins | Admin",
+    description: "Manage installed plugins, activate/deactivate modules, and configure extensions",
+};
 
 const EXPRESS_API = process.env.NEXT_PUBLIC_EXPRESS_API_URL ?? "http://localhost:5000";
 const LICENSE_KEY = process.env.NEXT_PUBLIC_LICENSE_KEY ?? "";

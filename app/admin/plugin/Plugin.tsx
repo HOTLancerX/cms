@@ -1,11 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { xFetch } from "@/lib/express";
 
-type PluginStatus = "active" | "inactive" | "new" | "install" | "update" | "delete";
+export type PluginStatus = "active" | "inactive" | "new" | "install" | "update" | "delete";
+
+export interface DomainData {
+    projectName?: string;
+    domainName?: string;
+    domainURL?: string;
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+}
+
+export interface PluginRecord {
+    _id: string | null;
+    nx: string;
+    name: string;
+    version: string;
+    description: string;
+    author: string;
+    icon: string;
+    color: string;
+    youtubeId?: string;
+    price?: number;
+    startDate?: string | null;
+    endDate?: string | null;
+    isExpired?: boolean;
+    isNotStarted?: boolean;
+    status: PluginStatus;
+}
 
 function DeployButton() {
     const [deploying, setDeploying] = useState(false);
@@ -28,7 +55,7 @@ function DeployButton() {
         <button
             onClick={handleDeploy}
             disabled={deploying}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-400 transition disabled:opacity-50 shadow"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs md:text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95 transition-all disabled:opacity-50 shadow-xs cursor-pointer"
         >
             {deploying ? (
                 <Icon icon="svg-spinners:ring-resize" width={16} />
@@ -40,35 +67,6 @@ function DeployButton() {
             {deploying ? "Deploying…" : done ? "Deployed!" : "Deploy"}
         </button>
     );
-}
-
-export interface DomainData {
-    projectName?: string;
-    domainName?: string;
-    domainURL?: string;
-    startDate?: string;
-    endDate?: string;
-    status?: string;
-}
-
-interface PluginRecord {
-    _id: string | null;
-    nx: string;
-    name: string;
-    version: string;
-    description: string;
-    author: string;
-    icon: string;
-    color: string;
-    youtubeId?: string;
-    price?: number;
-    startDate?: string | null;
-    endDate?: string | null;
-    /** True when the domain's date window for this plugin has elapsed — display only */
-    isExpired?: boolean;
-    /** True when the domain's date window hasn't started yet — display only */
-    isNotStarted?: boolean;
-    status: PluginStatus;
 }
 
 function extractYoutubeId(urlOrId?: string): string {
@@ -86,7 +84,7 @@ function getDaysRemaining(endDateStr?: string | null): {
     status: "ok" | "warning" | "expired" | "none";
 } {
     if (!endDateStr) {
-        return { days: 0, hours: 0, text: "No Expiration", status: "none" };
+        return { days: 0, hours: 0, text: "Unlimited", status: "none" };
     }
     const now = Date.now();
     const end = new Date(endDateStr).getTime();
@@ -101,11 +99,11 @@ function getDaysRemaining(endDateStr?: string | null): {
 
     let text = "";
     if (days > 0) {
-        text = `${days} day${days === 1 ? "" : "s"} left`;
+        text = `${days}d left`;
     } else if (hours > 0) {
-        text = `${hours} hour${hours === 1 ? "" : "s"} left`;
+        text = `${hours}h left`;
     } else {
-        text = "< 1 hour left";
+        text = "<1h left";
     }
 
     const status = days < 7 ? "warning" : "ok";
@@ -113,33 +111,68 @@ function getDaysRemaining(endDateStr?: string | null): {
 }
 
 // Maps Tailwind gradient class pairs → actual CSS gradient.
-// Dynamic Tailwind classes are purged at build time, so we resolve them here.
 const COLOR_MAP: Record<string, string> = {
-    "from-sky-500 to-blue-600": "linear-gradient(to bottom right, #0ea5e9, #2563eb)",
-    "from-violet-500 to-purple-600": "linear-gradient(to bottom right, #8b5cf6, #9333ea)",
-    "from-indigo-500 to-violet-600": "linear-gradient(to bottom right, #6366f1, #7c3aed)",
-    "from-emerald-500 to-teal-600": "linear-gradient(to bottom right, #10b981, #0d9488)",
-    "from-orange-500 to-red-600": "linear-gradient(to bottom right, #f97316, #dc2626)",
-    "from-pink-500 to-rose-600": "linear-gradient(to bottom right, #ec4899, #e11d48)",
-    "from-amber-500 to-orange-600": "linear-gradient(to bottom right, #f59e0b, #ea580c)",
-    "from-cyan-500 to-sky-600": "linear-gradient(to bottom right, #06b6d4, #0284c7)",
-    "from-lime-500 to-green-600": "linear-gradient(to bottom right, #84cc16, #16a34a)",
-    "from-fuchsia-500 to-pink-600": "linear-gradient(to bottom right, #d946ef, #db2777)",
-    "from-violet-600 to-indigo-600": "linear-gradient(to right, #7c3aed, #4f46e5)",
-    "from-indigo-500 to-purple-600": "linear-gradient(to bottom right, #6366f1, #9333ea)",
+    "from-sky-500 to-blue-600": "linear-gradient(135deg, #0ea5e9, #2563eb)",
+    "from-violet-500 to-purple-600": "linear-gradient(135deg, #8b5cf6, #9333ea)",
+    "from-indigo-500 to-violet-600": "linear-gradient(135deg, #6366f1, #7c3aed)",
+    "from-emerald-500 to-teal-600": "linear-gradient(135deg, #10b981, #0d9488)",
+    "from-orange-500 to-red-600": "linear-gradient(135deg, #f97316, #dc2626)",
+    "from-pink-500 to-rose-600": "linear-gradient(135deg, #ec4899, #e11d48)",
+    "from-amber-500 to-orange-600": "linear-gradient(135deg, #f59e0b, #ea580c)",
+    "from-cyan-500 to-sky-600": "linear-gradient(135deg, #06b6d4, #0284c7)",
+    "from-lime-500 to-green-600": "linear-gradient(135deg, #84cc16, #16a34a)",
+    "from-fuchsia-500 to-pink-600": "linear-gradient(135deg, #d946ef, #db2777)",
+    "from-violet-600 to-indigo-600": "linear-gradient(135deg, #7c3aed, #4f46e5)",
+    "from-indigo-500 to-purple-600": "linear-gradient(135deg, #6366f1, #9333ea)",
 };
 
 function resolveGradient(color: string): string {
-    return COLOR_MAP[color] ?? "linear-gradient(to bottom right, #6366f1, #7c3aed)";
+    return COLOR_MAP[color] ?? "linear-gradient(135deg, #6366f1, #7c3aed)";
 }
 
-const STATUS_CONFIG: Record<PluginStatus, { label: string; cls: string }> = {
-    active:   { label: "Active",   cls: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300" },
-    inactive: { label: "Inactive", cls: "bg-gray-100 text-gray-500 ring-1 ring-gray-300" },
-    new:      { label: "New",      cls: "bg-violet-100 text-violet-700 ring-1 ring-violet-300" },
-    install:  { label: "Install",  cls: "bg-blue-100 text-blue-700 ring-1 ring-blue-300" },
-    update:   { label: "Update",   cls: "bg-orange-100 text-orange-700 ring-1 ring-orange-300" },
-    delete:   { label: "Delete",   cls: "bg-red-100 text-red-700 ring-1 ring-red-300" },
+const STATUS_CONFIG: Record<PluginStatus, { label: string; dot: string; bg: string; text: string; border: string }> = {
+    active: {
+        label: "Active",
+        dot: "bg-emerald-500",
+        bg: "bg-emerald-50",
+        text: "text-emerald-700",
+        border: "border-emerald-200",
+    },
+    inactive: {
+        label: "Inactive",
+        dot: "bg-gray-400",
+        bg: "bg-gray-50",
+        text: "text-gray-600",
+        border: "border-gray-200",
+    },
+    new: {
+        label: "Discovered",
+        dot: "bg-violet-500",
+        bg: "bg-violet-50",
+        text: "text-violet-700",
+        border: "border-violet-200",
+    },
+    install: {
+        label: "Installing",
+        dot: "bg-blue-500",
+        bg: "bg-blue-50",
+        text: "text-blue-700",
+        border: "border-blue-200",
+    },
+    update: {
+        label: "Update",
+        dot: "bg-orange-500",
+        bg: "bg-orange-50",
+        text: "text-orange-700",
+        border: "border-orange-200",
+    },
+    delete: {
+        label: "Pending Delete",
+        dot: "bg-red-500",
+        bg: "bg-red-50",
+        text: "text-red-700",
+        border: "border-red-200",
+    },
 };
 
 export default function PluginList({
@@ -151,19 +184,31 @@ export default function PluginList({
 }) {
     const [plugins, setPlugins] = useState<PluginRecord[]>(initialPlugins);
     const [processing, setProcessing] = useState<string | null>(null);
+    const [batchProcessing, setBatchProcessing] = useState(false);
     const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "new">("all");
+    const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+    const [selectedNxs, setSelectedNxs] = useState<Set<string>>(new Set());
     const [activeVideo, setActiveVideo] = useState<{ id: string; name: string } | null>(null);
 
-    const filtered = plugins.filter((p) => {
-        if (!search) return true;
-        const q = search.toLowerCase();
-        return (
-            p.name.toLowerCase().includes(q) ||
-            p.nx.toLowerCase().includes(q) ||
-            p.description.toLowerCase().includes(q) ||
-            p.author.toLowerCase().includes(q)
-        );
-    });
+    // Filter plugins based on status filter and search term
+    const filtered = useMemo(() => {
+        return plugins.filter((p) => {
+            if (statusFilter !== "all" && p.status !== statusFilter) return false;
+            if (!search.trim()) return true;
+            const q = search.toLowerCase();
+            return (
+                p.name.toLowerCase().includes(q) ||
+                p.nx.toLowerCase().includes(q) ||
+                p.description.toLowerCase().includes(q) ||
+                p.author.toLowerCase().includes(q)
+            );
+        });
+    }, [plugins, statusFilter, search]);
+
+    const activeCount = useMemo(() => plugins.filter((p) => p.status === "active").length, [plugins]);
+    const inactiveCount = useMemo(() => plugins.filter((p) => p.status === "inactive").length, [plugins]);
+    const newCount = useMemo(() => plugins.filter((p) => p.status === "new").length, [plugins]);
 
     const updateLocal = (nx: string, patch: Partial<PluginRecord>) =>
         setPlugins((prev) => prev.map((p) => (p.nx === nx ? { ...p, ...patch } : p)));
@@ -176,7 +221,7 @@ export default function PluginList({
         return res.ok;
     };
 
-    // For plugins already in DB: toggle active ↔ inactive
+    // Toggle active <-> inactive
     const handleToggle = async (plugin: PluginRecord) => {
         if (!plugin._id) return;
         const next: PluginStatus = plugin.status === "active" ? "inactive" : "active";
@@ -186,7 +231,7 @@ export default function PluginList({
         setProcessing(null);
     };
 
-    // For plugins NOT yet in DB (status "new"): POST to create + activate in one step
+    // Activate newly discovered plugin (creates DB record & activates)
     const handleActivateNew = async (plugin: PluginRecord) => {
         setProcessing(plugin.nx);
         try {
@@ -203,7 +248,6 @@ export default function PluginList({
             });
             if (res.ok) {
                 const data = await res.json();
-                // data may include the created record's _id
                 const newId = data?._id ?? data?.plugin?._id ?? null;
                 updateLocal(plugin.nx, { status: "active", _id: newId });
             }
@@ -212,83 +256,660 @@ export default function PluginList({
         }
     };
 
+    // Delete/uninstall from DB (resets card to "new")
     const handleDelete = async (plugin: PluginRecord) => {
         if (!plugin._id) return;
         setProcessing(plugin.nx);
         const res = await xFetch(`/plugin/installed?id=${plugin._id}`, { method: "DELETE" });
-        if (res.ok) updateLocal(plugin.nx, { _id: null, status: "new" });
+        if (res.ok) {
+            updateLocal(plugin.nx, { _id: null, status: "new" });
+            setSelectedNxs((prev) => {
+                const next = new Set(prev);
+                next.delete(plugin.nx);
+                return next;
+            });
+        }
         setProcessing(null);
     };
 
-    const activeCount = plugins.filter((p) => p.status === "active").length;
-    const newCount = plugins.filter((p) => p.status === "new").length;
-    const expiredCount = plugins.filter((p) => p.isExpired).length;
+    // Selection helpers
+    const isSelected = (nx: string) => selectedNxs.has(nx);
+
+    const toggleSelect = (nx: string) => {
+        setSelectedNxs((prev) => {
+            const next = new Set(prev);
+            if (next.has(nx)) next.delete(nx);
+            else next.add(nx);
+            return next;
+        });
+    };
+
+    const isAllFilteredSelected = filtered.length > 0 && filtered.every((p) => selectedNxs.has(p.nx));
+    const isSomeFilteredSelected = filtered.some((p) => selectedNxs.has(p.nx)) && !isAllFilteredSelected;
+
+    const toggleSelectAll = () => {
+        if (isAllFilteredSelected) {
+            setSelectedNxs((prev) => {
+                const next = new Set(prev);
+                filtered.forEach((p) => next.delete(p.nx));
+                return next;
+            });
+        } else {
+            setSelectedNxs((prev) => {
+                const next = new Set(prev);
+                filtered.forEach((p) => next.add(p.nx));
+                return next;
+            });
+        }
+    };
+
+    const selectOnlyFiltered = () => {
+        setSelectedNxs(new Set(filtered.map((p) => p.nx)));
+    };
+
+    const selectOnlyActive = () => {
+        setSelectedNxs(new Set(plugins.filter((p) => p.status === "active").map((p) => p.nx)));
+    };
+
+    const selectOnlyInactive = () => {
+        setSelectedNxs(new Set(plugins.filter((p) => p.status === "inactive" || p.status === "new").map((p) => p.nx)));
+    };
+
+    const clearSelection = () => setSelectedNxs(new Set());
+
+    // Batch activate
+    const handleBatchActivate = async () => {
+        const targets = plugins.filter((p) => selectedNxs.has(p.nx) && p.status !== "active");
+        if (targets.length === 0) return;
+        setBatchProcessing(true);
+        try {
+            for (const plugin of targets) {
+                if (plugin.status === "new" || !plugin._id) {
+                    const res = await xFetch("/plugin/installed", {
+                        method: "POST",
+                        body: JSON.stringify({
+                            nx: plugin.nx,
+                            name: plugin.name,
+                            version: plugin.version,
+                            icon: plugin.icon,
+                            color: plugin.color,
+                            status: "active",
+                        }),
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const newId = data?._id ?? data?.plugin?._id ?? null;
+                        updateLocal(plugin.nx, { status: "active", _id: newId });
+                    }
+                } else {
+                    const ok = await apiPut(plugin._id, "active");
+                    if (ok) updateLocal(plugin.nx, { status: "active" });
+                }
+            }
+        } finally {
+            setBatchProcessing(false);
+        }
+    };
+
+    // Batch deactivate
+    const handleBatchDeactivate = async () => {
+        const targets = plugins.filter((p) => selectedNxs.has(p.nx) && p.status === "active" && p._id);
+        if (targets.length === 0) return;
+        setBatchProcessing(true);
+        try {
+            for (const plugin of targets) {
+                const ok = await apiPut(plugin._id!, "inactive");
+                if (ok) updateLocal(plugin.nx, { status: "inactive" });
+            }
+        } finally {
+            setBatchProcessing(false);
+        }
+    };
+
+    // Batch delete
+    const handleBatchDelete = async () => {
+        const targets = plugins.filter((p) => selectedNxs.has(p.nx) && p._id);
+        if (targets.length === 0) return;
+        setBatchProcessing(true);
+        try {
+            for (const plugin of targets) {
+                const res = await xFetch(`/plugin/installed?id=${plugin._id}`, { method: "DELETE" });
+                if (res.ok) updateLocal(plugin.nx, { _id: null, status: "new" });
+            }
+            clearSelection();
+        } finally {
+            setBatchProcessing(false);
+        }
+    };
+
+    // Selected statistics
+    const selectedCount = selectedNxs.size;
+    const selectedActiveCount = plugins.filter((p) => selectedNxs.has(p.nx) && p.status === "active").length;
+    const selectedInactiveOrNewCount = plugins.filter((p) => selectedNxs.has(p.nx) && p.status !== "active").length;
+    const selectedInDbCount = plugins.filter((p) => selectedNxs.has(p.nx) && !!p._id).length;
+
+    // License Badge Helper
+    const renderLicensePill = (plugin: PluginRecord) => {
+        const targetDate = plugin.endDate || domain?.endDate;
+        const rem = getDaysRemaining(targetDate);
+
+        if (rem.status === "none") {
+            return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100/90 text-gray-600 text-xs font-semibold border border-gray-200/80">
+                    <Icon icon="solar:shield-check-bold" width={13} className="text-gray-400" />
+                    <span>Unlimited</span>
+                </span>
+            );
+        }
+        if (rem.status === "expired") {
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 text-red-700 text-xs font-semibold border border-red-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                    <span>Expired</span>
+                </span>
+            );
+        }
+        if (rem.status === "warning") {
+            return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 text-xs font-semibold border border-amber-200">
+                    <Icon icon="solar:clock-circle-bold" width={13} className="text-amber-500" />
+                    <span>{rem.text}</span>
+                </span>
+            );
+        }
+        return (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
+                <Icon icon="solar:shield-keyhole-bold" width={13} className="text-emerald-500" />
+                <span>{rem.text}</span>
+            </span>
+        );
+    };
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold">Installed Plugins</h1>
-                <div className="flex items-center justify-between mt-1 flex-wrap gap-3">
-                    <div className="flex items-center gap-3 text-sm text-gray-500 flex-wrap">
-                        <span>{activeCount} of {plugins.length} active</span>
-                        {newCount > 0 && (
-                            <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-xs font-semibold ring-1 ring-violet-300">
-                                {newCount} new discovered
-                            </span>
-                        )}
-                        {expiredCount > 0 && (
-                            <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-semibold ring-1 ring-red-300">
-                                {expiredCount} expired
-                            </span>
-                        )}
-                        {domain?.endDate && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
-                                <Icon icon="solar:shield-keyhole-bold" width={14} className="text-emerald-600" />
-                                System License: {getDaysRemaining(domain.endDate).text}
-                            </span>
-                        )}
-                    </div>
+        <div className="space-y-5 pb-20">
+            {/* ── Page Header & Deploy/Store Actions ─────────────────────────── */}
+            <div className="flex items-center justify-between flex-wrap gap-4 pt-1">
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">
+                        Plugins & Extensions
+                    </h1>
+                    <p className="text-xs md:text-sm text-gray-500 mt-1">
+                        Control modular capabilities, manage activation states, and inspect active packages.
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                    <DeployButton />
+                    <Link
+                        href="/admin/plugin/list"
+                        className="inline-flex items-center gap-2 text-white px-4 py-2 rounded-xl font-semibold hover:opacity-95 active:scale-95 transition-all text-xs md:text-sm shadow-xs"
+                        style={{ background: resolveGradient("from-violet-600 to-indigo-600") }}
+                    >
+                        <Icon icon="solar:shop-bold" width={18} />
+                        <span>Plugin Store</span>
+                    </Link>
+                </div>
+            </div>
+
+            {/* ── System License Notice (If present) ─────────────────────────── */}
+            {domain?.endDate && (
+                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-linear-to-r from-emerald-500/10 to-teal-500/5 border border-emerald-200/80 text-emerald-900 text-xs md:text-sm font-medium">
                     <div className="flex items-center gap-2">
-                        <DeployButton />
-                        <Link
-                            href="/admin/plugin/list"
-                            className="inline-flex items-center gap-2 text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition text-sm shadow"
-                            style={{ background: resolveGradient("from-violet-600 to-indigo-600") }}
+                        <Icon icon="solar:shield-keyhole-bold" width={18} className="text-emerald-600" />
+                        <span>
+                            System License Workspace: <strong className="font-bold">{domain.domainName || "Default Domain"}</strong>
+                        </span>
+                    </div>
+                    <span className="font-semibold text-emerald-700 bg-emerald-100/90 px-2.5 py-0.5 rounded-md border border-emerald-200">
+                        {getDaysRemaining(domain.endDate).text}
+                    </span>
+                </div>
+            )}
+
+            {/* ── Main Toolbar: Search, Status Filters, View Toggle ────────────── */}
+            <div className="bg-white rounded-2xl p-3 md:p-4 border border-gray-200/90 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                {/* Search Input */}
+                <div className="relative flex-1 max-w-md">
+                    <Icon
+                        icon="solar:magnifer-linear"
+                        width={18}
+                        className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                    />
+                    <input
+                        type="text"
+                        placeholder="Search plugins by name, ID, or author…"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full pl-10 pr-9 py-2 rounded-xl border border-gray-200 bg-gray-50/70 focus:bg-white text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-500 transition-all"
+                    />
+                    {search && (
+                        <button
+                            type="button"
+                            onClick={() => setSearch("")}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
-                            <Icon icon="solar:shop-bold" width={18} />
-                            Store
-                        </Link>
+                            <Icon icon="solar:close-circle-bold" width={16} />
+                        </button>
+                    )}
+                </div>
+
+                {/* Status Filter Chips & View Mode Toggle */}
+                <div className="flex items-center justify-between md:justify-end gap-2 md:gap-3 flex-wrap">
+                    {/* Status Tabs */}
+                    <div className="flex items-center gap-1 bg-gray-100/90 p-1 rounded-xl">
+                        {(
+                            [
+                                { id: "all", label: "All", count: plugins.length },
+                                { id: "active", label: "Active", count: activeCount },
+                                { id: "inactive", label: "Inactive", count: inactiveCount },
+                                { id: "new", label: "New", count: newCount },
+                            ] as const
+                        ).map((tab) => {
+                            const isCurrent = statusFilter === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    onClick={() => setStatusFilter(tab.id)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                        isCurrent
+                                            ? "bg-white text-gray-900 shadow-xs"
+                                            : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
+                                    }`}
+                                >
+                                    <span>{tab.label}</span>
+                                    <span
+                                        className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                                            isCurrent ? "bg-gray-100 text-gray-700" : "bg-gray-200/70 text-gray-500"
+                                        }`}
+                                    >
+                                        {tab.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* View Switcher: List vs Grid */}
+                    <div className="flex items-center gap-1 bg-gray-100/90 p-1 rounded-xl">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode("list")}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                viewMode === "list"
+                                    ? "bg-white text-violet-700 shadow-xs"
+                                    : "text-gray-500 hover:text-gray-900 hover:bg-white/50"
+                            }`}
+                            title="List View (Default)"
+                        >
+                            <Icon icon="solar:list-bold" width={16} />
+                            <span>List</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode("grid")}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                viewMode === "grid"
+                                    ? "bg-white text-violet-700 shadow-xs"
+                                    : "text-gray-500 hover:text-gray-900 hover:bg-white/50"
+                            }`}
+                            title="Grid View"
+                        >
+                            <Icon icon="solar:widget-2-bold" width={16} />
+                            <span>Grid</span>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            {/* Search */}
-            <div className="relative max-w-sm">
-                <Icon icon="solar:magnifer-linear" width={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                <input
-                    type="text"
-                    placeholder="Search plugins…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-400 transition"
-                />
+            {/* ── Multi-select Options Bar ───────────────────────────────────── */}
+            <div className="bg-white rounded-2xl px-4 py-2.5 border border-gray-200/90 shadow-xs flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                            type="checkbox"
+                            checked={isAllFilteredSelected}
+                            ref={(el) => {
+                                if (el) el.indeterminate = isSomeFilteredSelected;
+                            }}
+                            onChange={toggleSelectAll}
+                            className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500 border-gray-300 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-gray-700">
+                            {isAllFilteredSelected
+                                ? `All ${filtered.length} selected`
+                                : selectedCount > 0
+                                ? `${selectedCount} of ${filtered.length} selected`
+                                : `Select All (${filtered.length})`}
+                        </span>
+                    </label>
+
+                    {/* Quick Selection Shortcuts */}
+                    <div className="hidden md:flex items-center gap-1 text-xs text-gray-400">
+                        <span>•</span>
+                        <button
+                            type="button"
+                            onClick={selectOnlyFiltered}
+                            className="text-gray-500 hover:text-violet-600 font-medium hover:underline cursor-pointer"
+                        >
+                            Select Visible
+                        </button>
+                        <span>•</span>
+                        <button
+                            type="button"
+                            onClick={selectOnlyActive}
+                            className="text-gray-500 hover:text-emerald-600 font-medium hover:underline cursor-pointer"
+                        >
+                            Select Active
+                        </button>
+                        <span>•</span>
+                        <button
+                            type="button"
+                            onClick={selectOnlyInactive}
+                            className="text-gray-500 hover:text-amber-600 font-medium hover:underline cursor-pointer"
+                        >
+                            Select Inactive
+                        </button>
+                    </div>
+                </div>
+
+                {/* Batch Actions Trigger Group */}
+                {selectedCount > 0 && (
+                    <div className="flex items-center gap-2 animate-in fade-in duration-150 flex-wrap">
+                        {/* Batch Activate */}
+                        {selectedInactiveOrNewCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={handleBatchActivate}
+                                disabled={batchProcessing}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white transition disabled:opacity-50 cursor-pointer shadow-xs"
+                            >
+                                {batchProcessing ? (
+                                    <Icon icon="svg-spinners:ring-resize" width={14} />
+                                ) : (
+                                    <Icon icon="solar:play-bold" width={14} />
+                                )}
+                                <span>Activate ({selectedInactiveOrNewCount})</span>
+                            </button>
+                        )}
+
+                        {/* Batch Deactivate */}
+                        {selectedActiveCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={handleBatchDeactivate}
+                                disabled={batchProcessing}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-500 active:scale-95 text-white transition disabled:opacity-50 cursor-pointer shadow-xs"
+                            >
+                                {batchProcessing ? (
+                                    <Icon icon="svg-spinners:ring-resize" width={14} />
+                                ) : (
+                                    <Icon icon="solar:pause-bold" width={14} />
+                                )}
+                                <span>Deactivate ({selectedActiveCount})</span>
+                            </button>
+                        )}
+
+                        {/* Batch Delete */}
+                        {selectedInDbCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={handleBatchDelete}
+                                disabled={batchProcessing}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+                                title="Remove selected from database"
+                            >
+                                {batchProcessing ? (
+                                    <Icon icon="svg-spinners:ring-resize" width={14} />
+                                ) : (
+                                    <Icon icon="solar:trash-bin-trash-bold" width={14} />
+                                )}
+                                <span>Remove ({selectedInDbCount})</span>
+                            </button>
+                        )}
+
+                        {/* Clear Selection */}
+                        <button
+                            type="button"
+                            onClick={clearSelection}
+                            className="text-xs font-medium text-gray-500 hover:text-gray-800 px-2 py-1 rounded-lg hover:bg-gray-100 transition cursor-pointer"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* Grid */}
+            {/* ── Main View Content ───────────────────────────────────────────── */}
             {filtered.length === 0 ? (
-                <div className="text-center py-20 text-gray-400">
-                    <Icon icon="solar:box-minimalistic-bold" width={48} className="mx-auto mb-3 opacity-40" />
-                    <p>{search ? "No plugins match your search." : "No plugins found in the codebase."}</p>
+                <div className="bg-white rounded-2xl border border-gray-200 text-center py-20 px-4 shadow-xs">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400">
+                        <Icon icon="solar:box-minimalistic-bold" width={36} />
+                    </div>
+                    <h3 className="text-base font-bold text-gray-800">No plugins found</h3>
+                    <p className="text-xs md:text-sm text-gray-500 mt-1 max-w-sm mx-auto">
+                        {search
+                            ? `No plugins match "${search}". Try searching with a different term.`
+                            : "No plugins available under this filter."}
+                    </p>
+                    {search && (
+                        <button
+                            type="button"
+                            onClick={() => setSearch("")}
+                            className="mt-4 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-semibold text-gray-700 transition cursor-pointer"
+                        >
+                            Reset Search
+                        </button>
+                    )}
+                </div>
+            ) : viewMode === "list" ? (
+                /* ─────────────────────────────────────────────────────────────
+                   LIST VIEW: Professional SaaS Data Table
+                   Proper HTML table structure ensures rigid, horizontal row alignment
+                   ───────────────────────────────────────────────────────────── */
+                <div className="bg-white rounded-2xl border border-gray-200/90 shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-215">
+                            <thead>
+                                <tr className="bg-gray-50/80 border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                    <th className="py-3 px-4 w-12 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={isAllFilteredSelected}
+                                            ref={(el) => {
+                                                if (el) el.indeterminate = isSomeFilteredSelected;
+                                            }}
+                                            onChange={toggleSelectAll}
+                                            className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500 border-gray-300 cursor-pointer"
+                                            title="Select all"
+                                        />
+                                    </th>
+                                    <th className="py-3 px-4 min-w-85">Plugin Information</th>
+                                    <th className="py-3 px-4 w-40">Version & Meta</th>
+                                    <th className="py-3 px-4 w-36">License Left</th>
+                                    <th className="py-3 px-4 w-32 text-center">Status</th>
+                                    <th className="py-3 px-4 w-44 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {filtered.map((plugin) => {
+                                    const isRowSelected = isSelected(plugin.nx);
+                                    const isActive = plugin.status === "active";
+                                    const isNew = plugin.status === "new";
+                                    const isBusy = processing === plugin.nx || batchProcessing;
+                                    const statusCfg = STATUS_CONFIG[plugin.status] ?? STATUS_CONFIG.inactive;
+                                    const ytId = extractYoutubeId(plugin.youtubeId);
+                                    const isPaid = Number(plugin.price) === 5;
+
+                                    return (
+                                        <tr
+                                            key={plugin.nx}
+                                            className={`transition-colors group ${
+                                                isRowSelected
+                                                    ? "bg-violet-50/50 hover:bg-violet-50/70"
+                                                    : "hover:bg-gray-50/70 bg-white"
+                                            }`}
+                                        >
+                                            {/* Column 1: Checkbox */}
+                                            <td className="py-4 px-4 text-center align-middle">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isRowSelected}
+                                                    onChange={() => toggleSelect(plugin.nx)}
+                                                    className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500 border-gray-300 cursor-pointer"
+                                                />
+                                            </td>
+
+                                            {/* Column 2: Plugin (Icon, Name, Identifier, Description) */}
+                                            <td className="py-4 px-4 align-middle">
+                                                <div className="flex items-center gap-3.5">
+                                                    <div
+                                                        className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-2xs"
+                                                        style={{ background: resolveGradient(plugin.color) }}
+                                                    >
+                                                        <Icon icon={plugin.icon} width={24} className="text-white" />
+                                                    </div>
+
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="font-bold text-sm text-gray-900 group-hover:text-violet-700 transition-colors">
+                                                                {plugin.name}
+                                                            </span>
+                                                            <span className="text-[11px] font-mono text-gray-500 bg-gray-100 px-1.5 py-0.2 rounded border border-gray-200/60">
+                                                                {plugin.nx}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1 max-w-lg">
+                                                            {plugin.description || "No description provided."}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            {/* Column 3: Version & Meta Tags */}
+                                            <td className="py-4 px-4 align-middle">
+                                                <div className="flex flex-col gap-1 items-start">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200/60">
+                                                            v{plugin.version}
+                                                        </span>
+                                                        <span
+                                                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                                                                isPaid
+                                                                    ? "bg-purple-100 text-purple-700"
+                                                                    : "bg-emerald-100 text-emerald-700"
+                                                                }`}
+                                                        >
+                                                            {isPaid ? "Paid" : "Free"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                                                        <span>by {plugin.author || "System"}</span>
+                                                        {ytId && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setActiveVideo({ id: ytId, name: plugin.name })}
+                                                                className="inline-flex items-center gap-0.5 text-red-600 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-1.5 py-0.2 rounded transition cursor-pointer"
+                                                                title="Watch video demo"
+                                                            >
+                                                                <Icon icon="solar:play-circle-bold" width={13} />
+                                                                <span>Demo</span>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            {/* Column 4: License / Expiry */}
+                                            <td className="py-4 px-4 align-middle whitespace-nowrap">
+                                                {renderLicensePill(plugin)}
+                                            </td>
+
+                                            {/* Column 5: Status Badge */}
+                                            <td className="py-4 px-4 align-middle text-center whitespace-nowrap">
+                                                <span
+                                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${statusCfg.bg} ${statusCfg.text} ${statusCfg.border}`}
+                                                >
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+                                                    {statusCfg.label}
+                                                </span>
+                                            </td>
+
+                                            {/* Column 6: Actions (Toggle Switch / Activate + Delete) */}
+                                            <td className="py-4 px-4 align-middle text-right whitespace-nowrap">
+                                                <div className="inline-flex items-center justify-end gap-2.5">
+                                                    {isNew ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleActivateNew(plugin)}
+                                                            disabled={isBusy}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white transition disabled:opacity-40 cursor-pointer shadow-xs"
+                                                        >
+                                                            {isBusy ? (
+                                                                <Icon icon="svg-spinners:ring-resize" width={14} />
+                                                            ) : (
+                                                                <Icon icon="solar:play-bold" width={14} />
+                                                            )}
+                                                            <span>Activate</span>
+                                                        </button>
+                                                    ) : (
+                                                        <>
+                                                            {/* Sleek iOS-style Toggle Switch */}
+                                                            <button
+                                                                type="button"
+                                                                role="switch"
+                                                                aria-checked={isActive}
+                                                                onClick={() => handleToggle(plugin)}
+                                                                disabled={isBusy}
+                                                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:opacity-40 ${
+                                                                    isActive ? "bg-emerald-500" : "bg-gray-300"
+                                                                }`}
+                                                                title={isActive ? "Click to deactivate" : "Click to activate"}
+                                                            >
+                                                                <span
+                                                                    aria-hidden="true"
+                                                                    className={`pointer-events-none h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out flex items-center justify-center ${
+                                                                        isActive ? "translate-x-5" : "translate-x-0"
+                                                                    }`}
+                                                                >
+                                                                    {isBusy ? (
+                                                                        <Icon icon="svg-spinners:ring-resize" width={10} className="text-gray-500" />
+                                                                    ) : null}
+                                                                </span>
+                                                            </button>
+
+                                                            {/* Delete / Remove Icon Button */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDelete(plugin)}
+                                                                disabled={isBusy}
+                                                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition active:scale-95 disabled:opacity-40 cursor-pointer"
+                                                                title="Remove plugin record"
+                                                            >
+                                                                <Icon icon="solar:trash-bin-trash-bold" width={17} />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                /* ─────────────────────────────────────────────────────────────
+                   GRID VIEW: Card Deck
+                   Shared logic with List view without information repetition
+                   ───────────────────────────────────────────────────────────── */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {filtered.map((plugin) => {
+                        const isCardSelected = isSelected(plugin.nx);
                         const isActive = plugin.status === "active";
                         const isNew = plugin.status === "new";
-                        const isExpired = plugin.isExpired ?? false;
-                        const isNotStarted = plugin.isNotStarted ?? false;
-                        const isBusy = processing === plugin.nx;
+                        const isBusy = processing === plugin.nx || batchProcessing;
                         const statusCfg = STATUS_CONFIG[plugin.status] ?? STATUS_CONFIG.inactive;
                         const ytId = extractYoutubeId(plugin.youtubeId);
                         const isPaid = Number(plugin.price) === 5;
@@ -296,181 +917,146 @@ export default function PluginList({
                         return (
                             <div
                                 key={plugin.nx}
-                                className={`rounded-2xl overflow-hidden shadow-md border flex flex-col transition ${
-                                    isNew
-                                        ? "border-violet-300 ring-2 ring-violet-200"
-                                        : isExpired
-                                        ? "border-amber-200 ring-2 ring-amber-100"
-                                        : "border-white/20"
+                                className={`rounded-2xl overflow-hidden bg-white border transition-all duration-200 flex flex-col ${
+                                    isCardSelected
+                                        ? "border-violet-400 ring-2 ring-violet-200 shadow-md"
+                                        : "border-gray-200/90 hover:border-gray-300 shadow-xs hover:shadow-md"
                                 }`}
                             >
-                                {/* Coloured header */}
+                                {/* Card Header with gradient */}
                                 <div
-                                    className={`p-5 flex items-center gap-4 ${isExpired ? "opacity-60" : ""}`}
+                                    className="p-4 md:p-5 flex items-start justify-between gap-3 relative text-white"
                                     style={{ background: resolveGradient(plugin.color) }}
                                 >
-                                    <div className="bg-white/20 rounded-xl p-2.5">
-                                        <Icon icon={plugin.icon} width={28} className="text-white" />
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <input
+                                            type="checkbox"
+                                            checked={isCardSelected}
+                                            onChange={() => toggleSelect(plugin.nx)}
+                                            className="w-4 h-4 rounded text-violet-600 focus:ring-violet-400 bg-white/20 border-white/40 cursor-pointer shrink-0 mt-0.5"
+                                        />
+
+                                        <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+                                            <Icon icon={plugin.icon} width={24} className="text-white" />
+                                        </div>
+
+                                        <div className="min-w-0 flex-1">
+                                            <h3 className="font-bold text-base capitalize leading-snug truncate">
+                                                {plugin.name}
+                                            </h3>
+                                            <p className="text-white/80 text-xs font-mono truncate">{plugin.nx}</p>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="text-white font-bold text-lg capitalize leading-tight truncate">
-                                            {plugin.name}
-                                        </h3>
-                                        <p className="text-white/70 text-xs font-mono truncate">{plugin.nx}</p>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusCfg.cls}`}>
-                                            {statusCfg.label}
-                                        </span>
-                                    </div>
+
+                                    {/* Status Badge */}
+                                    <span
+                                        className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border backdrop-blur-md shadow-2xs ${statusCfg.bg} ${statusCfg.text} ${statusCfg.border}`}
+                                    >
+                                        <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+                                        {statusCfg.label}
+                                    </span>
                                 </div>
 
-                                {/* Body */}
-                                <div className="bg-white flex-1 p-5 flex flex-col gap-3">
-                                    <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">
-                                        {plugin.description}
-                                    </p>
-                                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                                                v{plugin.version}
-                                            </span>
-                                            <span
-                                                className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
-                                                    isPaid
-                                                        ? "bg-purple-100 text-purple-700 ring-1 ring-purple-300"
-                                                        : "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
-                                                }`}
-                                            >
-                                                {isPaid ? "Paid" : "Free"}
-                                            </span>
-                                            <span className="text-xs text-gray-400">by {plugin.author || "System"}</span>
+                                {/* Card Body */}
+                                <div className="p-4 md:p-5 flex-1 flex flex-col justify-between gap-4">
+                                    <div className="space-y-3">
+                                        <p className="text-gray-600 text-xs md:text-sm leading-relaxed line-clamp-2">
+                                            {plugin.description || "No description provided."}
+                                        </p>
+
+                                        {/* Metadata Badges */}
+                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-600">
+                                                    v{plugin.version}
+                                                </span>
+                                                <span
+                                                    className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                                                        isPaid
+                                                            ? "bg-purple-100 text-purple-700"
+                                                            : "bg-emerald-100 text-emerald-700"
+                                                    }`}
+                                                >
+                                                    {isPaid ? "Paid" : "Free"}
+                                                </span>
+                                                <span className="text-[11px] text-gray-400">
+                                                    by {plugin.author || "System"}
+                                                </span>
+                                            </div>
+
+                                            {ytId && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActiveVideo({ id: ytId, name: plugin.name })}
+                                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded transition cursor-pointer"
+                                                >
+                                                    <Icon icon="solar:play-circle-bold" width={14} />
+                                                    <span>Video</span>
+                                                </button>
+                                            )}
                                         </div>
 
-                                        {/* Video Demo Button if youtubeId exists */}
-                                        {ytId && (
+                                        {/* License row */}
+                                        <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
+                                            <span className="text-gray-500 font-medium">Access Status:</span>
+                                            {renderLicensePill(plugin)}
+                                        </div>
+                                    </div>
+
+                                    {/* Action Footer */}
+                                    <div className="flex items-center justify-between gap-3 pt-3 border-t border-gray-100">
+                                        {isNew ? (
                                             <button
                                                 type="button"
-                                                onClick={() => setActiveVideo({ id: ytId, name: plugin.name })}
-                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/80 transition cursor-pointer text-xs font-bold shrink-0 shadow-2xs"
-                                                title="Watch Video Preview"
-                                            >
-                                                <Icon icon="solar:play-circle-bold" width={18} className="text-red-600" />
-                                                <span>Video</span>
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* License Remaining Days Badge */}
-                                    <div className="flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
-                                        <span className="text-gray-500 font-medium flex items-center gap-1.5">
-                                            <Icon icon="solar:clock-circle-bold" width={14} className="text-gray-400" />
-                                            License Left:
-                                        </span>
-                                        {(() => {
-                                            const targetDate = plugin.endDate || domain?.endDate;
-                                            const rem = getDaysRemaining(targetDate);
-                                            if (rem.status === "none") {
-                                                return <span className="font-semibold text-gray-500">Unlimited</span>;
-                                            }
-                                            if (rem.status === "expired") {
-                                                return (
-                                                    <span className="font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-md border border-red-200 flex items-center gap-1">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
-                                                        Expired
-                                                    </span>
-                                                );
-                                            }
-                                            if (rem.status === "warning") {
-                                                return (
-                                                    <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                                                        {rem.text}
-                                                    </span>
-                                                );
-                                            }
-                                            return (
-                                                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                                    {rem.text}
-                                                </span>
-                                            );
-                                        })()}
-                                    </div>
-
-                                    {/* Date-based warnings — display only, do not affect plugin operation */}
-                                    {(isExpired || isNotStarted) && (
-                                        <div className={`flex items-start gap-2 rounded-lg px-3 py-2 text-xs ${
-                                            isExpired
-                                                ? "bg-amber-50 text-amber-700"
-                                                : "bg-yellow-50 text-yellow-700"
-                                        }`}>
-                                            <Icon
-                                                icon="solar:clock-circle-bold"
-                                                width={14}
-                                                className="shrink-0 mt-0.5"
-                                            />
-                                            <span>
-                                                {isExpired
-                                                    ? `Subscription period ended${plugin.endDate ? ` on ${new Date(plugin.endDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}` : ""}. Please renew to extend access.`
-                                                    : `Subscription starts on ${new Date(plugin.startDate!).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}.`
-                                                }
-                                            </span>
-                                        </div>
-                                    )}
-                                    {!isActive && !isNew && plugin.status === "inactive" && (
-                                        <div className="flex items-start gap-2 rounded-lg px-3 py-2 text-xs bg-gray-50 text-gray-500 border border-gray-200">
-                                            <Icon
-                                                icon="solar:lock-keyhole-minimalistic-bold"
-                                                width={14}
-                                                className="shrink-0 mt-0.5"
-                                            />
-                                            <span>
-                                                This plugin has been deactivated or suspended. No data is being transferred. Reactivate it to restore functionality.
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Actions */}
-                                    <div className="flex items-center gap-2 mt-auto pt-3 border-t border-gray-100">
-                                        {isNew ? (
-                                            // Not in DB yet — one-click activate saves + activates
-                                            <button
                                                 onClick={() => handleActivateNew(plugin)}
                                                 disabled={isBusy}
-                                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white transition disabled:opacity-40 hover:opacity-90"
-                                                style={{ background: "#10b981" }}
+                                                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white transition disabled:opacity-40 cursor-pointer shadow-xs"
                                             >
                                                 {isBusy ? (
                                                     <Icon icon="svg-spinners:ring-resize" width={16} />
                                                 ) : (
-                                                    <><Icon icon="solar:play-bold" width={16} />Activate</>
+                                                    <Icon icon="solar:play-bold" width={16} />
                                                 )}
+                                                <span>Activate Plugin</span>
                                             </button>
                                         ) : (
                                             <>
-                                                {/* Toggle active ↔ inactive — always available */}
-                                                <button
-                                                    onClick={() => handleToggle(plugin)}
-                                                    disabled={isBusy}
-                                                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white transition disabled:opacity-40 hover:opacity-90"
-                                                    style={{ background: isActive ? "#f97316" : "#10b981" }}
-                                                >
-                                                    {isBusy ? (
-                                                        <Icon icon="svg-spinners:ring-resize" width={16} />
-                                                    ) : isActive ? (
-                                                        <><Icon icon="solar:pause-bold" width={16} />Deactivate</>
-                                                    ) : (
-                                                        <><Icon icon="solar:play-bold" width={16} />Activate</>
-                                                    )}
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        role="switch"
+                                                        aria-checked={isActive}
+                                                        onClick={() => handleToggle(plugin)}
+                                                        disabled={isBusy}
+                                                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:opacity-40 ${
+                                                            isActive ? "bg-emerald-500" : "bg-gray-300"
+                                                        }`}
+                                                        title={isActive ? "Deactivate" : "Activate"}
+                                                    >
+                                                        <span
+                                                            aria-hidden="true"
+                                                            className={`pointer-events-none h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out flex items-center justify-center ${
+                                                                isActive ? "translate-x-5" : "translate-x-0"
+                                                            }`}
+                                                        >
+                                                            {isBusy ? (
+                                                                <Icon icon="svg-spinners:ring-resize" width={10} className="text-gray-500" />
+                                                            ) : null}
+                                                        </span>
+                                                    </button>
+                                                    <span className="text-xs font-semibold text-gray-700">
+                                                        {isActive ? "Active" : "Inactive"}
+                                                    </span>
+                                                </div>
 
-                                                {/* Delete from DB (returns card to "new" state) */}
                                                 <button
+                                                    type="button"
                                                     onClick={() => handleDelete(plugin)}
                                                     disabled={isBusy}
-                                                    className="inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm bg-red-50 text-red-500 hover:bg-red-100 transition disabled:opacity-40"
+                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition active:scale-95 disabled:opacity-40 cursor-pointer"
                                                     title="Remove from database"
                                                 >
-                                                    <Icon icon="solar:trash-bin-trash-bold" width={20} />
+                                                    <Icon icon="solar:trash-bin-trash-bold" width={18} />
                                                 </button>
                                             </>
                                         )}
@@ -482,40 +1068,40 @@ export default function PluginList({
                 </div>
             )}
 
+            {/* ── Informational Note ─────────────────────────────────────────── */}
             <p className="text-xs text-gray-400 text-center">
-                Only <strong>active</strong> plugins inject their hooks into the application.
-                Newly discovered plugins (shown with a <span className="text-violet-600 font-semibold">New</span> badge) are not saved until you activate them.
+                Only <strong className="text-emerald-600 font-semibold">active</strong> plugins execute hooks and provide extensions. Newly discovered plugins remain dormant until activated.
             </p>
 
-            {/* Video Popup Modal Box */}
+            {/* ── Video Preview Modal ─────────────────────────────────────────── */}
             {activeVideo && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
                     onClick={() => setActiveVideo(null)}
                 >
                     <div
-                        className="relative w-full max-w-3xl bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-800 shadow-2xl space-y-4"
+                        className="relative w-full max-w-3xl bg-slate-900 rounded-3xl p-4 md:p-6 border border-slate-800 shadow-2xl space-y-4"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2.5">
                                 <div className="p-2 rounded-xl bg-red-500/20 text-red-400">
-                                    <Icon icon="solar:play-circle-bold" width={24} />
+                                    <Icon icon="solar:play-circle-bold" width={22} />
                                 </div>
                                 <div>
                                     <h3 className="text-base font-bold text-white leading-tight">
                                         {activeVideo.name}
                                     </h3>
-                                    <p className="text-xs text-slate-400">Video Demo Preview</p>
+                                    <p className="text-xs text-slate-400">Plugin Video Demo</p>
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setActiveVideo(null)}
                                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
-                                title="Close Video"
+                                title="Close"
                             >
-                                <Icon icon="solar:close-circle-bold" width={26} />
+                                <Icon icon="solar:close-circle-bold" width={24} />
                             </button>
                         </div>
 

@@ -21,7 +21,13 @@
 
 type ServerDataFn = (id: string, slug: string, data?: any) => Promise<any>;
 
-const _registry = new Map<string, ServerDataFn>();
+declare global {
+    var __serverDataHooksRegistry: Map<string, ServerDataFn> | undefined;
+    var __productEnrichers: ProductEnricherFn[] | undefined;
+    var __categoryEnrichers: CategoryEnricherFn[] | undefined;
+}
+
+const _registry = globalThis.__serverDataHooksRegistry ?? (globalThis.__serverDataHooksRegistry = new Map<string, ServerDataFn>());
 
 /**
  * Register a data provider for a content type.
@@ -41,7 +47,11 @@ export async function runServerDataHook(
     slug: string,
     data?: any
 ): Promise<any | undefined> {
-    const fn = _registry.get(contentType);
+    let fn = _registry.get(contentType);
+    if (!fn) {
+        loadServerHooks();
+        fn = _registry.get(contentType);
+    }
     if (!fn) return undefined;
     return fn(id, slug, data);
 }
@@ -71,7 +81,7 @@ type ProductEnricherFn = (
     postData: any
 ) => Promise<Record<string, any>>;
 
-const _productEnrichers: ProductEnricherFn[] = [];
+const _productEnrichers: ProductEnricherFn[] = globalThis.__productEnrichers ?? (globalThis.__productEnrichers = []);
 
 /**
  * Register a product page data enricher.
@@ -109,7 +119,7 @@ type CategoryEnricherFn = (
     catData: any
 ) => Promise<Record<string, any>>;
 
-const _categoryEnrichers: CategoryEnricherFn[] = [];
+const _categoryEnrichers: CategoryEnricherFn[] = globalThis.__categoryEnrichers ?? (globalThis.__categoryEnrichers = []);
 
 /**
  * Register a category page data enricher.
@@ -158,13 +168,23 @@ const serverHookContext = require.context(
     true,
     /^\.\/[^/]+\/lib\/serverHooks\.(ts|js)$/
 );
-serverHookContext.keys().forEach((key: string) => {
+
+function loadServerHooks() {
     try {
-        serverHookContext(key);
-    } catch {
-        // Silently tolerate uninstantiated or stale HMR modules during dev
-    }
-});
+        serverHookContext.keys().forEach((key: string) => {
+            try {
+                serverHookContext(key);
+            } catch {
+                // Silently tolerate uninstantiated or stale HMR modules during dev
+            }
+        });
+    } catch {}
+    try {
+        require("../plugin/players/lib/serverHooks");
+    } catch {}
+}
+
+loadServerHooks();
 
 // Plugin action hooks (server-only Mongoose action handlers)
 // Each plugin/*/lib/actionHooks.ts registers addAction() handlers that
