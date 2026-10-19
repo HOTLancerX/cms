@@ -32,6 +32,13 @@ export async function GET(request: NextRequest) {
         if (seller && seller !== "all") {
             query.userId = seller;
         }
+        const idsParam = searchParams.get("ids");
+        if (idsParam) {
+            const idList = idsParam.split(",").map(id => id.trim()).filter(id => id.length === 24);
+            if (idList.length > 0) {
+                query._id = { $in: idList };
+            }
+        }
         if (search) {
             const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
             query.$or = [

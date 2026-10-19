@@ -135,6 +135,11 @@ export default function CategoryListClient({
     const [sourceCatFilter, setSourceCatFilter] = useState<string>("");
     const [uncategorizedCount, setUncategorizedCount] = useState<number | null>(null);
     const [productSearch, setProductSearch] = useState("");
+    const [matchCase, setMatchCase] = useState(false);
+    const [exactMatch, setExactMatch] = useState(false);
+    const [linkPage, setLinkPage] = useState(1);
+    const [totalLinkProducts, setTotalLinkProducts] = useState(0);
+    const [totalLinkPages, setTotalLinkPages] = useState(1);
     const [productsList, setProductsList] = useState<any[]>([]);
     const [isSearchingProducts, setIsSearchingProducts] = useState(false);
     const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
@@ -149,7 +154,10 @@ export default function CategoryListClient({
     const searchProducts = async (
         q: string = productSearch,
         excludeId: string = linkTargetCatId,
-        sourceId: string = sourceCatFilter
+        sourceId: string = sourceCatFilter,
+        page: number = linkPage,
+        isCase: boolean = matchCase,
+        isExact: boolean = exactMatch
     ) => {
         setIsSearchingProducts(true);
         setLinkError("");
@@ -160,11 +168,17 @@ export default function CategoryListClient({
                 excludeCatId: excludeId || "",
                 sourceCatId: sourceId || "",
                 limit: "100",
+                page: String(page),
+                matchCase: String(isCase),
+                exactMatch: String(isExact),
             });
             const res = await fetch(`/api/admin/category/link-products?${p.toString()}`);
             const data = await res.json();
             if (res.ok) {
                 setProductsList(data.products || []);
+                setTotalLinkProducts(typeof data.total === "number" ? data.total : (data.products?.length || 0));
+                setTotalLinkPages(typeof data.totalPages === "number" ? data.totalPages : 1);
+                setLinkPage(typeof data.page === "number" ? data.page : page);
                 if (typeof data.uncategorizedCount === "number") {
                     setUncategorizedCount(data.uncategorizedCount);
                 }
@@ -184,25 +198,76 @@ export default function CategoryListClient({
         setLinkTargetCatId(targetId);
         setSourceCatFilter("uncategorized");
         setProductSearch("");
+        setMatchCase(false);
+        setExactMatch(false);
+        setLinkPage(1);
         setSelectedProductIds([]);
         setLinkError("");
         setLinkSuccess("");
         setShowLinkModal(true);
-        searchProducts("", targetId, "uncategorized");
+        searchProducts("", targetId, "uncategorized", 1, false, false);
     };
 
     // Handle Target Category Change
     const handleTargetCategoryChange = (newTargetId: string) => {
         setLinkTargetCatId(newTargetId);
         setSelectedProductIds([]);
-        searchProducts(productSearch, newTargetId, sourceCatFilter);
+        setLinkPage(1);
+        searchProducts(productSearch, newTargetId, sourceCatFilter, 1, matchCase, exactMatch);
     };
 
     // Handle Source Category Filter Change
     const handleSourceCategoryChange = (newSourceId: string) => {
         setSourceCatFilter(newSourceId);
         setSelectedProductIds([]);
-        searchProducts(productSearch, linkTargetCatId, newSourceId);
+        setLinkPage(1);
+        searchProducts(productSearch, linkTargetCatId, newSourceId, 1, matchCase, exactMatch);
+    };
+
+    // Toggle match case filter
+    const handleToggleMatchCase = () => {
+        const nextCase = !matchCase;
+        setMatchCase(nextCase);
+        setLinkPage(1);
+        searchProducts(productSearch, linkTargetCatId, sourceCatFilter, 1, nextCase, exactMatch);
+    };
+
+    // Toggle exact match filter
+    const handleToggleExactMatch = () => {
+        const nextExact = !exactMatch;
+        setExactMatch(nextExact);
+        setLinkPage(1);
+        searchProducts(productSearch, linkTargetCatId, sourceCatFilter, 1, matchCase, nextExact);
+    };
+
+    // Handle Link modal page change
+    const handleLinkPageChange = (newPage: number) => {
+        if (newPage < 1 || newPage > totalLinkPages || newPage === linkPage) return;
+        setLinkPage(newPage);
+        searchProducts(productSearch, linkTargetCatId, sourceCatFilter, newPage, matchCase, exactMatch);
+    };
+
+    // Generate page numbers for link modal
+    const getLinkPageNumbers = () => {
+        const pages: (number | string)[] = [];
+        if (totalLinkPages <= 7) {
+            for (let i = 1; i <= totalLinkPages; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            if (linkPage > 3) {
+                pages.push("...");
+            }
+            const start = Math.max(2, linkPage - 1);
+            const end = Math.min(totalLinkPages - 1, linkPage + 1);
+            for (let i = start; i <= end; i++) {
+                pages.push(i);
+            }
+            if (linkPage < totalLinkPages - 2) {
+                pages.push("...");
+            }
+            pages.push(totalLinkPages);
+        }
+        return pages;
     };
 
     // Toggle product selection
@@ -212,12 +277,17 @@ export default function CategoryListClient({
         );
     };
 
+    // Are all visible products on the current page selected
+    const areAllVisibleSelected = useMemo(() => {
+        return productsList.length > 0 && productsList.every((p) => selectedProductIds.includes(p._id));
+    }, [productsList, selectedProductIds]);
+
     // Select/Deselect all visible products
     const toggleSelectAllProducts = () => {
-        if (selectedProductIds.length === productsList.length && productsList.length > 0) {
-            setSelectedProductIds([]);
+        if (areAllVisibleSelected) {
+            setSelectedProductIds((prev) => prev.filter((id) => !productsList.some((p) => p._id === id)));
         } else {
-            setSelectedProductIds(productsList.map((p) => p._id));
+            setSelectedProductIds((prev) => Array.from(new Set([...prev, ...productsList.map((p) => p._id)])));
         }
     };
 
@@ -256,12 +326,9 @@ export default function CategoryListClient({
             const targetCat = cats.find((c) => c._id === linkTargetCatId);
             setLinkSuccess(`Successfully linked ${selectedProductIds.length} product(s) to "${targetCat?.title || 'category'}"!`);
 
-            // Filter out newly linked products since they now belong to the target category
-            setProductsList((prev) => prev.filter((p) => !selectedProductIds.includes(p._id)));
-            if (sourceCatFilter === "uncategorized") {
-                setUncategorizedCount((prev) => (prev !== null ? Math.max(0, prev - selectedProductIds.length) : null));
-            }
             setSelectedProductIds([]);
+            // Refresh current page of products and counts
+            await searchProducts(productSearch, linkTargetCatId, sourceCatFilter, linkPage, matchCase, exactMatch);
 
             setTimeout(() => {
                 setLinkSuccess("");
@@ -1047,7 +1114,7 @@ export default function CategoryListClient({
                                                 onClick={toggleSelectAllProducts}
                                                 className="text-violet-600 hover:underline font-semibold cursor-pointer"
                                             >
-                                                {selectedProductIds.length === productsList.length ? "Deselect All" : "Select All Visible"}
+                                                {areAllVisibleSelected ? "Deselect All Visible" : "Select All Visible"}
                                             </button>
                                         )}
                                         <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-violet-50 text-violet-700 border border-violet-200">
@@ -1056,31 +1123,70 @@ export default function CategoryListClient({
                                     </div>
                                 </div>
 
-                                <div className="relative">
-                                    <Icon icon="solar:magnifer-linear" className="absolute left-3 top-2.5 text-gray-400" width={15} />
-                                    <input
-                                        type="text"
-                                        value={productSearch}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setProductSearch(val);
-                                            searchProducts(val, linkTargetCatId, sourceCatFilter);
-                                        }}
-                                        placeholder={`Search ${sourceCatFilter === 'uncategorized' ? 'uncategorized products' : 'products'} by title or slug...`}
-                                        className="w-full text-xs border border-gray-200 rounded-xl pl-9 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-500 bg-white"
-                                    />
-                                    {productSearch && (
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                    <div className="relative flex-1">
+                                        <Icon icon="solar:magnifer-linear" className="absolute left-3 top-2.5 text-gray-400" width={15} />
+                                        <input
+                                            type="text"
+                                            value={productSearch}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setProductSearch(val);
+                                                setLinkPage(1);
+                                                searchProducts(val, linkTargetCatId, sourceCatFilter, 1, matchCase, exactMatch);
+                                            }}
+                                            placeholder={`Search ${sourceCatFilter === 'uncategorized' ? 'uncategorized products' : 'products'} by title or slug...`}
+                                            className="w-full text-xs border border-gray-200 rounded-xl pl-9 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-500 bg-white"
+                                        />
+                                        {productSearch && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setProductSearch("");
+                                                    setLinkPage(1);
+                                                    searchProducts("", linkTargetCatId, sourceCatFilter, 1, matchCase, exactMatch);
+                                                }}
+                                                className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                                            >
+                                                <Icon icon="solar:close-circle-linear" width={15} />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* 2 Filtering Options on the Right Side of Search */}
+                                    <div className="flex items-center gap-1.5 shrink-0">
                                         <button
                                             type="button"
-                                            onClick={() => {
-                                                setProductSearch("");
-                                                searchProducts("", linkTargetCatId, sourceCatFilter);
-                                            }}
-                                            className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                                            onClick={handleToggleMatchCase}
+                                            title={matchCase ? "Match Case: Active (Case sensitive uppercase/lowercase)" : "Match Case: Inactive (Ignore case)"}
+                                            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer select-none ${
+                                                matchCase
+                                                    ? "bg-violet-100/90 border-violet-300 text-violet-800 shadow-xs ring-1 ring-violet-400/40"
+                                                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+                                            }`}
                                         >
-                                            <Icon icon="solar:close-circle-linear" width={15} />
+                                            <span className={`px-1 py-0.2 rounded text-[11px] font-mono font-bold ${matchCase ? "bg-violet-200 text-violet-900" : "bg-gray-100 text-gray-500"}`}>
+                                                Aa
+                                            </span>
+                                            <span>Match Case</span>
                                         </button>
-                                    )}
+
+                                        <button
+                                            type="button"
+                                            onClick={handleToggleExactMatch}
+                                            title={exactMatch ? "Exact Match: Active (Strict title/slug match)" : "Exact Match: Inactive (Partial substring match)"}
+                                            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer select-none ${
+                                                exactMatch
+                                                    ? "bg-violet-100/90 border-violet-300 text-violet-800 shadow-xs ring-1 ring-violet-400/40"
+                                                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+                                            }`}
+                                        >
+                                            <span className={`px-1 py-0.2 rounded text-[11px] font-mono font-bold ${exactMatch ? "bg-violet-200 text-violet-900" : "bg-gray-100 text-gray-500"}`}>
+                                                &quot;&quot;
+                                            </span>
+                                            <span>Exact Match</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1103,7 +1209,7 @@ export default function CategoryListClient({
                                                 <th className="p-3 w-10 text-center">
                                                     <input
                                                         type="checkbox"
-                                                        checked={selectedProductIds.length === productsList.length && productsList.length > 0}
+                                                        checked={areAllVisibleSelected}
                                                         onChange={toggleSelectAllProducts}
                                                         className="rounded border-gray-300 text-violet-600 focus:ring-violet-500 cursor-pointer"
                                                     />
@@ -1182,6 +1288,73 @@ export default function CategoryListClient({
                                     </table>
                                 )}
                             </div>
+
+                            {/* Pagination (appears when there are more than a hundred products) */}
+                            {totalLinkProducts > 100 && (
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3 py-2 bg-gray-50/80 border border-gray-200 rounded-xl text-xs text-gray-600">
+                                    <div className="flex items-center gap-2">
+                                        <span>
+                                            Showing <strong className="text-gray-800 font-bold">{(linkPage - 1) * 100 + 1}</strong> to{" "}
+                                            <strong className="text-gray-800 font-bold">{Math.min(linkPage * 100, totalLinkProducts)}</strong> of{" "}
+                                            <strong className="text-gray-800 font-bold">{totalLinkProducts}</strong> products
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1">
+                                        {/* Prev Page */}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleLinkPageChange(linkPage - 1)}
+                                            disabled={linkPage === 1 || isSearchingProducts}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-gray-600 hover:bg-white hover:text-gray-900 border border-transparent hover:border-gray-200 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+                                        >
+                                            <Icon icon="solar:alt-arrow-left-bold" width={13} />
+                                            Prev
+                                        </button>
+
+                                        {/* Page Numbers */}
+                                        <div className="flex items-center gap-1">
+                                            {getLinkPageNumbers().map((p, idx) => {
+                                                if (p === "...") {
+                                                    return (
+                                                        <span key={`ell-${idx}`} className="px-1 text-gray-400 select-none">
+                                                            ...
+                                                        </span>
+                                                    );
+                                                }
+                                                const pageNum = Number(p);
+                                                const isActive = pageNum === linkPage;
+                                                return (
+                                                    <button
+                                                        key={pageNum}
+                                                        type="button"
+                                                        onClick={() => handleLinkPageChange(pageNum)}
+                                                        disabled={isSearchingProducts}
+                                                        className={`min-w-7 h-7 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center ${
+                                                            isActive
+                                                                ? "bg-violet-600 text-white shadow-xs"
+                                                                : "text-gray-600 hover:bg-white border border-transparent hover:border-gray-200 hover:text-gray-900"
+                                                        }`}
+                                                    >
+                                                        {pageNum}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Next Page */}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleLinkPageChange(linkPage + 1)}
+                                            disabled={linkPage === totalLinkPages || isSearchingProducts}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-gray-600 hover:bg-white hover:text-gray-900 border border-transparent hover:border-gray-200 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+                                        >
+                                            Next
+                                            <Icon icon="solar:alt-arrow-right-bold" width={13} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Notifications */}
                             {linkError && (

@@ -18,6 +18,9 @@ export async function GET(request: NextRequest) {
         const excludeCatId = searchParams.get("excludeCatId") || "";
         const sourceCatId = searchParams.get("sourceCatId") || "";
         const limit = Math.max(1, Math.min(200, parseInt(searchParams.get("limit") || "100", 10)));
+        const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+        const matchCase = searchParams.get("matchCase") === "true";
+        const exactMatch = searchParams.get("exactMatch") === "true";
 
         const conditions: any[] = [
             { status: { $ne: "trash" } },
@@ -50,21 +53,32 @@ export async function GET(request: NextRequest) {
 
         if (search) {
             const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const pattern = exactMatch ? `^${escaped}$` : escaped;
+            const regexQuery: Record<string, string> = { $regex: pattern };
+            if (!matchCase) {
+                regexQuery.$options = "i";
+            }
             conditions.push({
                 $or: [
-                    { title: { $regex: escaped, $options: "i" } },
-                    { slug: { $regex: escaped, $options: "i" } },
+                    { title: regexQuery },
+                    { slug: regexQuery },
                 ],
             });
         }
 
         const query = conditions.length === 1 ? conditions[0] : { $and: conditions };
 
-        const posts = await Post.find(query)
-            .sort({ createdAt: -1 })
-            .limit(limit)
-            .select("_id title slug type category status createdAt")
-            .lean();
+        const skip = (page - 1) * limit;
+
+        const [totalMatching, posts] = await Promise.all([
+            Post.countDocuments(query),
+            Post.find(query)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .select("_id title slug type category status createdAt")
+                .lean(),
+        ]);
 
         const postIds = posts.map((p) => p._id);
 
@@ -139,9 +153,14 @@ export async function GET(request: NextRequest) {
         }
         const uncategorizedCount = await Post.countDocuments(uncategorizedFilter);
 
+        const totalPages = Math.max(1, Math.ceil(totalMatching / limit));
+
         return NextResponse.json({
             products: results,
-            total: results.length,
+            total: totalMatching,
+            page,
+            totalPages,
+            limit,
             uncategorizedCount,
         });
     } catch (error: any) {
