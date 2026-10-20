@@ -120,12 +120,14 @@ export default async function RootLayout({
     const mainSlot   = settings.header_main_menu   as string | undefined;
     const rightSlot  = settings.header_right_menu  as string | undefined;
     const mobileSlot = settings.header_mobile_menu as string | undefined;
+    const footerSlot = (settings.header_footer_menu || settings.footer_menu) as string | undefined;
 
-    const [topItems, mainItems, rightItems, mobileItems] = await Promise.all([
+    const [topItems, mainItems, rightItems, mobileItems, footerItems] = await Promise.all([
         topSlot    ? getMenuByLocation(topSlot).catch(() => [])    : Promise.resolve([]),
         mainSlot   ? getMenuByLocation(mainSlot).catch(() => [])   : Promise.resolve([]),
         rightSlot  ? getMenuByLocation(rightSlot).catch(() => [])  : Promise.resolve([]),
         mobileSlot ? getMenuByLocation(mobileSlot).catch(() => []) : Promise.resolve([]),
+        footerSlot ? getMenuByLocation(footerSlot).catch(() => []) : Promise.resolve([]),
     ]);
 
     // Pre-fetch builder content for any builder-type items across all slots
@@ -204,7 +206,7 @@ export default async function RootLayout({
             {footerBuilderId ? (
                 <Builder id={footerBuilderId} />
             ) : FooterComponent ? (
-                <FooterComponent settings={settings} />
+                <FooterComponent settings={settings} menuItems={footerItems} />
             ) : null}
             {rootWidgets.map((widget) => {
                 const WidgetComponent = widget.component as React.ComponentType<any>;
