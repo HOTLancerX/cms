@@ -467,7 +467,6 @@ function FooterTab({
         { key: "footer_number", label: "Number (Footer)", icon: "solar:hashtag-bold", placeholder: "Contact / Hotline number for footer" },
         { key: "footer_email", label: "Email (Footer)", icon: "solar:letter-bold", placeholder: "contact@example.com" },
         { key: "copyright", label: "Copyright", icon: "solar:copyright-bold", placeholder: "© 2026 All rights reserved." },
-        { key: "social_media", label: "Social Media", icon: "solar:share-circle-bold", placeholder: "Social media links or handle info" },
         { key: "footer_logo", label: "Footer Logo", icon: "solar:gallery-wide-bold", placeholder: "Footer logo image", isGallery: true },
         { key: "footer_logo_height", label: "Footer Logo Height (px)", icon: "solar:ruler-bold", placeholder: "e.g. 40" },
         { key: "background_image", label: "Background Image", icon: "solar:image-bold", placeholder: "Background image", isGallery: true },
