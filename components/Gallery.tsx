@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import NextImage from 'next/image'
 import { Library } from '@/models/Library'
@@ -38,10 +38,15 @@ interface GalleryModalProps {
     onSelect: (images: string | string[]) => void
 }
 
+// In-memory cache for library images to avoid heavy refetching on every modal open
+let cachedLibraryImages: Library[] | null = null;
+let lastFetchTimestamp = 0;
+const CACHE_DURATION_MS = 3 * 60 * 1000; // 3 minutes
+
 export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSelect }: GalleryModalProps) {
     const [mounted, setMounted] = useState(false)
     const [activeTab, setActiveTab] = useState<'library' | 'cloudinary' | 'cloudflare' | 'url' | 'bg-removal' | 'editing'>('library')
-    const [libraryImages, setLibraryImages] = useState<Library[]>([])
+    const [libraryImages, setLibraryImages] = useState<Library[]>(() => cachedLibraryImages || [])
     const [loading, setLoading] = useState(false)
     const [selected, setSelected] = useState<string[]>(selectedImages)
     const [urlInput, setUrlInput] = useState('')
@@ -50,6 +55,8 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [uploadProgress, setUploadProgress] = useState(0)
     const [mediaFilter, setMediaFilter] = useState<'all' | 'image' | 'video'>('all')
+    const [searchQuery, setSearchQuery] = useState('')
+    const [visibleCount, setVisibleCount] = useState(48)
     const [bgRemovalImage, setBgRemovalImage] = useState<string | null>(null)
     const [editingImage, setEditingImage] = useState<string | null>(null)
 
@@ -70,12 +77,18 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen])
 
-    const fetchLibraryImages = async () => {
+    const fetchLibraryImages = async (force = false) => {
+        if (!force && cachedLibraryImages && cachedLibraryImages.length > 0 && Date.now() - lastFetchTimestamp < CACHE_DURATION_MS) {
+            setLibraryImages(cachedLibraryImages)
+            return
+        }
         setLoading(true)
         try {
             const response = await fetch('/api/library')
             if (response.ok) {
                 const images = await response.json()
+                cachedLibraryImages = images
+                lastFetchTimestamp = Date.now()
                 setLibraryImages(images)
             }
         } catch (error) {
@@ -116,7 +129,7 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
             if (response.ok) {
                 setUrlInput('')
                 setActiveTab('library')
-                fetchLibraryImages()
+                fetchLibraryImages(true)
             }
         } catch (error) {
             console.error('Failed to add URLs:', error)
@@ -230,7 +243,7 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                         
                         // Switch to library tab so the user sees the uploaded images
                         setActiveTab('library')
-                        fetchLibraryImages()
+                        fetchLibraryImages(true)
                         resolve()
                     } else {
                         let errorMsg = `Upload failed (${xhr.status})`
@@ -277,10 +290,29 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
         }
     }
 
+    const filteredImages = useMemo(() => {
+        return libraryImages.filter((image) => {
+            const isVid = isVideoUrl(image.url);
+            if (mediaFilter === 'image' && isVid) return false;
+            if (mediaFilter === 'video' && !isVid) return false;
+            if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase().trim();
+                const name = (image.name || '').toLowerCase();
+                const url = (image.url || '').toLowerCase();
+                return name.includes(q) || url.includes(q);
+            }
+            return true;
+        });
+    }, [libraryImages, mediaFilter, searchQuery]);
+
+    const displayedImages = useMemo(() => {
+        return filteredImages.slice(0, visibleCount);
+    }, [filteredImages, visibleCount]);
+
     const modalContent = (
-        <div className="fixed inset-0 z-9999 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-            <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-                <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="fixed inset-0 z-9999 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl w-full max-w-6xl xl:max-w-7xl h-full flex flex-col shadow-2xl overflow-hidden">
+                <div className="p-4 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
                     <h2 className="text-lg font-bold text-gray-800">Media Library</h2>
                     <div className="flex gap-2">
                         {['library', 'cloudinary', 'cloudflare', 'url', 'bg-removal', 'editing'].map((tab) => (
@@ -311,49 +343,101 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                 <div className="flex-1 overflow-y-auto p-2 md:p-4">
                     {activeTab === 'library' && (
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between gap-4">
-                                <div className="flex gap-2">
-                                    {(['all', 'image', 'video'] as const).map(filter => (
-                                        <button
-                                            key={filter}
-                                            onClick={() => setMediaFilter(filter)}
-                                            className={`px-3 py-1 text-[11px] font-bold rounded-lg uppercase transition ${
-                                                mediaFilter === filter ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                            }`}
-                                        >
-                                            {filter}
-                                        </button>
-                                    ))}
+                            <div className="flex flex-wrap items-center justify-between gap-3 bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex bg-gray-200/70 p-0.5 rounded-lg">
+                                        {(['all', 'image', 'video'] as const).map(filter => (
+                                            <button
+                                                key={filter}
+                                                type="button"
+                                                onClick={() => setMediaFilter(filter)}
+                                                className={`px-3 py-1 text-[11px] font-bold rounded-md uppercase transition ${
+                                                    mediaFilter === filter ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-800'
+                                                }`}
+                                            >
+                                                {filter}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Search input */}
+                                    <div className="relative w-48 sm:w-64">
+                                        <Icon icon="solar:magnifer-linear" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" width={15} />
+                                        <input
+                                            type="text"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            placeholder="Search media by name..."
+                                            className="w-full pl-8 pr-7 py-1 text-xs bg-white border border-gray-200 rounded-lg focus:outline-hidden focus:border-blue-500 text-gray-700 placeholder:text-gray-400"
+                                        />
+                                        {searchQuery && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSearchQuery('')}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                            >
+                                                <Icon icon="solar:close-circle-bold" width={14} />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Refresh Library Cache */}
+                                    <button
+                                        type="button"
+                                        onClick={() => fetchLibraryImages(true)}
+                                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-white rounded-lg border border-transparent hover:border-gray-200 transition"
+                                        title="Refresh library"
+                                    >
+                                        <Icon icon="solar:restart-bold" width={16} />
+                                    </button>
                                 </div>
                                 
-                                <button
-                                    onClick={handleConfirm}
-                                    disabled={selected.length === 0}
-                                    className="px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg shadow-sm disabled:opacity-50 hover:bg-blue-700 transition"
-                                >
-                                    Select ({selected.length})
-                                </button>
+                                <div className="flex items-center gap-2 ml-auto">
+                                    <span className="text-xs text-gray-400 font-medium">
+                                        {filteredImages.length} items
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={handleConfirm}
+                                        disabled={selected.length === 0}
+                                        className="px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg shadow-xs disabled:opacity-50 hover:bg-blue-700 transition"
+                                    >
+                                        Select ({selected.length})
+                                    </button>
+                                </div>
                             </div>
 
                             {loading ? (
-                                <div className="flex items-center justify-center py-20 text-blue-500">
-                                    <Icon icon="line-md:loading-twotone-loop" width={32} />
+                                <div className="flex flex-col items-center justify-center py-24 text-gray-400 gap-2">
+                                    <Icon icon="line-md:loading-twotone-loop" width={36} className="text-blue-500" />
+                                    <span className="text-xs font-medium">Loading library...</span>
+                                </div>
+                            ) : displayedImages.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
+                                    <Icon icon="solar:gallery-wide-bold" width={48} className="text-gray-300 mb-2" />
+                                    <p className="text-sm font-semibold text-gray-600">No media found</p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        {searchQuery ? `No files matching "${searchQuery}"` : 'Your media library is empty'}
+                                    </p>
+                                    {searchQuery && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setSearchQuery('')}
+                                            className="mt-3 px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition"
+                                        >
+                                            Clear search
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                    {libraryImages
-                                        .filter(image => {
-                                            const isVid = isVideoUrl(image.url);
-                                            if (mediaFilter === 'image') return !isVid;
-                                            if (mediaFilter === 'video') return isVid;
-                                            return true;
-                                        })
-                                        .map(image => {
+                                <>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                                        {displayedImages.map(image => {
                                             const isVid = isVideoUrl(image.url);
                                             const isSelected = selected.includes(image.url);
                                             return (
                                                 <div
-                                                    key={image.id || image._id?.toString()}
+                                                    key={image.id || image._id?.toString() || image.url}
                                                     className={`relative cursor-pointer border rounded-xl overflow-hidden bg-gray-50 flex flex-col transition group hover:shadow-md ${
                                                         isSelected
                                                             ? 'border-blue-600 ring-2 ring-blue-500/20'
@@ -365,11 +449,11 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                                                     <div className="relative w-full h-28 overflow-hidden bg-white flex items-center justify-center border-b border-gray-100">
                                                         {isVid ? (
                                                             // Video element playable on hover
-                                                            <div className="relative w-full h-full group/video">
+                                                            <div className="relative w-full h-full group/video bg-black flex items-center justify-center">
                                                                 <video
                                                                     src={image.url}
                                                                     className="w-full h-full object-cover"
-                                                                    preload="metadata"
+                                                                    preload="none"
                                                                     muted
                                                                     loop
                                                                     onMouseEnter={(e) => {
@@ -380,7 +464,7 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                                                                         e.currentTarget.currentTime = 0;
                                                                     }}
                                                                 />
-                                                                <div className="absolute inset-0 bg-black/25 flex items-center justify-center transition group-hover/video:bg-transparent">
+                                                                <div className="absolute inset-0 bg-black/25 flex items-center justify-center transition group-hover/video:bg-transparent pointer-events-none">
                                                                     <div className="p-1.5 rounded-full bg-white/90 shadow text-gray-700">
                                                                         <Icon icon="solar:play-bold" width={16} />
                                                                     </div>
@@ -389,9 +473,10 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                                                         ) : (
                                                             <img
                                                                 src={image.url}
-                                                                alt={image.name}
+                                                                alt={image.name || 'image'}
                                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                                                 loading="lazy"
+                                                                decoding="async"
                                                             />
                                                         )}
                                                     </div>
@@ -399,50 +484,67 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                                                     {/* Text details */}
                                                     <div className="p-2 bg-white flex-1 min-w-0">
                                                         <p className="text-xs font-semibold text-gray-800 truncate" title={image.name}>
-                                                            {image.name}
+                                                            {image.name || 'Unnamed media'}
                                                         </p>
                                                         <p className="text-[10px] text-gray-400 capitalize font-medium mt-0.5">
                                                             {isVid ? 'video' : 'image'}
                                                         </p>
                                                     </div>
-                                                     {/* Selection icon overlay */}
-                                                     {isSelected && (
-                                                         <div className="absolute top-2 right-2 bg-blue-600 text-white rounded-full p-1 shadow border border-white">
-                                                             <Icon icon="solar:check-circle-bold" width={16} />
-                                                         </div>
-                                                     )}
-                                                     {!isVid && (
-                                                         <div className="absolute top-2 left-2 flex gap-1 z-20 opacity-0 group-hover:opacity-100 transition">
-                                                             <button
-                                                                 type="button"
-                                                                 onClick={(e) => {
-                                                                     e.stopPropagation()
-                                                                     setBgRemovalImage(image.url)
-                                                                     setActiveTab('bg-removal')
-                                                                 }}
-                                                                 className="p-1.5 bg-white/90 hover:bg-white text-blue-600 rounded-lg shadow-sm border border-gray-100 hover:scale-105 active:scale-95 transition flex items-center justify-center"
-                                                                 title="Remove Background"
-                                                             >
-                                                                 <Icon icon="solar:magic-stick-3-bold-duotone" width={14} />
-                                                             </button>
-                                                             <button
-                                                                 type="button"
-                                                                 onClick={(e) => {
-                                                                     e.stopPropagation()
-                                                                     setEditingImage(image.url)
-                                                                     setActiveTab('editing')
-                                                                 }}
-                                                                 className="p-1.5 bg-white/90 hover:bg-white text-indigo-600 rounded-lg shadow-sm border border-gray-100 hover:scale-105 active:scale-95 transition flex items-center justify-center"
-                                                                 title="Edit Image (Crop, Rotate, Filters)"
-                                                             >
-                                                                 <Icon icon="solar:pen-new-square-bold-duotone" width={14} />
-                                                             </button>
-                                                         </div>
-                                                     )}
+
+                                                    {/* Selection icon overlay */}
+                                                    {isSelected && (
+                                                        <div className="absolute top-2 right-2 bg-blue-600 text-white rounded-full p-1 shadow border border-white z-10">
+                                                            <Icon icon="solar:check-circle-bold" width={16} />
+                                                        </div>
+                                                    )}
+
+                                                    {!isVid && (
+                                                        <div className="absolute top-2 left-2 flex gap-1 z-20 opacity-0 group-hover:opacity-100 transition">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    setBgRemovalImage(image.url)
+                                                                    setActiveTab('bg-removal')
+                                                                }}
+                                                                className="p-1.5 bg-white/90 hover:bg-white text-blue-600 rounded-lg shadow-xs border border-gray-100 hover:scale-105 active:scale-95 transition flex items-center justify-center"
+                                                                title="Remove Background"
+                                                            >
+                                                                <Icon icon="solar:magic-stick-3-bold-duotone" width={14} />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    setEditingImage(image.url)
+                                                                    setActiveTab('editing')
+                                                                }}
+                                                                className="p-1.5 bg-white/90 hover:bg-white text-indigo-600 rounded-lg shadow-xs border border-gray-100 hover:scale-105 active:scale-95 transition flex items-center justify-center"
+                                                                title="Edit Image (Crop, Rotate, Filters)"
+                                                            >
+                                                                <Icon icon="solar:pen-new-square-bold-duotone" width={14} />
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })}
-                                </div>
+                                    </div>
+
+                                    {/* Load More Pagination */}
+                                    {displayedImages.length < filteredImages.length && (
+                                        <div className="flex justify-center pt-4 pb-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setVisibleCount((prev) => prev + 36)}
+                                                className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-2xs"
+                                            >
+                                                <span>Load More ({filteredImages.length - displayedImages.length} remaining)</span>
+                                                <Icon icon="solar:alt-arrow-down-linear" width={16} />
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     )}
@@ -749,12 +851,12 @@ export default function Gallery({ multiple = false, value, onChange, placeholder
                     </button>
                 ) : (
                     // Single image container. Clicking on it opens popup, close button in corner. No other box next to it.
-                    <div className="relative group w-full h-42 rounded overflow-hidden border border-gray-200 shadow-sm bg-gray-50 flex items-center justify-center">
+                    <div className="relative group w-full h-48 rounded-xl overflow-hidden border border-gray-200 shadow-xs bg-gray-50 flex items-center justify-center p-2">
                         {isVideoUrl(selectedImages[0]) ? (
                             <video
                                 src={selectedImages[0]}
                                 onClick={() => setIsModalOpen(true)}
-                                className="w-min h-full max-h-42 object-cover cursor-pointer hover:opacity-95 transition bg-black"
+                                className="w-full h-full object-contain cursor-pointer hover:opacity-95 transition bg-black rounded-lg"
                                 muted
                             />
                         ) : (
@@ -762,13 +864,13 @@ export default function Gallery({ multiple = false, value, onChange, placeholder
                                 src={selectedImages[0]}
                                 alt="Featured image"
                                 onClick={() => setIsModalOpen(true)}
-                                className="w-min h-full max-h-42 object-cover cursor-pointer hover:opacity-95 transition"
+                                className="w-full h-full object-contain cursor-pointer hover:opacity-95 transition rounded-lg"
                             />
                         )}
                         <button
                             type="button"
                             onClick={() => removeImage(selectedImages[0])}
-                            className="absolute top-2 right-2 text-red-500 hover:text-red-600 transition-all duration-150 hover:scale-110 active:scale-95 bg-white rounded-full shadow"
+                            className="absolute top-2.5 right-2.5 text-red-500 hover:text-red-600 transition-all duration-150 hover:scale-110 active:scale-95 bg-white rounded-full shadow p-0.5"
                             title="Remove image"
                         >
                             <Icon icon="solar:close-circle-bold" width={22} />
