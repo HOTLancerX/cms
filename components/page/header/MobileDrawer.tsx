@@ -65,7 +65,7 @@ export default function MobileDrawer({
                 type="button"
                 onClick={() => setOpen(true)}
                 aria-label="Open mobile menu"
-                className={`p-2 rounded-lg hover:bg-black/10 transition ${className || 'md:hidden'}`}
+                className={`hover:bg-black/10 transition ${className || 'md:hidden'}`}
             >
                 <Icon icon={icon} width={iconSize} style={{ color: iconColor }} />
             </button>
@@ -91,14 +91,7 @@ export default function MobileDrawer({
                             <img
                                 src={settings.logo}
                                 alt={settings.siteName}
-                                className={settings.header_logo_height || settings.headerLogoHeight ? "w-auto object-contain" : "h-8 w-auto object-contain"}
-                                style={{
-                                    height: settings.header_logo_height
-                                        ? `${settings.header_logo_height}px`
-                                        : settings.headerLogoHeight
-                                        ? `${settings.headerLogoHeight}px`
-                                        : undefined,
-                                }}
+                                className="h-6 md:h-8 w-auto object-contain"
                             />
                         ) : (
                             settings.siteName
