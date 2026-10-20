@@ -316,6 +316,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
                     <CategorySpecification
                         specifications={specs}
                         onChange={v => setInfoKey(key, JSON.stringify(v))}
+                        categoryType={type}
                     />
                 </div>
             );

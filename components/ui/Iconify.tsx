@@ -18,6 +18,7 @@ export type IconifyPickerProps = {
     placeholder?: string
     className?: string
     customCollections?: IconCollection[]
+    compact?: boolean
 }
 
 const DEFAULT_ICON_COLLECTIONS: IconCollection[] = [
@@ -203,7 +204,8 @@ export default function IconifyPicker({
     onChange,
     placeholder,
     className = '',
-    customCollections = []
+    customCollections = [],
+    compact = false,
 }: IconifyPickerProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
@@ -245,51 +247,97 @@ export default function IconifyPicker({
     }
 
     return (
-        <div className={`flex flex-col gap-1.5 ${className}`}>
-            {label && (
+        <div className={`relative ${compact ? 'inline-flex items-center shrink-0' : 'flex flex-col gap-1.5'} ${className}`}>
+            {!compact && label && (
                 <label htmlFor={name} className="text-xs font-semibold text-gray-700">
                     {label}
                 </label>
             )}
             <div className="relative group">
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setCustomInputValue(value || '')
-                            setIsOpen(!isOpen)
-                        }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 flex items-center justify-between transition shadow-xs"
-                    >
-                        <div className="flex items-center gap-2.5 min-w-0">
+                {compact ? (
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCustomInputValue(value || '')
+                                setIsOpen(!isOpen)
+                            }}
+                            className={`h-9.5 px-2.5 rounded-lg border transition flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                                value
+                                    ? 'bg-indigo-50/70 border-indigo-200 hover:bg-indigo-100/70 text-indigo-700'
+                                    : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-500 hover:text-gray-800'
+                            }`}
+                            title={value ? `Icon: ${value} (Click to change)` : (placeholder || 'Add icon')}
+                        >
                             {value ? (
                                 <>
                                     <Icon icon={value} className="w-5 h-5 text-indigo-600 shrink-0" />
-                                    <span className="text-sm text-gray-800 font-mono font-medium truncate">{value}</span>
+                                    <span className="text-xs font-mono font-medium max-w-21.25 truncate">
+                                        {value.split(':').pop()}
+                                    </span>
                                 </>
                             ) : (
-                                <span className="text-sm text-gray-400">{placeholder || 'Select an icon'}</span>
+                                <>
+                                    <Icon icon="solar:smile-circle-outline" className="w-5 h-5 text-gray-400" />
+                                    <span className="text-xs font-medium">Icon</span>
+                                </>
                             )}
-                        </div>
-                        <svg className="w-4 h-4 text-gray-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
+                        </button>
 
-                    {value && (
+                        {value && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onChange('');
+                                }}
+                                className="h-9.5 w-8 rounded-lg border border-gray-200 hover:border-red-300 bg-white hover:bg-red-50 text-gray-400 hover:text-red-600 flex items-center justify-center transition shrink-0 cursor-pointer"
+                                title="Remove icon"
+                            >
+                                <Icon icon="solar:close-circle-bold" className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2">
                         <button
                             type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onChange('');
+                            onClick={() => {
+                                setCustomInputValue(value || '')
+                                setIsOpen(!isOpen)
                             }}
-                            className="p-2 border border-gray-200 hover:border-red-300 rounded-lg text-gray-400 hover:text-red-600 bg-white hover:bg-red-50 transition shrink-0"
-                            title="Remove icon"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 flex items-center justify-between transition shadow-xs"
                         >
-                            <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                {value ? (
+                                    <>
+                                        <Icon icon={value} className="w-5 h-5 text-indigo-600 shrink-0" />
+                                        <span className="text-sm text-gray-800 font-mono font-medium truncate">{value}</span>
+                                    </>
+                                ) : (
+                                    <span className="text-sm text-gray-400">{placeholder || 'Select an icon'}</span>
+                                )}
+                            </div>
+                            <svg className="w-4 h-4 text-gray-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
                         </button>
-                    )}
-                </div>
+
+                        {value && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onChange('');
+                                }}
+                                className="p-2 border border-gray-200 hover:border-red-300 rounded-lg text-gray-400 hover:text-red-600 bg-white hover:bg-red-50 transition shrink-0"
+                                title="Remove icon"
+                            >
+                                <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {mounted && isOpen && createPortal(
                     <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs" style={{ zIndex: 9999 }} onClick={() => setIsOpen(false)}>
@@ -500,5 +548,5 @@ export default function IconifyPicker({
                 )}
             </div>
         </div>
-    )
-}
+    );
+};

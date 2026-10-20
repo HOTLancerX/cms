@@ -115,6 +115,7 @@
 body {
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
+
 .no-scrollbar,
 .scrollbar-none {
   scrollbar-width: none;
@@ -763,6 +764,7 @@ table>tbody>tr>th {
   html.chaldal-sidebar-open {
     --chaldal-sidebar-w: 18rem;
   }
+
   html.chaldal-cart-open {
     --chaldal-cart-w: 24rem;
   }
@@ -833,6 +835,7 @@ table>tbody>tr>th {
     display: flex;
     flex-direction: column;
   }
+
   html.chaldal-sidebar-open .chaldal-fixed-sidebar {
     transform: translateX(0);
     pointer-events: auto;
@@ -861,6 +864,7 @@ table>tbody>tr>th {
     display: flex;
     flex-direction: column;
   }
+
   html.chaldal-cart-open .chaldal-fixed-cart {
     transform: translateX(0);
     pointer-events: auto;

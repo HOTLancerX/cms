@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import Gallery from "@/components/Gallery";
+import Iconify from "@/components/ui/Iconify";
+import SpecificationBulkModal from "./SpecificationBulkModal";
 
 export interface SpecificationField {
     title: string;
@@ -11,17 +14,25 @@ export interface SpecificationField {
 
 export interface SpecificationBox {
     title: string;
+    icon?: string;
     fields: SpecificationField[];
 }
 
 interface CategorySpecificationProps {
     specifications: SpecificationBox[];
     onChange: (specifications: SpecificationBox[]) => void;
+    categoryType?: string;
 }
 
-export default function CategorySpecification({ specifications, onChange }: CategorySpecificationProps) {
+export default function CategorySpecification({
+    specifications,
+    onChange,
+    categoryType,
+}: CategorySpecificationProps) {
+    const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+
     const addBox = () => {
-        onChange([...specifications, { title: "", fields: [] }]);
+        onChange([...specifications, { title: "", icon: "", fields: [] }]);
     };
 
     const removeBox = (boxIndex: number) => {
@@ -30,6 +41,10 @@ export default function CategorySpecification({ specifications, onChange }: Cate
 
     const updateBoxTitle = (boxIndex: number, title: string) => {
         onChange(specifications.map((box, i) => i === boxIndex ? { ...box, title } : box));
+    };
+
+    const updateBoxIcon = (boxIndex: number, icon: string) => {
+        onChange(specifications.map((box, i) => i === boxIndex ? { ...box, icon } : box));
     };
 
     const addField = (boxIndex: number) => {
@@ -67,34 +82,66 @@ export default function CategorySpecification({ specifications, onChange }: Cate
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold">Specifications</h2>
-                <button
-                    type="button"
-                    onClick={addBox}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-main text-white rounded-lg text-sm font-medium hover:bg-indigo-400 transition"
-                >
-                    <Icon icon="solar:add-circle-bold" width={16} />
-                    Add Box
-                </button>
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h2 className="text-base font-semibold text-gray-900">Specifications</h2>
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setIsBulkModalOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-500 transition shadow-2xs cursor-pointer"
+                        title="Bulk import specification boxes and fields from text"
+                    >
+                        <Icon icon="solar:document-add-bold" width={16} />
+                        Quick Import
+                    </button>
+                    <button
+                        type="button"
+                        onClick={addBox}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-main text-white rounded-lg text-sm font-medium hover:bg-indigo-400 transition cursor-pointer"
+                    >
+                        <Icon icon="solar:add-circle-bold" width={16} />
+                        Add Box
+                    </button>
+                </div>
             </div>
+
+            {/* Bulk Import Modal */}
+            <SpecificationBulkModal
+                isOpen={isBulkModalOpen}
+                onClose={() => setIsBulkModalOpen(false)}
+                existingCount={specifications.length}
+                onImport={(newBoxes, mode) => {
+                    if (mode === "replace") {
+                        onChange(newBoxes);
+                    } else {
+                        onChange([...specifications, ...newBoxes]);
+                    }
+                    setIsBulkModalOpen(false);
+                }}
+            />
 
             <div className="space-y-4">
                 {specifications.map((box, boxIndex) => (
                     <div key={boxIndex} className="border rounded-lg p-4 bg-gray-50">
                         {/* Box header */}
                         <div className="flex items-center gap-2 mb-3">
+                            <Iconify
+                                compact
+                                value={box.icon || ""}
+                                onChange={(icon) => updateBoxIcon(boxIndex, icon)}
+                                placeholder="Add icon"
+                            />
                             <input
                                 type="text"
                                 value={box.title}
                                 onChange={(e) => updateBoxTitle(boxIndex, e.target.value)}
                                 placeholder="Box Title (e.g. General, Dimensions)"
-                                className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none focus:border-main"
+                                className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none focus:border-main font-semibold"
                             />
                             <button
                                 type="button"
                                 onClick={() => removeBox(boxIndex)}
-                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
                                 title="Remove Box"
                             >
                                 <Icon icon="solar:trash-bin-trash-bold" width={18} />

@@ -174,13 +174,17 @@ function loadServerHooks() {
         serverHookContext.keys().forEach((key: string) => {
             try {
                 serverHookContext(key);
-            } catch {
+            } catch (err) {
                 // Silently tolerate uninstantiated or stale HMR modules during dev
+                console.error(`[serverDataHooks] Failed to load ${key}:`, err);
             }
         });
     } catch {}
     try {
         require("../plugin/players/lib/serverHooks");
+    } catch {}
+    try {
+        require("../plugin/product/lib/serverHooks");
     } catch {}
 }
 
