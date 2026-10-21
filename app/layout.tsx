@@ -3,6 +3,7 @@ import "./globals.css";
 import { Providers } from "@/context/Provider";
 import { Settings } from "@/lib/settings";
 import { getRootPages } from "@/hook/rootPages";
+import { getHeadCssCached } from "@/hook/headCss";
 import { getActivePluginNames } from "@/hook/PluginListServer";
 import { withCache } from "@/lib/cache";
 
@@ -109,7 +110,10 @@ export default async function RootLayout({
   ]);
 
   const activeNxSet = new Set([CORE_NX, ...activeNxList]);
-  const rootPages = getRootPages();
+  const [rootPages, headCssList] = await Promise.all([
+    Promise.resolve(getRootPages()),
+    getHeadCssCached(settings, activeNxSet),
+  ]);
 
   // Dynamic head widgets (type="head" or slug="head") registered by active plugins
   const headWidgets = rootPages.filter(
@@ -159,6 +163,17 @@ export default async function RootLayout({
             --color-ff: ${settings.color_ff || "#eeeeee"};
           }`
         }} />
+
+        {/* Dynamic Server-Side Rendered & Cached Plugin CSS Hooks */}
+        {headCssList.map((item) => (
+          <style
+            key={item.key}
+            id={item.id}
+            media={item.media}
+            dangerouslySetInnerHTML={{ __html: item.css }}
+            suppressHydrationWarning
+          />
+        ))}
 
         {/* Dynamically rendered <head> widgets from active plugins */}
         {headWidgets.map((widget) => {

@@ -87,6 +87,20 @@ export interface DataInputHookField {
     data?: any;
 }
 
+// ─── Head CSS hook field registered by plugins via addHook("head.css", ...) ───
+export interface CssHookField {
+    key: string;            // unique identifier for this style block
+    id?: string;            // HTML id attribute for the <style> element
+    css?: string;           // raw static CSS content
+    /**
+     * Dynamic CSS generator function receiving site settings.
+     * Can return a string or Promise<string>.
+     */
+    getCss?: (settings?: any) => string | Promise<string>;
+    media?: string;         // optional media query (e.g. "all", "print", "screen")
+    position?: number;      // sort order in <head> (lower numbers render first)
+    pluginNx?: string;      // stamped automatically by addHook
+}
 
 // ─── Type alias for Form components to import ───
 export type FormHooks = FormHookField[];
@@ -186,6 +200,11 @@ const _rootPages: FormHookField[] = [];
 // Never cleared by clearHooks() so server components always have the full list.
 const _adminPages: FormHookField[] = [];
 
+// ─── Permanent head CSS store ────────────────────────────────────────────────
+// Written to by every addHook("head.css", ...) call regardless of gate state.
+// Never cleared by clearHooks() so server components always have the full list.
+const _headCss: CssHookField[] = [];
+
 /**
  * Returns every root.pages entry ever registered across all plugins.
  * Filters out entries whose plugin is no longer active (expired / inactive).
@@ -202,17 +221,46 @@ export function getAllRootPages(): FormHookField[] {
 }
 
 /**
+ * Returns every head.css entry registered across all plugins.
+ */
+export function getRegisteredHeadCss(): CssHookField[] {
+    return [..._headCss].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+}
+
+export function getAllHeadCss(activeNxSet?: Set<string>): CssHookField[] {
+    return [..._headCss]
+        .filter((c) => !c.pluginNx || (activeNxSet ? activeNxSet.has(c.pluginNx) : isPluginActive(c.pluginNx)))
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+}
+
+/**
  * Register form fields for a given hook point.
  *
- * @param hookName  - e.g. "post.form", "cat.form", "admin.pages"
+ * @param hookName  - e.g. "post.form", "cat.form", "admin.pages", "head.css"
  * @param fields    - array of field definitions to register
  * @param pluginNx  - the plugin's `nx` identifier (used for the gate check)
  */
 export function addHook(
     hookName: string,
-    fields: FormHookField[] | NavHookField[] | DataInputHookField[],
+    fields: FormHookField[] | NavHookField[] | DataInputHookField[] | CssHookField[],
     pluginNx: string
 ): void {
+    // ── head.css → permanent head CSS registry (no gate, never cleared) ──────
+    if (hookName === "head.css") {
+        (fields as CssHookField[]).forEach((f) => {
+            const idx = _headCss.findIndex(
+                (c) => c.pluginNx === pluginNx && c.key === f.key
+            );
+            const stamped = { ...f, pluginNx };
+            if (idx >= 0) {
+                _headCss[idx] = stamped;
+            } else {
+                _headCss.push(stamped);
+            }
+        });
+        return;
+    }
+
     // ── admin.nav → permanent nav registry (no gate, never cleared) ──────────
     if (hookName === "admin.nav") {
         (fields as NavHookField[]).forEach((f) => {
