@@ -82,6 +82,8 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
     const [status, setStatus]             = useState(defaultStatus ?? "published");
     const [category, setCategory]         = useState("");
     const [categoryPath, setCategoryPath] = useState<string[]>([]);
+    const [brand, setBrand]               = useState("");
+    const [brandPath, setBrandPath]       = useState<string[]>([]);
     const [info, setInfo]                 = useState<Record<string, string>>({});
 
     // Sync status when defaultStatus arrives asynchronously (add mode only).
@@ -208,14 +210,30 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                 setStatus(p.status ?? "published");
                 setCategory(p.category ?? "");
                 setCategoryPath(p.category ? [p.category] : []);
+                setBrand(p.brands ?? "");
+                setBrandPath(p.brands ? [p.brands] : []);
                 originalSlug.current = p.slug ?? "";
 
                 const infoMap: Record<string, string> = {};
                 (data.info ?? []).forEach((item: { name: string; value: string }) => {
                     infoMap[item.name] = item.value;
                 });
-                // Seed category & userId so registered components & form state retain them
+                // Seed category, brand & userId so registered components & form state retain them
                 if (p.category) infoMap["category"] = p.category;
+                if (p.brands && !infoMap["brand"]) {
+                    infoMap["brand"] = JSON.stringify({ id: p.brands, path: [p.brands] });
+                } else if (infoMap["brand"]) {
+                    try {
+                        const parsed = JSON.parse(infoMap["brand"]);
+                        if (parsed?.id) {
+                            setBrand(parsed.id);
+                            setBrandPath(parsed.path ?? [parsed.id]);
+                        }
+                    } catch {
+                        setBrand(infoMap["brand"]);
+                        setBrandPath([infoMap["brand"]]);
+                    }
+                }
                 if (p.userId) infoMap["userId"] = String(p.userId);
                 setInfo(infoMap);
             })
@@ -226,12 +244,9 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
     /**
      * Central info change handler.
      *
-     * The special key "category" is reserved for category picker components
-     * (CategorySelect, CategoryHierarchicalSelect).
-     *
+     * Handles "category" and "brand" picker components (CategorySelect, CategoryHierarchicalSelect).
      * CategorySelect emits a plain id string.
      * CategoryHierarchicalSelect emits JSON: { id, path }.
-     * Both are handled here — core category + categoryPath stay in sync.
      */
     const handleInfoChange = (key: string, val: string) => {
         setInfo((prev) => ({ ...prev, [key]: val }));
@@ -247,6 +262,19 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
             } catch { /* not JSON — treat as plain id */ }
             setCategory(val);
             setCategoryPath(val ? [val] : []);
+        }
+
+        if (key === "brand") {
+            try {
+                const parsed = JSON.parse(val);
+                if (parsed && typeof parsed === "object" && "id" in parsed) {
+                    setBrand(parsed.id);
+                    setBrandPath(parsed.path ?? []);
+                    return;
+                }
+            } catch { /* not JSON — treat as plain id */ }
+            setBrand(val);
+            setBrandPath(val ? [val] : []);
         }
     };
 
@@ -310,6 +338,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                 info: mergedInfo,
                 ...(effectiveUserId ? { userId: effectiveUserId } : {}),
                 ...(category ? { category } : {}),
+                ...(brand ? { brands: brand } : {}),
                 ...(isEdit ? { _id: postId } : {}),
             };
             const res  = await xFetch("/post", {
@@ -334,6 +363,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                             info: mergedInfo,
                             ...(effectiveUserId ? { userId: effectiveUserId } : {}),
                             ...(category ? { category } : {}),
+                            ...(brand ? { brands: brand } : {}),
                         };
                         await xFetch("/post", {
                             method: "PUT",
@@ -347,7 +377,7 @@ export default function PostForm({ type, activePlugins, postId, userId, defaultS
                 setMessage("Saved successfully!");
                 if (!isEdit) {
                     setTitle(""); setSlug(""); setStatus(defaultStatus ?? "published");
-                    setCategory(""); setCategoryPath([]); setInfo({});
+                    setCategory(""); setCategoryPath([]); setBrand(""); setBrandPath([]); setInfo({});
                 } else {
                     // Reflect the status that was actually saved
                     setStatus(saveStatus);

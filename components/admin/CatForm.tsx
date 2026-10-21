@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Icon } from "@iconify/react";
 import type { FormHooks } from "@/hook";
 import { getHooks } from "@/hook";
 import { reregisterHooks } from "@/hook/PluginList";
@@ -10,6 +11,7 @@ import { useToast } from "@/components/ui/Toast";
 import Gallery from "@/components/Gallery";
 import Content from "@/components/Content";
 import CategorySpecification, { type SpecificationBox } from "@/components/admin/CategorySpecification";
+import LinkProductsModal from "./LinkProductsModal";
 
 export interface CatFormProps {
     type: string;
@@ -22,6 +24,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
     const router = useRouter();
     const toast = useToast();
     const isEdit = Boolean(catId);
+    const [showLinkModal, setShowLinkModal] = useState(false);
 
     // ── Hook fields ─────────────────────────────────────────────────────────
     const [fields, setFields] = useState<FormHooks>([]);
@@ -428,6 +431,17 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
 
                     {isEdit && (
                         <button
+                            type="button"
+                            onClick={() => setShowLinkModal(true)}
+                            className="w-full rounded-lg bg-indigo-50 px-6 py-2.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 border border-indigo-200/60 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                            <Icon icon="solar:link-circle-bold" width={16} />
+                            {type === "brands" ? "Brand Link" : "Link Products"}
+                        </button>
+                    )}
+
+                    {isEdit && (
+                        <button
                             type="button" onClick={handleDelete} disabled={deleting}
                             className="w-full rounded-lg bg-red-50 px-6 py-3 text-sm font-semibold text-red-500 transition hover:bg-red-100 disabled:opacity-55 disabled:cursor-not-allowed"
                         >
@@ -438,6 +452,26 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
                     {rightFields.map(renderField)}
                 </div>
             </div>
+
+            {/* ── Link Products / Brand Link Modal ── */}
+            {isEdit && (
+                <LinkProductsModal
+                    isOpen={showLinkModal}
+                    onClose={() => setShowLinkModal(false)}
+                    catType={{
+                        key: type,
+                        label: type === "brands" ? "Brands" : "Category",
+                        postType: "product",
+                    }}
+                    initialTargetId={catId}
+                    categories={
+                        parents.length > 0
+                            ? parents
+                            : (catId ? [{ _id: catId, title: title || "Current" }] : [])
+                    }
+                    onSuccess={() => {}}
+                />
+            )}
         </form>
     );
 }

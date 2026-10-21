@@ -1085,3 +1085,8 @@ export function register(): void {
         },
     ], CORE_NX);
 }
+
+// ── Re-export Admin Form and Modal Components ──
+export { default as PostForm } from "./PostForm";
+export { default as CatForm } from "./CatForm";
+export { default as LinkProductsModal } from "./LinkProductsModal";

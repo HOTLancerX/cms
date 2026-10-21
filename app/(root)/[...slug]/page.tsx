@@ -426,7 +426,8 @@ export async function generateMetadata({ params }: RootPageProps): Promise<Metad
     // ── Try category types ──
     for (const catType of catTypes) {
         const prefix = permalinkMap[catType.key] ?? "";
-        const contentSlug = matchPrefix(slug, prefix);
+        const isBrand = catType.key === "brands";
+        const contentSlug = matchPrefix(slug, prefix, isBrand);
         if (contentSlug === null) continue;
         const catData = await getCat(contentSlug, catType.key);
         if (!catData) continue;
@@ -630,11 +631,23 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
     // ─── Category types ───────────────────────────────────────────────────────
     for (const catType of catTypes) {
         const prefix = permalinkMap[catType.key] ?? "";
-        const contentSlug = matchPrefix(slug, prefix);
+        const isBrand = catType.key === "brands";
+        const contentSlug = matchPrefix(slug, prefix, isBrand);
         if (contentSlug === null) continue;
 
         const catData = await getCat(contentSlug, catType.key);
         if (!catData) continue;
+
+        // If this is a brand route and has sub-path (e.g. /brands/xiaomi/phone), extract subCategorySlug
+        const segs = prefixSegments(prefix);
+        const subCategorySlug = isBrand && slug.length > segs.length + 1
+            ? slug.slice(segs.length + 1).join("/")
+            : null;
+
+        const effectiveSearchParams = {
+            ...searchParams,
+            ...(subCategorySlug ? { category: subCategorySlug } : {}),
+        };
 
         // Run any server-side data hook registered for this category type.
         // Plugins register via registerServerDataHook() in their lib/serverHooks.ts
@@ -644,7 +657,7 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
             catType.key,
             String(catData._id),
             catData.slug,
-            catData
+            { ...catData, subCategorySlug }
         );
 
         const dbDefault = (await getDefaultTemplate(catType.key)) || (await getDefaultTemplate("cat"));
@@ -652,18 +665,18 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
             return <Builder id={dbDefault.builderId} data={catData} />;
         }
 
-        // Resolve template by catType.key (e.g. "product-category"),
+        // Resolve template by catType.key (e.g. "product-category" or "brands"),
         // then fall back to the generic "cat" template if none is registered.
         const template = await resolveTemplate(catType.key, activeNxSet);
         if (!template?.component) {
             const fallback = await resolveTemplate("cat", activeNxSet);
             if (!fallback?.component) continue;
             const C = fallback.component as any;
-            return <C data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} searchParams={searchParams} />;
+            return <C data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} searchParams={effectiveSearchParams} />;
         }
 
         const CatComponent = template.component as any;
-        return <CatComponent data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} searchParams={searchParams} />;
+        return <CatComponent data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} searchParams={effectiveSearchParams} />;
     }
 
     notFound();

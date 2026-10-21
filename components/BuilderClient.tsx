@@ -636,7 +636,7 @@ export default function BuilderClient({ content, serverElements = {}, initialMen
 
     return (
         <>
-            <style dangerouslySetInnerHTML={{ __html: css }} />
+            <style dangerouslySetInnerHTML={{ __html: css }} suppressHydrationWarning />
             {content.map((row: any) => {
                 if (!row) return null;
                 return <RenderRow key={row.id} row={row} serverElements={serverElements} />;
