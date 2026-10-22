@@ -11,6 +11,7 @@
 import React, { useState, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import type { SpecificationBox } from "./CategorySpecification";
+import { parseHtmlToSpecifications } from "@/plugin/visual-description/lib/specHtmlParser";
 
 interface SpecificationBulkModalProps {
     isOpen: boolean;
@@ -74,8 +75,22 @@ function cleanBoxTitle(str: string, stripNumbers: boolean): string {
     return t;
 }
 
-/** Parse raw text into structured SpecificationBox[] */
+/** Parse raw text or HTML into structured SpecificationBox[] */
 export function parseSpecificationText(text: string, stripNumbers: boolean = true): SpecificationBox[] {
+    const trimmed = text.trim();
+    if (!trimmed) return [];
+
+    // 0. Auto-detect HTML markup: e.g. <div class="ndovu-scene-inner">, <section>, <table>, etc.
+    if (
+        trimmed.startsWith("<") ||
+        /<(div|section|table|nav|h2|p|span|tr|td|th)\b/i.test(trimmed)
+    ) {
+        const htmlBoxes = parseHtmlToSpecifications(trimmed);
+        if (htmlBoxes.length > 0) {
+            return htmlBoxes;
+        }
+    }
+
     const rawLines = text.split(/\r?\n/);
     const lines = rawLines
         .map((l) => l.trim())
@@ -302,7 +317,7 @@ export default function SpecificationBulkModal({
                                 Bulk Import Specifications
                             </h2>
                             <p className="text-xs text-gray-500">
-                                Paste markdown headers (<code>## 1. General</code>) with bullets (<code>- Brand</code>) to generate boxes & fields instantly.
+                                Paste markdown headers (<code>## 1. General</code>) or HTML code (<code>ndovu-scene-inner</code>, tables) to generate boxes & fields instantly.
                             </p>
                         </div>
                     </div>
@@ -322,7 +337,7 @@ export default function SpecificationBulkModal({
                     <div className="flex flex-col space-y-3">
                         <div className="flex items-center justify-between">
                             <label htmlFor="bulk-spec-textarea" className="text-xs font-bold uppercase tracking-wider text-gray-600">
-                                Paste Specification Text
+                                Paste Specification Text or HTML
                             </label>
                             <div className="flex items-center gap-2">
                                 <button
@@ -351,7 +366,7 @@ export default function SpecificationBulkModal({
                             id="bulk-spec-textarea"
                             value={rawText}
                             onChange={(e) => setRawText(e.target.value)}
-                            placeholder={`## 1. General\n- Brand\n- Model\n- Announced\n\n## 2. Design\n- Dimensions\n- Height\n- Width`}
+                            placeholder={`Paste markdown or HTML:\n\n## 1. General\n- Brand\n- Model\n- Announced\n\nOr paste <div class="ndovu-scene-inner">...</div>`}
                             rows={15}
                             className="w-full flex-1 p-3.5 text-xs sm:text-sm font-mono bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 resize-none transition leading-relaxed text-gray-800"
                         />
