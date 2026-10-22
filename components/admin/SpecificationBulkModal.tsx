@@ -11,7 +11,6 @@
 import React, { useState, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import type { SpecificationBox } from "./CategorySpecification";
-import { parseHtmlToSpecifications } from "@/plugin/visual-description/lib/specHtmlParser";
 
 interface SpecificationBulkModalProps {
     isOpen: boolean;
@@ -60,6 +59,15 @@ const KNOWN_BOX_KEYWORDS = new Set([
     "technical specifications",
     "overview",
 ]);
+
+function cleanText(text: string): string {
+    return (text || "")
+        .replace(/\s+/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&nbsp;/g, " ")
+        .trim();
+}
+
 function cleanBoxTitle(str: string, stripNumbers: boolean): string {
     let t = str.trim();
     // Strip markdown hashes if any
@@ -75,6 +83,123 @@ function cleanBoxTitle(str: string, stripNumbers: boolean): string {
     return t;
 }
 
+/**
+ * Self-contained HTML parser for pasted specifications.
+ * Uses native browser DOMParser with zero external plugin dependencies.
+ */
+function parseHtmlSpecificationsLocally(rawHtml: string): SpecificationBox[] {
+    if (!rawHtml || typeof rawHtml !== "string" || !rawHtml.trim()) return [];
+    if (typeof window === "undefined" || typeof window.DOMParser === "undefined") return [];
+
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(rawHtml, "text/html");
+
+        // Remove comparison links, specs heading, subheadings, scripts & styles
+        const excludeSelectors = [
+            "nav.ndovu-dedicated-links",
+            ".ndovu-dedicated-links",
+            "[aria-label='Technical comparisons']",
+            "#ndovu-specs-heading",
+            "h2#ndovu-specs-heading",
+            ".ndovu-section-subheading",
+            "p.ndovu-section-subheading",
+            "script",
+            "style",
+        ];
+        excludeSelectors.forEach((sel) => {
+            try {
+                Array.from(doc.querySelectorAll(sel)).forEach((el) => el.remove());
+            } catch {}
+        });
+
+        const boxes: SpecificationBox[] = [];
+
+        // 1. Query cards or sections (e.g. .ndovu-pdp-card, section.pdp-card, section)
+        let cardElements = Array.from(
+            doc.querySelectorAll("section.ndovu-pdp-card, .ndovu-pdp-card, section.pdp-card")
+        );
+        if (cardElements.length === 0) {
+            cardElements = Array.from(doc.querySelectorAll("section, article, .spec-group, .specs-box"));
+        }
+
+        cardElements.forEach((card) => {
+            const headingEl = card.querySelector(
+                "header h3 span, header h3, h3 span, h3, h2, .ndovu-pdp-card-heading, caption"
+            );
+            let boxTitle = cleanText(headingEl?.textContent || "");
+            boxTitle = boxTitle.replace(/^[^\w]+/, "").trim();
+
+            const fields: { title: string; description: string }[] = [];
+
+            const rows = Array.from(card.querySelectorAll("table.ndovu-pdp-spec-table tr, table tr, tr"));
+            rows.forEach((row) => {
+                const th = row.querySelector("th, .label, .spec-name, dt");
+                const td = row.querySelector("td .ndovu-pdp-value, td .value, td, dd");
+                if (th && td) {
+                    const key = cleanText(th.textContent || "");
+                    const val = cleanText(td.textContent || "");
+                    if (key && val) {
+                        fields.push({ title: key, description: val });
+                    }
+                }
+            });
+
+            if (fields.length === 0) {
+                const dts = Array.from(card.querySelectorAll("dt"));
+                dts.forEach((dt) => {
+                    const dd = dt.nextElementSibling;
+                    if (dd && dd.tagName.toLowerCase() === "dd") {
+                        const key = cleanText(dt.textContent || "");
+                        const val = cleanText(dd.textContent || "");
+                        if (key && val) {
+                            fields.push({ title: key, description: val });
+                        }
+                    }
+                });
+            }
+
+            if (boxTitle || fields.length > 0) {
+                boxes.push({
+                    title: boxTitle || `Section ${boxes.length + 1}`,
+                    fields,
+                });
+            }
+        });
+
+        // 2. Direct tables fallback
+        if (boxes.length === 0) {
+            const tables = Array.from(doc.querySelectorAll("table"));
+            tables.forEach((table, idx) => {
+                const caption = table.querySelector("caption, th[colspan]");
+                const boxTitle = cleanText(caption?.textContent || `Specifications ${idx + 1}`);
+                const fields: { title: string; description: string }[] = [];
+
+                const rows = Array.from(table.querySelectorAll("tr"));
+                rows.forEach((row) => {
+                    const th = row.querySelector("th");
+                    const td = row.querySelector("td");
+                    if (th && td) {
+                        const key = cleanText(th.textContent || "");
+                        const val = cleanText(td.textContent || "");
+                        if (key && val) {
+                            fields.push({ title: key, description: val });
+                        }
+                    }
+                });
+
+                if (fields.length > 0) {
+                    boxes.push({ title: boxTitle, fields });
+                }
+            });
+        }
+
+        return boxes;
+    } catch {
+        return [];
+    }
+}
+
 /** Parse raw text or HTML into structured SpecificationBox[] */
 export function parseSpecificationText(text: string, stripNumbers: boolean = true): SpecificationBox[] {
     const trimmed = text.trim();
@@ -85,7 +210,7 @@ export function parseSpecificationText(text: string, stripNumbers: boolean = tru
         trimmed.startsWith("<") ||
         /<(div|section|table|nav|h2|p|span|tr|td|th)\b/i.test(trimmed)
     ) {
-        const htmlBoxes = parseHtmlToSpecifications(trimmed);
+        const htmlBoxes = parseHtmlSpecificationsLocally(trimmed);
         if (htmlBoxes.length > 0) {
             return htmlBoxes;
         }
