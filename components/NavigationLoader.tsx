@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback, Suspense } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 
 export interface NavigationLoaderProps {
@@ -13,6 +13,7 @@ export type LoaderStyle = "top_bar" | "center_popup" | "bottom_bar" | "minimal_s
 function NavigationLoaderInner({ settings: initialSettings = {} }: NavigationLoaderProps) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const router = useRouter();
 
     // Live settings state — can update dynamically when settings are saved in admin
     const [settings, setSettings] = useState<Record<string, any>>(initialSettings);
@@ -69,32 +70,6 @@ function NavigationLoaderInner({ settings: initialSettings = {} }: NavigationLoa
         currentUrlRef.current = window.location.href;
     }, [pathname, searchParams]);
 
-    const startLoader = useCallback(() => {
-        if (!enabled || !isScopeActive) return;
-
-        if (timerRef.current) clearInterval(timerRef.current);
-        if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
-
-        setVisible(true);
-        setIsLoading(true);
-        setProgress(15);
-
-        // Incremental progress simulation (runs like a true browser navigation progress bar)
-        let currentProgress = 15;
-        timerRef.current = setInterval(() => {
-            currentProgress += Math.random() * (currentProgress < 50 ? 12 : currentProgress < 80 ? 5 : 1.5);
-            if (currentProgress > 92) {
-                currentProgress = 92;
-            }
-            setProgress(currentProgress);
-        }, 120);
-
-        // Safety timeout — auto finish after 8 seconds in case navigation is cancelled or slow
-        safetyTimerRef.current = setTimeout(() => {
-            completeLoader();
-        }, 8000);
-    }, [enabled, isScopeActive]);
-
     const completeLoader = useCallback(() => {
         if (timerRef.current) clearInterval(timerRef.current);
         if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
@@ -106,20 +81,97 @@ function NavigationLoaderInner({ settings: initialSettings = {} }: NavigationLoa
         const fadeTimer = setTimeout(() => {
             setVisible(false);
             setProgress(0);
-        }, 300);
+        }, 250);
 
         return () => clearTimeout(fadeTimer);
     }, []);
+
+    const startLoader = useCallback(() => {
+        if (!enabled || !isScopeActive) return;
+
+        if (timerRef.current) clearInterval(timerRef.current);
+        if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+
+        setVisible(true);
+        setIsLoading(true);
+        setProgress(22);
+
+        // Smooth progressive deceleration trickling (runs like Chrome/YouTube progress bar)
+        let currentProgress = 22;
+        timerRef.current = setInterval(() => {
+            // Decelerates as it approaches 93% without ever getting stuck or prematurely jumping
+            const increment = currentProgress < 50
+                ? 6 + Math.random() * 4
+                : currentProgress < 75
+                ? 2.5 + Math.random() * 2
+                : currentProgress < 88
+                ? 0.8 + Math.random() * 0.8
+                : 0.15;
+
+            currentProgress = Math.min(93, currentProgress + increment);
+            setProgress(currentProgress);
+        }, 100);
+
+        // Fail-safe cleanup (30s) — only resets if navigation was aborted/cancelled, never prematurely finishes
+        safetyTimerRef.current = setTimeout(() => {
+            if (timerRef.current) clearInterval(timerRef.current);
+            setIsLoading(false);
+            setVisible(false);
+            setProgress(0);
+        }, 30000);
+    }, [enabled, isScopeActive]);
 
     // Route change completed: when pathname or searchParams changes
     useEffect(() => {
         if (isLoading) {
             completeLoader();
         }
-    }, [pathname, searchParams]);
+    }, [pathname, searchParams, isLoading, completeLoader]);
 
-    // Global Link Click Listener & Event Listeners
+    // Global Link Click Listener, Hover Prefetcher & Event Listeners
     useEffect(() => {
+        const getInternalUrl = (anchor: HTMLAnchorElement): URL | null => {
+            const linkTarget = anchor.getAttribute("target");
+            if (linkTarget && linkTarget !== "_self") return null;
+            if (anchor.hasAttribute("download")) return null;
+
+            const href = anchor.getAttribute("href");
+            if (!href) return null;
+            if (
+                href.startsWith("#") ||
+                href.startsWith("mailto:") ||
+                href.startsWith("tel:") ||
+                href.startsWith("javascript:")
+            ) {
+                return null;
+            }
+
+            try {
+                const targetUrl = new URL(anchor.href, window.location.href);
+                const currentUrl = new URL(window.location.href);
+                if (targetUrl.origin !== currentUrl.origin) return null;
+                return targetUrl;
+            } catch {
+                return null;
+            }
+        };
+
+        // Intelligent link hover prefetch: Next.js downloads route shell before user even clicks
+        const handleMouseOver = (e: MouseEvent) => {
+            const target = e.target as HTMLElement | null;
+            const anchor = target?.closest("a") as HTMLAnchorElement | null;
+            if (!anchor) return;
+            const targetUrl = getInternalUrl(anchor);
+            if (!targetUrl) return;
+
+            const path = targetUrl.pathname + targetUrl.search;
+            try {
+                router.prefetch(path);
+            } catch {
+                // Ignore prefetch error
+            }
+        };
+
         const handleClick = (e: MouseEvent) => {
             if (e.defaultPrevented) return;
             if (e.button !== 0) return; // Only left click
@@ -129,46 +181,20 @@ function NavigationLoaderInner({ settings: initialSettings = {} }: NavigationLoa
             const anchor = target?.closest("a") as HTMLAnchorElement | null;
             if (!anchor) return;
 
-            // Check target
-            const linkTarget = anchor.getAttribute("target");
-            if (linkTarget && linkTarget !== "_self") return;
+            const targetUrl = getInternalUrl(anchor);
+            if (!targetUrl) return;
 
-            // Check download
-            if (anchor.hasAttribute("download")) return;
-
-            const href = anchor.getAttribute("href");
-            if (!href) return;
-
-            // Ignore non-http links or page anchors
+            const currentUrl = new URL(window.location.href);
+            // Ignore exact same page and query (e.g. hash changes)
             if (
-                href.startsWith("#") ||
-                href.startsWith("mailto:") ||
-                href.startsWith("tel:") ||
-                href.startsWith("javascript:")
+                targetUrl.pathname === currentUrl.pathname &&
+                targetUrl.search === currentUrl.search
             ) {
                 return;
             }
 
-            try {
-                const targetUrl = new URL(anchor.href, window.location.href);
-                const currentUrl = new URL(window.location.href);
-
-                // Ignore external origins
-                if (targetUrl.origin !== currentUrl.origin) return;
-
-                // Ignore exact same page and query (e.g. hash changes)
-                if (
-                    targetUrl.pathname === currentUrl.pathname &&
-                    targetUrl.search === currentUrl.search
-                ) {
-                    return;
-                }
-
-                // Internal navigation detected! Start loader
-                startLoader();
-            } catch {
-                // Ignore invalid URLs
-            }
+            // Internal navigation confirmed! Start loader immediately
+            startLoader();
         };
 
         const handlePopState = () => {
@@ -178,12 +204,14 @@ function NavigationLoaderInner({ settings: initialSettings = {} }: NavigationLoa
         const handleCustomStart = () => startLoader();
         const handleCustomStop = () => completeLoader();
 
+        document.addEventListener("mouseover", handleMouseOver, { passive: true });
         document.addEventListener("click", handleClick, { capture: true });
         window.addEventListener("popstate", handlePopState);
         window.addEventListener("cms:loader-start", handleCustomStart);
         window.addEventListener("cms:loader-stop", handleCustomStop);
 
         return () => {
+            document.removeEventListener("mouseover", handleMouseOver);
             document.removeEventListener("click", handleClick, { capture: true });
             window.removeEventListener("popstate", handlePopState);
             window.removeEventListener("cms:loader-start", handleCustomStart);
@@ -191,7 +219,7 @@ function NavigationLoaderInner({ settings: initialSettings = {} }: NavigationLoa
             if (timerRef.current) clearInterval(timerRef.current);
             if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
         };
-    }, [startLoader, completeLoader]);
+    }, [startLoader, completeLoader, router]);
 
     if (!visible || !enabled || !isScopeActive) {
         return null;

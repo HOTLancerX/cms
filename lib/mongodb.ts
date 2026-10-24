@@ -13,11 +13,18 @@ declare global {
     var _mongooseConn: Promise<typeof mongoose> | undefined;
 }
 
+const MONGODB_OPTIONS: mongoose.ConnectOptions = {
+    maxPoolSize: 20,
+    minPoolSize: 5,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+};
+
 async function connectDB(): Promise<typeof mongoose> {
     if (global._mongooseConn) {
         return global._mongooseConn;
     }
-    global._mongooseConn = mongoose.connect(MONGODB_URI);
+    global._mongooseConn = mongoose.connect(MONGODB_URI, MONGODB_OPTIONS);
     return global._mongooseConn;
 }
 

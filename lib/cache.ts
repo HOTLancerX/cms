@@ -17,10 +17,10 @@ export const CACHE_TTL = 60 * 60 * 24; // 24 hours in seconds
 const isCacheEnabled = process.env.NEXT_PUBLIC_CACHE === "production";
 const isProd = process.env.NODE_ENV === "production" || isCacheEnabled;
 
-// In development, keep a 120-second TTL in memory so link clicks are instant (0ms),
-// while admin edits still reflect automatically after 2 minutes.
+// In development, keep a 300-second (5 min) TTL in memory so link clicks are instant (0ms),
+// while admin edits still reflect automatically after 5 minutes (or immediately via cache invalidation).
 // In production, keep 24 hours (invalidated on demand).
-const MEMORY_TTL_MS = isProd ? 1000 * 60 * 60 * 24 : 1000 * 120;
+const MEMORY_TTL_MS = isProd ? 1000 * 60 * 60 * 24 : 1000 * 300;
 
 interface MemoryCacheEntry {
     data: any;
@@ -75,7 +75,11 @@ export function withCache<T>(
     fn: () => Promise<T>,
     customTtlMs?: number
 ): () => Promise<T> {
-    const ttl = customTtlMs ?? MEMORY_TTL_MS;
+    const rawTtl = customTtlMs ?? MEMORY_TTL_MS;
+    // If caller passed seconds (e.g. 300, 60), normalize to milliseconds safely
+    const ttl = (customTtlMs && customTtlMs > 0 && customTtlMs < 1000)
+        ? customTtlMs * 1000
+        : rawTtl;
 
     const executeWithMemoryCache = async (): Promise<T> => {
         const now = Date.now();

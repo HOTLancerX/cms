@@ -20,6 +20,7 @@ import { resolveLazyComponent } from "@/hook/pluginHooks";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import mongoose from "mongoose";
+import { cache } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -33,47 +34,50 @@ const CORE_NX = "com.system.core";
 // ─── Cached DB helpers ────────────────────────────────────────────────────────
 
 /** Active plugin list — cached 24 h */
-const getActivePluginNamesCached = () =>
-    withCache("plugins:active", getActivePluginNames)();
+const getActivePluginNamesCached = cache(() =>
+    withCache("plugins:active", getActivePluginNames)());
 
 /** Default template for a given content type — cached 24 h */
-async function getDefaultTemplate(type: string) {
+const getDefaultTemplate = cache(async (type: string) => {
     return withCache(`template:default:${type}`, async () => {
         await connectDB();
         return Template.findOne({ type, isDefault: true }).lean() as Promise<any>;
     })();
-}
+});
 
 /** Permalink map — cached 24 h */
-async function getPermalinkMap(
+const getPermalinkMap = cache(async (
     postTypes: ReturnType<typeof getPostTypes>,
     catTypes: ReturnType<typeof getCatTypes>
-): Promise<Record<string, string>> {
+): Promise<Record<string, string>> => {
     return withCache("permalink:map", async () => {
         await connectDB();
 
-        // Seed any missing defaults (idempotent)
-        const toInsert = [
-            // User profile pages — driven by User.slug, default prefix "" (/{slug})
-            { contentType: "user", prefix: "" },
-            // Seller profile pages — driven by User.slug, not a Post type
-            { contentType: "seller", prefix: "seller" },
-            // Reporter profile pages — driven by User.slug
-            { contentType: "reporter", prefix: "reporter" },
-            ...postTypes.map((pt) => ({
-                contentType: pt.key,
-                prefix: pt.key,
-            })),
-            ...catTypes.map((ct) => ({
-                contentType: ct.key,
-                prefix: ct.postType ? `${ct.postType}/category` : (ct.key === "location" ? "category/location" : `category/${ct.key}`),
-            })),
-        ];
-        if (toInsert.length > 0) {
-            try {
-                await Permalink.insertMany(toInsert, { ordered: false });
-            } catch {
-                // Duplicate key errors are expected and safe to ignore
+        // Seed missing defaults only if collection is empty
+        const count = await Permalink.estimatedDocumentCount();
+        if (count === 0) {
+            const toInsert = [
+                // User profile pages — driven by User.slug, default prefix "" (/{slug})
+                { contentType: "user", prefix: "" },
+                // Seller profile pages — driven by User.slug, not a Post type
+                { contentType: "seller", prefix: "seller" },
+                // Reporter profile pages — driven by User.slug
+                { contentType: "reporter", prefix: "reporter" },
+                ...postTypes.map((pt) => ({
+                    contentType: pt.key,
+                    prefix: pt.key,
+                })),
+                ...catTypes.map((ct) => ({
+                    contentType: ct.key,
+                    prefix: ct.postType ? `${ct.postType}/category` : (ct.key === "location" ? "category/location" : `category/${ct.key}`),
+                })),
+            ];
+            if (toInsert.length > 0) {
+                try {
+                    await Permalink.insertMany(toInsert, { ordered: false });
+                } catch {
+                    // Duplicate key errors are expected and safe to ignore
+                }
             }
         }
 
@@ -84,10 +88,10 @@ async function getPermalinkMap(
         (docs as any[]).forEach((d: any) => { map[d.contentType] = d.prefix ?? d.contentType ?? ""; });
         return map;
     })();
-}
+});
 
 /** Individual post with its info map — cached 24 h per slug */
-async function getPost(slug: string, type: string) {
+const getPost = cache(async (slug: string, type: string) => {
     return withCache(`post:${type}:${slug}`, async () => {
         await connectDB();
         const post = await Post.findOne({
@@ -138,14 +142,14 @@ async function getPost(slug: string, type: string) {
             info: infoMap,
         };
     })();
-}
+});
 
 /**
  * Generic user profile page lookup — works for any user type (seller, reporter, etc.)
  * Returns the full user document + ALL UserInfo fields as a synthetic post-like object.
  * The server hook for each type then further enriches pageData.
  */
-async function getUserBySlug(userSlug: string, userType: string) {
+const getUserBySlug = cache(async (userSlug: string, userType: string) => {
     return withCache(`user:${userType}:${userSlug}`, async () => {
         await connectDB();
         const user = await User.findOne({
@@ -192,10 +196,10 @@ async function getUserBySlug(userSlug: string, userType: string) {
             },
         };
     })();
-}
+});
 
 /** Individual category with its info map — cached 24 h per slug */
-async function getCat(slug: string, type: string) {
+const getCat = cache(async (slug: string, type: string) => {
     return withCache(`cat:${type}:${slug}`, async () => {
         await connectDB();
         const cat = await Cat.findOne({
@@ -225,7 +229,7 @@ async function getCat(slug: string, type: string) {
             info: infoMap,
         };
     })();
-}
+});
 
 // ─── Template resolver ────────────────────────────────────────────────────────
 

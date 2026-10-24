@@ -46,7 +46,7 @@ function collectRegisteredElements(content: any[]): { id: string; type: string; 
 
 export default async function Builder({ id, data }: Props) {
     await connectDB();
-    const doc = await withCache(`builder:doc:${id}`, () => BuilderModel.findById(id).lean(), 300)();
+    const doc = await withCache(`builder:doc:${id}`, () => BuilderModel.findById(id).lean(), 300 * 1000)();
     if (!doc || !doc.content) return null;
 
     const content = doc.content as any[];
@@ -55,7 +55,7 @@ export default async function Builder({ id, data }: Props) {
     const serializedMenus = await withCache("builder:active_menus", async () => {
         const menus = await MenuModel.find({ status: "active" }).lean();
         return JSON.parse(JSON.stringify(menus));
-    }, 300)();
+    }, 300 * 1000)();
 
     // Find all elements that have a registered server component
     const registered = collectRegisteredElements(content);
@@ -77,7 +77,7 @@ export default async function Builder({ id, data }: Props) {
                 categoryType,
                 categoryIds,
                 limit,
-            }), 300)();
+            }), 300 * 1000)();
         } catch {
             enrichedModelContext = null;
         }
