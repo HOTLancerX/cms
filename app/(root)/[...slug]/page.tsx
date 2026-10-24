@@ -35,16 +35,18 @@ export async function generateStaticParams() {
         const catTypes = getCatTypes();
         const permalinkMap = await getPermalinkMap(postTypes, catTypes);
 
-        // Fetch published posts
+        // Fetch published posts — newest and most active products first
         const posts = await Post.find({ status: "published" })
+            .sort({ createdAt: -1 })
             .select("slug type")
-            .limit(500)
+            .limit(1200)
             .lean() as any[];
 
         // Fetch categories
         const cats = await Cat.find({ status: { $ne: "trash" } })
+            .sort({ createdAt: -1 })
             .select("slug type")
-            .limit(200)
+            .limit(300)
             .lean() as any[];
 
         const rootPages = getRootPages();

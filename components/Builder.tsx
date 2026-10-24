@@ -60,13 +60,13 @@ export default async function Builder({ id, data }: Props) {
     // Find all elements that have a registered server component
     const registered = collectRegisteredElements(content);
 
-    // Pre-fetch centralized dynamic model dataset for elements
+    // Pre-fetch centralized dynamic model dataset only if an element explicitly requires postType
     let enrichedModelContext: any = null;
-    if (registered.length > 0) {
+    const firstEl = registered[0]?.schema?.content;
+    const explicitlyRequestedType = firstEl?.postType || (firstEl?.type && firstEl.type !== "carousel" ? firstEl.type : null);
+    if (registered.length > 0 && explicitlyRequestedType) {
         try {
-            // Dynamically resolve postType and categoryType from element schema if present
-            const firstEl = registered[0]?.schema?.content;
-            const postType = firstEl?.postType || firstEl?.type || "blog";
+            const postType = explicitlyRequestedType;
             const categoryType = firstEl?.categoryType || `${postType}-category`;
             const categoryIds = firstEl?.categoryIds ?? (firstEl?.categoryId ? [firstEl.categoryId] : []);
             const limit = firstEl?.limit ?? 6;

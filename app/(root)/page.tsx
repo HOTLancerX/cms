@@ -5,6 +5,7 @@ import { Settings } from "@/lib/settings";
 import { getAuthSession } from "@/lib/session";
 import { getRootPages } from "@/hook/rootPages";
 import { resolveLazyComponent } from "@/hook/pluginHooks";
+import { withCache } from "@/lib/cache";
 import mongoose from "mongoose";
 
 // ISR: Caches homepage statically in local/CDN cache and revalidates every 60s
@@ -18,18 +19,29 @@ export const revalidate = 60;
  *  3. Dynamically resolves DB templates, plugin hook templates, or visual builder documents.
  */
 export default async function Home() {
-    const [settings, user] = await Promise.all([
-        Settings(),
-        getAuthSession(),
-    ]);
+    const settings = await Settings();
+
+    const loggedInSetting = typeof settings.homepage_logged_in === "string" ? settings.homepage_logged_in.trim() : "";
+    const guestSetting = typeof settings.homepage_guest === "string" ? settings.homepage_guest.trim() : "";
+    const defaultSetting = typeof settings.homepage === "string" ? settings.homepage.trim() : "";
+
+    // Only inspect auth session if a distinct logged-in homepage is explicitly configured
+    const hasDistinctLoginHome = Boolean(
+        loggedInSetting &&
+        loggedInSetting !== guestSetting &&
+        loggedInSetting !== defaultSetting
+    );
+
+    let user: any = null;
+    if (hasDistinctLoginHome) {
+        user = await getAuthSession();
+    }
 
     const isLoggedIn = Boolean(user?._id);
 
-    // If user is logged in, resolve 'homepage_logged_in' (fallback to 'homepage_guest' / 'homepage')
-    // If not logged in, resolve 'homepage_guest' (fallback to 'homepage' / 'homepage_logged_in')
     const target = isLoggedIn
-        ? (settings.homepage_logged_in as string) || (settings.homepage_guest as string) || (settings.homepage as string)
-        : (settings.homepage_guest as string) || (settings.homepage as string) || (settings.homepage_logged_in as string);
+        ? loggedInSetting || guestSetting || defaultSetting
+        : guestSetting || defaultSetting || loggedInSetting;
 
     const trimmed = target?.trim();
     if (!trimmed) return null;
@@ -40,19 +52,22 @@ export default async function Home() {
         return <Builder id={builderId} />;
     }
 
-    // 2. Check if target matches a DB Template record by _id, key, or label
+    // 2. Check if target matches a DB Template record by _id, key, or label (cached)
     let targetKey = trimmed;
     try {
-        await connectDB();
-        let tplDoc: any = null;
-        if (mongoose.Types.ObjectId.isValid(trimmed)) {
-            tplDoc = await Template.findById(trimmed).lean();
-        }
-        if (!tplDoc) {
-            tplDoc = await Template.findOne({
-                $or: [{ key: trimmed }, { label: trimmed }],
-            }).lean();
-        }
+        const tplDoc = await withCache(`template:homepage:${trimmed}`, async () => {
+            await connectDB();
+            let doc: any = null;
+            if (mongoose.Types.ObjectId.isValid(trimmed)) {
+                doc = await Template.findById(trimmed).lean();
+            }
+            if (!doc) {
+                doc = await Template.findOne({
+                    $or: [{ key: trimmed }, { label: trimmed }],
+                }).lean();
+            }
+            return doc;
+        })();
 
         if (tplDoc) {
             // If template points to a visual builder document
