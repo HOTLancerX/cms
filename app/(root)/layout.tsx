@@ -4,7 +4,7 @@ import BuilderModel from "@/models/builder";
 import { getActivePluginNames } from "@/hook/PluginListServer";
 import { getRootPages } from "@/hook/rootPages";
 import { Settings } from "@/lib/settings";
-import { getMenuByLocation } from "@/lib/menu";
+import { getMenuByLocation, getMenuBySlot } from "@/lib/menu";
 import { withCache } from "@/lib/cache";
 import type { MenuItem } from "@/models/Menu";
 import { ActivePluginsProvider } from "@/context/ActivePluginsContext";
@@ -120,14 +120,14 @@ export default async function RootLayout({
     const mainSlot   = settings.header_main_menu   as string | undefined;
     const rightSlot  = settings.header_right_menu  as string | undefined;
     const mobileSlot = settings.header_mobile_menu as string | undefined;
-    const footerSlot = (settings.header_footer_menu || settings.footer_menu) as string | undefined;
+    const footerSlot = (settings.header_footer_menu || settings.footer_menu || 'footer-1') as string | undefined;
 
     const [topItems, mainItems, rightItems, mobileItems, footerItems] = await Promise.all([
-        topSlot    ? getMenuByLocation(topSlot).catch(() => [])    : Promise.resolve([]),
-        mainSlot   ? getMenuByLocation(mainSlot).catch(() => [])   : Promise.resolve([]),
-        rightSlot  ? getMenuByLocation(rightSlot).catch(() => [])  : Promise.resolve([]),
-        mobileSlot ? getMenuByLocation(mobileSlot).catch(() => []) : Promise.resolve([]),
-        footerSlot ? getMenuByLocation(footerSlot).catch(() => []) : Promise.resolve([]),
+        topSlot    ? getMenuBySlot(topSlot).catch(() => [])    : Promise.resolve([]),
+        mainSlot   ? getMenuBySlot(mainSlot).catch(() => [])   : Promise.resolve([]),
+        rightSlot  ? getMenuBySlot(rightSlot).catch(() => [])  : Promise.resolve([]),
+        mobileSlot ? getMenuBySlot(mobileSlot).catch(() => []) : Promise.resolve([]),
+        footerSlot ? getMenuBySlot(footerSlot).catch(() => []) : Promise.resolve([]),
     ]);
 
     // Pre-fetch builder content for any builder-type items across all slots
@@ -155,7 +155,9 @@ export default async function RootLayout({
         await Promise.all(
             allBuilderIds.map(async (id) => {
                 try {
-                    const doc = await BuilderModel.findById(id).lean();
+                    const doc = await withCache(`builder:doc:${id}`, async () => {
+                        return BuilderModel.findById(id).lean();
+                    })();
                     if (doc?.content && Array.isArray(doc.content)) {
                         builderContent[id] = doc.content as any[];
                     }

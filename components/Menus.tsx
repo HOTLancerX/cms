@@ -8,6 +8,7 @@ import PostModel from '@/models/post';
 import PostInfoModel from '@/models/post_info';
 import CatModel from '@/models/cat';
 import PermalinkModel from '@/models/permalink';
+import { withCache } from '@/lib/cache';
 
 interface MenusProps {
     location: string;
@@ -94,88 +95,111 @@ function parseImageUrl(val: any): string {
     return trimmed;
 }
 
+const MENU_POST_CARD_FIELDS = [
+    'image',
+    'images',
+    'thumbnail',
+    'featured_image',
+    '_thumbnail_id',
+    'excerpt',
+    'description',
+    'summary',
+    'category',
+    'category_name',
+];
+
 /**
  * Pre-fetches posts server-side for all menu items configured with showPosts.
+ * Wrapped in withCache for 0ms instant cached navigation.
  */
 export async function fetchMenuPosts(postItems: MenuItem[]): Promise<Record<string, PostCardData[]>> {
-    const postContent: Record<string, PostCardData[]> = {};
-    if (postItems.length === 0) return postContent;
+    if (postItems.length === 0) return {};
 
-    try {
-        await connectDB();
+    const cacheKey = `menu:posts:${postItems
+        .map((i) => `${i.id}_${i.postType}_${i.postCategory || i.referenceId}_${i.postLimit}`)
+        .join('|')}`;
 
-        // Load permalinks to create exact URLs
-        const permalinks = await PermalinkModel.find({}).lean().catch(() => []);
-        const prefixMap: Record<string, string> = {};
-        permalinks.forEach((p: any) => {
-            if (p.contentType && p.prefix) {
-                prefixMap[p.contentType] = p.prefix.trim().replace(/^\/+|\/+$/g, '');
-            }
-        });
+    return withCache(cacheKey, async () => {
+        const postContent: Record<string, PostCardData[]> = {};
 
-        await Promise.all(
-            postItems.map(async (item) => {
-                try {
-                    const postType = item.postType || 'blog';
-                    const categoryId = item.postCategory || item.referenceId;
-                    const limit = Math.min(Math.max(item.postLimit || 6, 1), 30);
-                    const prefix = prefixMap[postType] || postType;
+        try {
+            await connectDB();
 
-                    const query: Record<string, any> = {
-                        status: 'published',
-                    };
+            // Load permalinks to create exact URLs
+            const permalinks = await PermalinkModel.find({}).lean().catch(() => []);
+            const prefixMap: Record<string, string> = {};
+            permalinks.forEach((p: any) => {
+                if (p.contentType && p.prefix) {
+                    prefixMap[p.contentType] = p.prefix.trim().replace(/^\/+|\/+$/g, '');
+                }
+            });
 
-                    if (postType && postType !== 'all') {
-                        query.type = postType;
-                    }
+            await Promise.all(
+                postItems.map(async (item) => {
+                    try {
+                        const postType = item.postType || 'blog';
+                        const categoryId = item.postCategory || item.referenceId;
+                        const limit = Math.min(Math.max(item.postLimit || 6, 1), 12);
+                        const prefix = prefixMap[postType] || postType;
 
-                    if (categoryId && categoryId.length === 24) {
-                        query.category = categoryId;
-                    }
+                        const query: Record<string, any> = {
+                            status: 'published',
+                        };
 
-                    let posts = await PostModel.find(query)
-                        .sort({ createdAt: -1 })
-                        .limit(limit)
-                        .lean();
+                        if (postType && postType !== 'all') {
+                            query.type = postType;
+                        }
 
-                    // Fallback if no published posts with exact category
-                    if (posts.length === 0 && query.category) {
-                        delete query.category;
-                        posts = await PostModel.find(query)
+                        if (categoryId && categoryId.length === 24) {
+                            query.category = categoryId;
+                        }
+
+                        let posts = await PostModel.find(query)
                             .sort({ createdAt: -1 })
                             .limit(limit)
                             .lean();
-                    }
 
-                    // Fallback to any non-trash posts
-                    if (posts.length === 0) {
-                        posts = await PostModel.find({ status: { $ne: 'trash' } })
-                            .sort({ createdAt: -1 })
-                            .limit(limit)
-                            .lean();
-                    }
+                        // Fallback if no published posts with exact category
+                        if (posts.length === 0 && query.category) {
+                            delete query.category;
+                            posts = await PostModel.find(query)
+                                .sort({ createdAt: -1 })
+                                .limit(limit)
+                                .lean();
+                        }
 
-                    const postIds = posts.map((p) => p._id);
-                    const catIds = [...new Set(posts.map((p) => p.category).filter(Boolean))];
+                        // Fallback to any non-trash posts
+                        if (posts.length === 0) {
+                            posts = await PostModel.find({ status: { $ne: 'trash' } })
+                                .sort({ createdAt: -1 })
+                                .limit(limit)
+                                .lean();
+                        }
 
-                    const [postInfos, catDocs] = await Promise.all([
-                        PostInfoModel.find({ postId: { $in: postIds } }).lean(),
-                        catIds.length > 0
-                            ? CatModel.find({ _id: { $in: catIds } }).select('title slug').lean()
-                            : Promise.resolve([]),
-                    ]);
+                        const postIds = posts.map((p) => p._id);
+                        const catIds = [...new Set(posts.map((p) => p.category).filter(Boolean))];
 
-                    const infoMap = new Map<string, Record<string, string>>();
-                    postInfos.forEach((info: any) => {
-                        const key = String(info.postId);
-                        if (!infoMap.has(key)) infoMap.set(key, {});
-                        infoMap.get(key)![info.name] = info.value;
-                    });
+                        const [postInfos, catDocs] = await Promise.all([
+                            PostInfoModel.find({
+                                postId: { $in: postIds },
+                                name: { $in: MENU_POST_CARD_FIELDS },
+                            }).lean(),
+                            catIds.length > 0
+                                ? CatModel.find({ _id: { $in: catIds } }).select('title slug').lean()
+                                : Promise.resolve([]),
+                        ]);
 
-                    const catMap = new Map<string, string>();
-                    catDocs.forEach((c: any) => {
-                        catMap.set(String(c._id), c.title);
-                    });
+                        const infoMap = new Map<string, Record<string, string>>();
+                        postInfos.forEach((info: any) => {
+                            const key = String(info.postId);
+                            if (!infoMap.has(key)) infoMap.set(key, {});
+                            infoMap.get(key)![info.name] = info.value;
+                        });
+
+                        const catMap = new Map<string, string>();
+                        catDocs.forEach((c: any) => {
+                            catMap.set(String(c._id), c.title);
+                        });
 
                     postContent[item.id] = posts.map((post: any) => {
                         const meta = infoMap.get(String(post._id)) || {};
@@ -221,7 +245,8 @@ export async function fetchMenuPosts(postItems: MenuItem[]): Promise<Record<stri
         console.error('[Menus] Database error during post pre-fetch:', err);
     }
 
-    return postContent;
+        return postContent;
+    })();
 }
 
 /**
@@ -252,7 +277,9 @@ export default async function Menus({
         await Promise.all(
             builderIds.map(async (id) => {
                 try {
-                    const doc = await BuilderModel.findById(id).lean();
+                    const doc = await withCache(`builder:doc:${id}`, async () => {
+                        return BuilderModel.findById(id).lean();
+                    })();
                     if (doc?.content && Array.isArray(doc.content)) {
                         builderContent[id] = doc.content as any[];
                     }

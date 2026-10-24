@@ -12,7 +12,7 @@
 
 import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
-import { CACHE_TAG } from "@/lib/cache";
+import { CACHE_TAG, invalidateMemoryCache } from "@/lib/cache";
 
 export async function POST(req: Request) {
     const secret = process.env.CACHE_REVALIDATE_SECRET ?? process.env.NEXTAUTH_SECRET ?? "";
@@ -26,6 +26,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    invalidateMemoryCache();
     revalidateTag(CACHE_TAG, "max");
 
     return NextResponse.json({

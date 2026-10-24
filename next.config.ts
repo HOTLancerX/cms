@@ -93,6 +93,13 @@ const nextConfig: NextConfig = {
     },
     devIndicators: false,
     turbopack: {},
+    experimental: {
+        agentUpgrade: "security",
+        staleTimes: {
+            dynamic: 60, // 60 seconds client router cache for dynamic routes
+            static: 300, // 5 minutes for static routes
+        },
+    },
 
     // Webpack alias config — used by `next build --webpack` on Vercel
     webpack(config) {

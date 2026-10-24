@@ -7,6 +7,7 @@ import {
     renderBuilderElement,
 } from "@/hook/builderDataHooks";
 import { fetchEnrichedBuilderData } from "@/lib/builderDataEngine";
+import { withCache } from "@/lib/cache";
 
 interface Props {
     id: string;
@@ -45,14 +46,16 @@ function collectRegisteredElements(content: any[]): { id: string; type: string; 
 
 export default async function Builder({ id, data }: Props) {
     await connectDB();
-    const doc = await BuilderModel.findById(id).lean();
+    const doc = await withCache(`builder:doc:${id}`, () => BuilderModel.findById(id).lean(), 300)();
     if (!doc || !doc.content) return null;
 
     const content = doc.content as any[];
 
     // Fetch active menus to serialize and pass to client cache
-    const menus = await MenuModel.find({ status: "active" }).lean();
-    const serializedMenus = JSON.parse(JSON.stringify(menus));
+    const serializedMenus = await withCache("builder:active_menus", async () => {
+        const menus = await MenuModel.find({ status: "active" }).lean();
+        return JSON.parse(JSON.stringify(menus));
+    }, 300)();
 
     // Find all elements that have a registered server component
     const registered = collectRegisteredElements(content);
@@ -68,12 +71,13 @@ export default async function Builder({ id, data }: Props) {
             const categoryIds = firstEl?.categoryIds ?? (firstEl?.categoryId ? [firstEl.categoryId] : []);
             const limit = firstEl?.limit ?? 6;
 
-            enrichedModelContext = await fetchEnrichedBuilderData({
+            const cacheKey = `builder:enriched:${postType}:${categoryType}:${categoryIds.join(",")}:${limit}`;
+            enrichedModelContext = await withCache(cacheKey, () => fetchEnrichedBuilderData({
                 postType,
                 categoryType,
                 categoryIds,
                 limit,
-            });
+            }), 300)();
         } catch {
             enrichedModelContext = null;
         }
