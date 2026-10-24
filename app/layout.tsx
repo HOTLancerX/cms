@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "@/context/Provider";
 import { Settings } from "@/lib/settings";
+import NavigationLoader from "@/components/NavigationLoader";
 import { getRootPages } from "@/hook/rootPages";
 import { getHeadCssCached } from "@/hook/headCss";
 import { getActivePluginNames } from "@/hook/PluginListServer";
@@ -187,7 +188,10 @@ export default async function RootLayout({
         })}
       </head>
       <body className="bg-ff">
-        <Providers>{children}</Providers>
+        <Providers>
+          <NavigationLoader settings={settings} />
+          {children}
+        </Providers>
         {/* Dynamically rendered <body> widgets from active plugins */}
         {bodyWidgets.map((widget) => {
           const WidgetComponent = widget.component as React.ComponentType<any>;

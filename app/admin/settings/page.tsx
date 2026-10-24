@@ -5,6 +5,8 @@ import { Icon } from "@iconify/react";
 import FormSettings from "@/components/admin/FormSettings";
 import IconifyPicker from "@/components/ui/Iconify";
 import Gallery from "@/components/Gallery";
+import MediaSettingsTab from "@/components/admin/MediaSettingsTab";
+import LoaderSettingsTab from "@/components/admin/LoaderSettingsTab";
 import { useActivePlugins } from "@/hook/useActivePlugins";
 import useSettings from "@/lib/useSettings";
 import { xFetch } from "@/lib/express";
@@ -77,6 +79,20 @@ const CORE_TABS: Tab[] = [
         settingType: "openai",
         description: "Configure OpenAI-compatible API endpoint (URL, model name, and API key).",
     },
+    {
+        key: "media",
+        label: "Media & Storage",
+        icon: "solar:gallery-bold",
+        settingType: "media",
+        description: "Configure Cloudflare R2, Cloudinary, Image CDN, and upload size & format limits.",
+    },
+    {
+        key: "loader",
+        label: "Page Loader",
+        icon: "solar:refresh-square-bold",
+        settingType: "loader",
+        description: "Configure navigation loading animations, top runner bar, center popup, or footer indicator.",
+    },
 ];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -85,6 +101,16 @@ export default function AdminSettingsPage() {
     const activePlugins = useActivePlugins();
     const { settings, loading, refresh } = useSettings();
     const [activeTab, setActiveTab] = useState("general");
+
+    useEffect(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const tab = params.get("tab");
+            if (tab && CORE_TABS.some((t) => t.key === tab)) {
+                setActiveTab(tab);
+            }
+        } catch { }
+    }, []);
 
     if (activePlugins === null || loading) {
         return (
@@ -193,6 +219,22 @@ export default function AdminSettingsPage() {
 
             {activeTab === "openai" && (
                 <OpenAITab
+                    activePlugins={activePlugins}
+                    initialValues={settings}
+                    onSaved={refresh}
+                />
+            )}
+
+            {activeTab === "media" && (
+                <MediaSettingsTab
+                    activePlugins={activePlugins}
+                    initialValues={settings}
+                    onSaved={refresh}
+                />
+            )}
+
+            {activeTab === "loader" && (
+                <LoaderSettingsTab
                     activePlugins={activePlugins}
                     initialValues={settings}
                     onSaved={refresh}
