@@ -22,7 +22,67 @@ import type { Metadata } from "next";
 import mongoose from "mongoose";
 import { cache } from "react";
 
-export const dynamic = "force-dynamic";
+// ISR & Static Generation: Pre-renders pages at build time into local cache.
+// dynamicParams = true ensures un-built or new pages render on demand and then cache permanently.
+// revalidate = 60 continuously updates content in the background so it stays live.
+export const dynamicParams = true;
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+    try {
+        await connectDB();
+        const postTypes = getPostTypes();
+        const catTypes = getCatTypes();
+        const permalinkMap = await getPermalinkMap(postTypes, catTypes);
+
+        // Fetch published posts
+        const posts = await Post.find({ status: "published" })
+            .select("slug type")
+            .limit(500)
+            .lean() as any[];
+
+        // Fetch categories
+        const cats = await Cat.find({ status: { $ne: "trash" } })
+            .select("slug type")
+            .limit(200)
+            .lean() as any[];
+
+        const rootPages = getRootPages();
+        const singlePages = rootPages.filter(
+            (p) => (p.slug === "single" || p.type === "single") && p.key
+        );
+
+        const params: { slug: string[] }[] = [];
+
+        // 1. Static single pages
+        for (const sp of singlePages) {
+            if (sp.key) {
+                params.push({ slug: [sp.key] });
+            }
+        }
+
+        // 2. Published posts
+        for (const p of posts) {
+            if (!p.slug) continue;
+            const prefix = permalinkMap[p.type] !== undefined ? permalinkMap[p.type] : p.type;
+            const segs = prefix ? prefix.split("/").filter(Boolean) : [];
+            params.push({ slug: [...segs, p.slug] });
+        }
+
+        // 3. Categories
+        for (const c of cats) {
+            if (!c.slug) continue;
+            const prefix = permalinkMap[c.type] ?? "";
+            const segs = prefix ? prefix.split("/").filter(Boolean) : [];
+            params.push({ slug: [...segs, c.slug] });
+        }
+
+        return params;
+    } catch (err) {
+        console.warn("[generateStaticParams] Could not pre-fetch static params at build time:", err);
+        return [];
+    }
+}
 
 interface RootPageProps {
     params: Promise<{ slug: string[] }>;

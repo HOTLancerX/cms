@@ -14,8 +14,8 @@ import { unstable_cache } from "next/cache";
 export const CACHE_TAG = "cms-root";
 export const CACHE_TTL = 60 * 60 * 24; // 24 hours in seconds
 
-const isCacheEnabled = process.env.NEXT_PUBLIC_CACHE === "production";
-const isProd = process.env.NODE_ENV === "production" || isCacheEnabled;
+const isProd = process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_CACHE === "production";
+const isCacheEnabled = isProd;
 
 // In development, keep a 300-second (5 min) TTL in memory so link clicks are instant (0ms),
 // while admin edits still reflect automatically after 5 minutes (or immediately via cache invalidation).

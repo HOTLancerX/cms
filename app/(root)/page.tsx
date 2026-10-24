@@ -7,7 +7,8 @@ import { getRootPages } from "@/hook/rootPages";
 import { resolveLazyComponent } from "@/hook/pluginHooks";
 import mongoose from "mongoose";
 
-export const dynamic = "force-dynamic";
+// ISR: Caches homepage statically in local/CDN cache and revalidates every 60s
+export const revalidate = 60;
 
 /**
  * Homepage — Server Side Rendered (SSR)

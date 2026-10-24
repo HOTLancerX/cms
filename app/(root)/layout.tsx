@@ -11,10 +11,8 @@ import { ActivePluginsProvider } from "@/context/ActivePluginsContext";
 import Builder from "@/components/Builder";
 import { collectPostItems, fetchMenuPosts } from "@/components/Menus";
 
-// Remove force-dynamic so Next.js Data Cache can take effect in production.
-// In development (NEXT_PUBLIC_CACHE !== "production") withCache is a no-op
-// and every request hits MongoDB directly — same as before.
-export const dynamic = "force-dynamic";
+// Enables Next.js Data Cache and ISR in production (revalidates in background every 60s)
+export const revalidate = 60;
 
 const CORE_NX = "com.system.core";
 
