@@ -10,6 +10,7 @@ import type { MenuItem } from "@/models/Menu";
 import { ActivePluginsProvider } from "@/context/ActivePluginsContext";
 import Builder from "@/components/Builder";
 import { collectPostItems, fetchMenuPosts } from "@/components/Menus";
+import { Suspense } from "react";
 
 // Enables Next.js Data Cache and ISR in production (revalidates in background every 60s)
 export const revalidate = 60;
@@ -187,36 +188,42 @@ export default async function RootLayout({
 
     return (
         <>
-            {headerBuilderId ? (
-                <Builder id={headerBuilderId} />
-            ) : HeaderComponent ? (
-                <HeaderComponent
-                    settings={settings}
-                    topItems={topItems}
-                    mainItems={mainItems}
-                    rightItems={rightItems}
-                    mobileItems={mobileItems}
-                    builderContent={builderContent}
-                    postContent={postContent}
-                />
-            ) : null}
+            <Suspense fallback={null}>
+                {headerBuilderId ? (
+                    <Builder id={headerBuilderId} />
+                ) : HeaderComponent ? (
+                    <HeaderComponent
+                        settings={settings}
+                        topItems={topItems}
+                        mainItems={mainItems}
+                        rightItems={rightItems}
+                        mobileItems={mobileItems}
+                        builderContent={builderContent}
+                        postContent={postContent}
+                    />
+                ) : null}
+            </Suspense>
             <ActivePluginsProvider initialPlugins={activeNxList}>
                 {children}
             </ActivePluginsProvider>
-            {footerBuilderId ? (
-                <Builder id={footerBuilderId} />
-            ) : FooterComponent ? (
-                <FooterComponent settings={settings} menuItems={footerItems} />
-            ) : null}
-            {rootWidgets.map((widget) => {
-                const WidgetComponent = widget.component as React.ComponentType<any>;
-                return (
-                    <WidgetComponent
-                        key={`${widget.pluginNx}-${widget.key}`}
-                        settings={settings}
-                    />
-                );
-            })}
+            <Suspense fallback={null}>
+                {footerBuilderId ? (
+                    <Builder id={footerBuilderId} />
+                ) : FooterComponent ? (
+                    <FooterComponent settings={settings} menuItems={footerItems} />
+                ) : null}
+            </Suspense>
+            <Suspense fallback={null}>
+                {rootWidgets.map((widget) => {
+                    const WidgetComponent = widget.component as React.ComponentType<any>;
+                    return (
+                        <WidgetComponent
+                            key={`${widget.pluginNx}-${widget.key}`}
+                            settings={settings}
+                        />
+                    );
+                })}
+            </Suspense>
         </>
     );
 }
