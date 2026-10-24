@@ -204,7 +204,9 @@ export default async function RootLayout({
                 ) : null}
             </Suspense>
             <ActivePluginsProvider initialPlugins={activeNxList}>
-                {children}
+                <Suspense fallback={null}>
+                    {children}
+                </Suspense>
             </ActivePluginsProvider>
             <Suspense fallback={null}>
                 {footerBuilderId ? (
