@@ -14,6 +14,7 @@ import { cache } from "react";
 import connectDB from "./mongodb";
 import MenuModel, { type MenuItem } from "@/models/Menu";
 import { withCache } from "./cache";
+import mongoose from "mongoose";
 
 /**
  * Fetch the active menu assigned to a given location slot and return its
@@ -50,6 +51,7 @@ export const getMenuByLocation: (location: string) => Promise<MenuItem[]> = cach
  */
 export const getMenuById: (id: string) => Promise<{ title: string; items: MenuItem[] } | null> = cache(
     async (id: string): Promise<{ title: string; items: MenuItem[] } | null> => {
+        if (!id || !mongoose.Types.ObjectId.isValid(id)) return null;
         return withCache(`menu:id:${id}`, async () => {
             try {
                 await connectDB();
@@ -90,9 +92,13 @@ export const getMenuBySlot: (slotOrId: string) => Promise<MenuItem[]> = cache(
         const byLoc = await getMenuByLocation(trimmed);
         if (byLoc && byLoc.length > 0) return byLoc;
 
-        // 3. Fallback: try getMenuById in case it was not 24-hex
-        const fallback = await getMenuById(trimmed);
-        return fallback?.items ?? [];
+        // 3. Fallback: try getMenuById only if it's a valid ObjectId
+        if (mongoose.Types.ObjectId.isValid(trimmed)) {
+            const fallback = await getMenuById(trimmed);
+            return fallback?.items ?? [];
+        }
+
+        return [];
     }
 );
 

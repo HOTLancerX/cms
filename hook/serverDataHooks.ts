@@ -180,12 +180,6 @@ function loadServerHooks() {
             }
         });
     } catch {}
-    try {
-        require("../plugin/players/lib/serverHooks");
-    } catch {}
-    try {
-        require("../plugin/product/lib/serverHooks");
-    } catch {}
 }
 
 loadServerHooks();
