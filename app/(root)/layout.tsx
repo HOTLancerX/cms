@@ -115,10 +115,10 @@ export default async function RootLayout({
     // Fetch all four header menu slots here — the only place in the tree
     // where it is safe to import mongoose (pure server route, never bundled
     // client-side via the hook registration system).
-    const topSlot    = settings.header_top_menu    as string | undefined;
-    const mainSlot   = settings.header_main_menu   as string | undefined;
-    const rightSlot  = settings.header_right_menu  as string | undefined;
-    const mobileSlot = settings.header_mobile_menu as string | undefined;
+    const topSlot    = (settings.header_top_menu || 'top-1') as string | undefined;
+    const mainSlot   = (settings.header_main_menu || settings.main_menu || 'header-1') as string | undefined;
+    const rightSlot  = (settings.header_right_menu || 'right-1') as string | undefined;
+    const mobileSlot = (settings.header_mobile_menu || settings.mobile_menu || 'mobile-1') as string | undefined;
     const footerSlot = (settings.header_footer_menu || settings.footer_menu || 'footer-1') as string | undefined;
 
     const [topItems, mainItems, rightItems, mobileItems, footerItems] = await Promise.all([
@@ -188,21 +188,19 @@ export default async function RootLayout({
 
     return (
         <>
-            <Suspense fallback={null}>
-                {headerBuilderId ? (
-                    <Builder id={headerBuilderId} />
-                ) : HeaderComponent ? (
-                    <HeaderComponent
-                        settings={settings}
-                        topItems={topItems}
-                        mainItems={mainItems}
-                        rightItems={rightItems}
-                        mobileItems={mobileItems}
-                        builderContent={builderContent}
-                        postContent={postContent}
-                    />
-                ) : null}
-            </Suspense>
+            {headerBuilderId ? (
+                <Builder id={headerBuilderId} />
+            ) : HeaderComponent ? (
+                <HeaderComponent
+                    settings={settings}
+                    topItems={topItems}
+                    mainItems={mainItems}
+                    rightItems={rightItems}
+                    mobileItems={mobileItems}
+                    builderContent={builderContent}
+                    postContent={postContent}
+                />
+            ) : null}
             <ActivePluginsProvider initialPlugins={activeNxList}>
                 <Suspense fallback={null}>
                     {children}

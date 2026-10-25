@@ -52,8 +52,16 @@ export async function runServerDataHook(
         loadServerHooks();
         fn = _registry.get(contentType);
     }
+    console.log(`[runServerDataHook] contentType: "${contentType}", found fn: ${Boolean(fn)}, registered keys:`, Array.from(_registry.keys()));
     if (!fn) return undefined;
-    return fn(id, slug, data);
+    try {
+        const result = await fn(id, slug, data);
+        console.log(`[runServerDataHook] result keys for "${contentType}":`, result ? Object.keys(result) : null);
+        return result;
+    } catch (err) {
+        console.error(`[runServerDataHook] Error running hook for "${contentType}":`, err);
+        return undefined;
+    }
 }
 
 // ─── Product enricher registry ────────────────────────────────────────────────
@@ -166,12 +174,13 @@ declare var require: {
 const serverHookContext = require.context(
     "../plugin",
     true,
-    /^\.\/[^/]+\/lib\/serverHooks\.(ts|js)$/
+    /serverHooks\.(ts|js)$/
 );
 
 function loadServerHooks() {
     try {
-        serverHookContext.keys().forEach((key: string) => {
+        const keys = serverHookContext.keys();
+        keys.forEach((key: string) => {
             try {
                 serverHookContext(key);
             } catch (err) {
@@ -179,7 +188,9 @@ function loadServerHooks() {
                 console.error(`[serverDataHooks] Failed to load ${key}:`, err);
             }
         });
-    } catch {}
+    } catch (e) {
+        console.error(`[loadServerHooks] error:`, e);
+    }
 }
 
 loadServerHooks();
@@ -191,7 +202,7 @@ loadServerHooks();
 const actionHookContext = require.context(
     "../plugin",
     true,
-    /^\.\/[^/]+\/lib\/actionHooks\.(ts|js)$/
+    /actionHooks\.(ts|js)$/
 );
 actionHookContext.keys().forEach((key: string) => {
     try {
