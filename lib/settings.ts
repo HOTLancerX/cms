@@ -11,21 +11,46 @@ import { withCache } from "./cache";
  * Results are cached in RAM (instant 0ms) and under "cms-root" tag.
  */
 export const Settings: () => Promise<Record<string, any>> = cache(async (): Promise<Record<string, any>> => {
-    return withCache("settings:all", async () => {
-        try {
+    try {
+        const cached = await withCache("settings:all", async () => {
             await connectDB();
             // Exclude huge text/CSS settings from the main layout payload
             const docs = await Setting.find({
                 title: { $ne: "visual_description_css" }
             }).lean<ISetting[]>();
+            if (!docs || docs.length === 0) {
+                throw new Error("No settings found in database");
+            }
             const map: Record<string, any> = {};
             docs.forEach((s) => { map[s.title] = s.content; });
             return map;
-        } catch (error) {
-            console.error("Error fetching settings:", error);
-            return { siteName: "Site", header: 1, footer: 1, homepage: "" };
+        })();
+        if (cached && Object.keys(cached).length > 0) {
+            return cached;
         }
-    })();
+    } catch (error) {
+        console.warn("[Settings] Error loading cached settings:", error);
+    }
+
+    // Direct live query fallback without caching failed state
+    try {
+        await connectDB();
+        const docs = await Setting.find({
+            title: { $ne: "visual_description_css" }
+        }).lean<ISetting[]>();
+        if (docs && docs.length > 0) {
+            const map: Record<string, any> = {};
+            docs.forEach((s) => { map[s.title] = s.content; });
+            return map;
+        }
+    } catch {}
+
+    return {
+        siteName: "Baraka Phones",
+        header: 1,
+        footer: 1,
+        homepage: "6ad605716a2fa163acdfc529",
+    };
 });
 
 /**

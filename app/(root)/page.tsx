@@ -8,8 +8,8 @@ import { resolveLazyComponent } from "@/hook/pluginHooks";
 import { withCache } from "@/lib/cache";
 import mongoose from "mongoose";
 
-// ISR: Caches homepage statically in local/CDN cache and revalidates every 60s
-export const revalidate = 60;
+// Ensure homepage is rendered dynamically on Vercel so it always uses live DB connection
+export const dynamic = "force-dynamic";
 
 /**
  * Homepage — Server Side Rendered (SSR)
@@ -43,8 +43,11 @@ export default async function Home() {
         ? loggedInSetting || guestSetting || defaultSetting
         : guestSetting || defaultSetting || loggedInSetting;
 
-    const trimmed = target?.trim();
-    if (!trimmed) return null;
+    let trimmed = target?.trim();
+    if (!trimmed) {
+        // Fallback to default Home builder ID so homepage never renders blank
+        trimmed = "6ad605716a2fa163acdfc529";
+    }
 
     // 1. Explicit builder ID format (builder:<id>)
     if (trimmed.startsWith("builder:")) {

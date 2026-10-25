@@ -54,11 +54,38 @@ export function registerBuilderElement(
     reg.set(elementType, component);
 }
 
+let _builderDataLoaded = false;
+
+export function loadBuilderDataHooks(): void {
+    if (_builderDataLoaded) return;
+    _builderDataLoaded = true;
+    try {
+        const ctx = require.context(
+            "../plugin",
+            true,
+            /builderData\.(ts|tsx|js|jsx)$/
+        );
+
+        ctx.keys().forEach((key: string) => {
+            try {
+                ctx(key);
+            } catch (err) {
+                console.warn(`[builderDataHooks] Error executing ${key}:`, err);
+            }
+        });
+    } catch {
+        // Guard in environments where require.context is not available
+    }
+}
+
 /**
  * Returns true when a server component is registered for this element type.
  */
 export function hasBuilderElement(elementType: string, pluginNx?: string): boolean {
     const reg = getRegistry();
+    if (!reg.has(elementType)) {
+        loadBuilderDataHooks();
+    }
     if (pluginNx && reg.has(`${pluginNx}::${elementType}`)) return true;
     return reg.has(elementType);
 }
@@ -74,6 +101,9 @@ export async function renderBuilderElement(
     pluginNx?: string
 ): Promise<ReactNode> {
     const reg = getRegistry();
+    if (!reg.has(elementType)) {
+        loadBuilderDataHooks();
+    }
     const component = (pluginNx && reg.get(`${pluginNx}::${elementType}`)) || reg.get(elementType);
     if (!component) return null;
     return component(schema, data);
@@ -95,20 +125,5 @@ declare var require: {
     (id: string): any;
 };
 
-try {
-    const ctx = require.context(
-        "../plugin",
-        true,
-        /^\.\/[^/]+\/lib\/builderData\.(ts|tsx|js|jsx)$/
-    );
-
-    ctx.keys().forEach((key: string) => {
-        try {
-            ctx(key);
-        } catch {
-            // Guard against stale HMR
-        }
-    });
-} catch {
-    // Guard in environments where require.context is not available
-}
+// Eager initial load
+loadBuilderDataHooks();
