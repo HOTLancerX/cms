@@ -583,7 +583,7 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
         const postData = await getPost(contentSlug, postType.key);
         if (!postData) continue;
 
-        const builder = <Builder id={postData.info?.builderId || String(postData._id)} data={postData} />;
+        const builder = postData.info?.builderId ? <Builder id={postData.info.builderId} data={postData} /> : null;
 
         const pageData = await runServerDataHook(
             postType.key,
