@@ -48,6 +48,7 @@ export default function FormSettings({
 
     const handleChange = (key: string, val: string) => {
         setValues((prev) => ({ ...prev, [key]: val }));
+        onChange?.(key, val);
     };
 
     // ── Submit — bulk upsert via Express PUT /settings ──────────────────────
@@ -59,13 +60,23 @@ export default function FormSettings({
         setSaving(true);
         setMessage("");
         try {
+            // Dynamically gather the values for fields defined by plugins for this type
+            const payload: Record<string, any> = {};
+            if (fields.length > 0) {
+                fields.forEach((f) => {
+                    payload[f.key] = values[f.key] !== undefined ? values[f.key] : (initialValues[f.key] ?? "");
+                });
+            } else {
+                Object.assign(payload, values);
+            }
+
             const res = await xFetch("/settings", {
                 method: "PUT",
-                body: JSON.stringify(values),
+                body: JSON.stringify(payload),
             });
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                setMessage(`Error: ${data.error ?? "Failed to save"}`);
+                setMessage(`Error: ${data.error ?? data.message ?? "Failed to save"}`);
             } else {
                 setMessage("Settings saved!");
                 // Signal AppearanceVars — same tab via custom event, other tabs via storage
@@ -76,8 +87,8 @@ export default function FormSettings({
                 onSuccess?.();
                 setTimeout(() => setMessage(""), 3000);
             }
-        } catch {
-            setMessage("Network error");
+        } catch (err: any) {
+            setMessage(`Network error: ${err?.message || "Failed to save"}`);
         } finally {
             setSaving(false);
         }

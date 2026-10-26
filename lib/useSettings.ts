@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { xFetch } from "@/lib/express";
 
 /**
  * useSettings
  *
- * Client-side hook. Reads settings directly from the database
- * via the Next.js /api/settings route.
- * Has nothing to do with the Express server.
+ * Client-side hook. Reads settings dynamically from the multi-tenant
+ * Express server via xFetch("/settings").
  *
  * Returns:
  *   settings — flat map { [title]: content }
@@ -24,10 +24,13 @@ export default function useSettings() {
         try {
             setLoading(true);
             setError(null);
-            const res  = await fetch("/api/settings", { cache: "no-store" });
-            if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+            const res = await xFetch("/settings", { cache: "no-store" });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || `Failed to fetch: ${res.status}`);
+            }
             const data = await res.json();
-            setSettings(data);
+            setSettings(data || {});
         } catch (err) {
             console.error("Settings fetch error:", err);
             setError(err instanceof Error ? err.message : "Failed to load settings");

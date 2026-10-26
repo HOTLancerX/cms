@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
+import { xFetch } from "@/lib/express";
 
 export interface NavigationLoaderProps {
     settings?: Record<string, any>;
@@ -26,7 +27,7 @@ function NavigationLoaderInner({ settings: initialSettings = {} }: NavigationLoa
     useEffect(() => {
         const handleSettingsUpdated = async () => {
             try {
-                const res = await fetch("/api/settings", { cache: "no-store" });
+                const res = await xFetch("/settings", { cache: "no-store" });
                 if (res.ok) {
                     const data = await res.json();
                     setSettings(data);

@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { xFetch } from '@/lib/express';
 
 export interface AppearanceVarsProps {
     colorMain:      string;
@@ -68,7 +69,7 @@ function applyVars(
 
 async function fetchAndApply() {
     try {
-        const res = await fetch('/api/settings', { cache: 'no-store' });
+        const res = await xFetch('/settings', { cache: 'no-store' });
         if (!res.ok) return;
         const s: Record<string, any> = await res.json();
         applyVars(

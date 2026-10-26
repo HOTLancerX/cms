@@ -416,7 +416,6 @@ function FooterTab({
         setMessage("");
 
         const payload: Record<string, any> = {
-            ...initialValues,
             footer_about_title: formValues.footer_about_title,
             footer_about_description: formValues.footer_about_description,
             admin: formValues.admin,
@@ -464,9 +463,9 @@ function FooterTab({
                 method: "PUT",
                 body: JSON.stringify(payload),
             });
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                setMessage(`Error: ${data.error ?? "Failed to save"}`);
+                setMessage(`Error: ${data.error ?? data.message ?? "Failed to save"}`);
             } else {
                 setMessage("Footer settings saved successfully!");
                 try {
@@ -476,8 +475,8 @@ function FooterTab({
                 onSaved?.();
                 setTimeout(() => setMessage(""), 3000);
             }
-        } catch {
-            setMessage("Network error");
+        } catch (err: any) {
+            setMessage(`Network error: ${err?.message || "Failed to save"}`);
         } finally {
             setSaving(false);
         }
@@ -883,7 +882,6 @@ function SocialTab({
         setMessage("");
 
         const payload: Record<string, any> = {
-            ...initialValues,
             social_media_items: JSON.stringify(items),
             social_media: JSON.stringify(items),
             social_color_mode: colorMode,
@@ -903,9 +901,9 @@ function SocialTab({
                 method: "PUT",
                 body: JSON.stringify(payload),
             });
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                setMessage(`Error: ${data.error ?? "Failed to save"}`);
+                setMessage(`Error: ${data.error ?? data.message ?? "Failed to save"}`);
             } else {
                 setMessage("Social media settings saved successfully!");
                 try {
@@ -915,8 +913,8 @@ function SocialTab({
                 onSaved?.();
                 setTimeout(() => setMessage(""), 3000);
             }
-        } catch {
-            setMessage("Network error");
+        } catch (err: any) {
+            setMessage(`Network error: ${err?.message || "Failed to save"}`);
         } finally {
             setSaving(false);
         }

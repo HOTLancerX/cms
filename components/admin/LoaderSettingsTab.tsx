@@ -73,25 +73,13 @@ export default function LoaderSettingsTab({
         };
 
         try {
-            let saved = false;
-            try {
-                const res = await xFetch("/settings", {
-                    method: "PUT",
-                    body: JSON.stringify(payload),
-                });
-                if (res.ok) saved = true;
-            } catch {
-                // Ignore Express network errors, will sync with local route
-            }
-
-            // Always sync directly with Next.js /api/settings as well
-            const localRes = await fetch("/api/settings", {
+            const res = await xFetch("/settings", {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
+            const data = await res.json().catch(() => ({}));
 
-            if (localRes.ok || saved) {
+            if (res.ok) {
                 setMessage({ text: "Page loader settings saved successfully!", type: "success" });
                 try {
                     localStorage.setItem("cms_settings_updated", Date.now().toString());
@@ -100,7 +88,7 @@ export default function LoaderSettingsTab({
                 onSaved?.();
                 setTimeout(() => setMessage(null), 4000);
             } else {
-                setMessage({ text: "Failed to save settings. Please try again.", type: "error" });
+                setMessage({ text: data.error || data.message || "Failed to save settings. Please try again.", type: "error" });
             }
         } catch (err: any) {
             setMessage({ text: err?.message || "Network error while saving settings", type: "error" });
