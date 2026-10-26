@@ -73,6 +73,15 @@ export async function getHeadCssCached(
 ): Promise<EvaluatedHeadCss[]> {
     ensurePluginsRegistered();
 
+    // If visual_description_css was excluded from Settings() payload, fetch it on-demand for head.css
+    if (settings && typeof settings === "object" && !settings.visual_description_css) {
+        try {
+            const { getSetting } = await import("@/lib/settings");
+            const css = await getSetting("visual_description_css");
+            if (css) settings.visual_description_css = css;
+        } catch {}
+    }
+
     const isProd = process.env.NODE_ENV === "production";
 
     // Generate cache key based on settings state and active plugin list

@@ -11,8 +11,22 @@ export const dynamic = "force-dynamic";
  * Returns all settings as a flat map: { [title]: content }
  * Reads directly from MongoDB — no Express involved.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const { searchParams } = new URL(request.url);
+        const title = searchParams.get("title");
+
+        if (title) {
+            await connectDB();
+            const doc = await Setting.findOne({ title }).lean<{ content: any }>();
+            const content = doc ? doc.content : null;
+            return NextResponse.json({
+                title,
+                content,
+                [title]: content,
+            });
+        }
+
         const data = await Settings();
         return NextResponse.json(data);
     } catch (error) {
@@ -45,8 +59,12 @@ export async function PUT(request: NextRequest) {
             await Setting.bulkWrite(bulkOps);
         }
 
-        // Invalidate in-memory settings cache
+        // Invalidate in-memory settings caches
         invalidateMemoryCache("settings");
+        invalidateMemoryCache("settings:all");
+        entries.forEach(([key]) => {
+            invalidateMemoryCache(`settings:${key}`);
+        });
 
         return NextResponse.json({ success: true, count: entries.length });
     } catch (error) {
