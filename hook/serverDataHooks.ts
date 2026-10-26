@@ -52,11 +52,9 @@ export async function runServerDataHook(
         loadServerHooks();
         fn = _registry.get(contentType);
     }
-    console.log(`[runServerDataHook] contentType: "${contentType}", found fn: ${Boolean(fn)}, registered keys:`, Array.from(_registry.keys()));
     if (!fn) return undefined;
     try {
         const result = await fn(id, slug, data);
-        console.log(`[runServerDataHook] result keys for "${contentType}":`, result ? Object.keys(result) : null);
         return result;
     } catch (err) {
         console.error(`[runServerDataHook] Error running hook for "${contentType}":`, err);
@@ -183,12 +181,11 @@ function loadServerHooks() {
         keys.forEach((key: string) => {
             try {
                 serverHookContext(key);
-            } catch (err) {
-                // Silently tolerate uninstantiated or stale HMR modules during dev
+            } catch (err: any) {
                 console.error(`[serverDataHooks] Failed to load ${key}:`, err);
             }
         });
-    } catch (e) {
+    } catch (e: any) {
         console.error(`[loadServerHooks] error:`, e);
     }
 }
@@ -196,21 +193,9 @@ function loadServerHooks() {
 loadServerHooks();
 
 // Plugin action hooks (server-only Mongoose action handlers)
-// Each plugin/*/lib/actionHooks.ts registers addAction() handlers that
-// touch the DB. Kept separate from index.ts so Mongoose never reaches
-// the client bundle.
-const actionHookContext = require.context(
-    "../plugin",
-    true,
-    /actionHooks\.(ts|js)$/
-);
-actionHookContext.keys().forEach((key: string) => {
-    try {
-        actionHookContext(key);
-    } catch {
-        // Silently tolerate uninstantiated or stale HMR modules during dev
-    }
-});
+// Kept in a separate file (serverActionHooks.ts) so its require.context does not
+// conflict with serverDataHooks in Webpack's module context cache.
+require("./serverActionHooks");
 
 // Core server hooks — always registered regardless of active plugins
 // Use require() (not import) so this runs AFTER _registry is initialised.
