@@ -112,7 +112,7 @@ const getPermalinkMap = cache(async (
     postTypes: ReturnType<typeof getPostTypes>,
     catTypes: ReturnType<typeof getCatTypes>
 ): Promise<Record<string, string>> => {
-    return withCache("permalink:map", async () => {
+    return withCache("permalink:v2:map", async () => {
         await connectDB();
 
         // Seed missing defaults only if collection is empty
@@ -144,7 +144,14 @@ const getPermalinkMap = cache(async (
         }
 
         const docs = await Permalink.find({}).lean();
-        const map: Record<string, string> = {};
+        const map: Record<string, string> = {
+            "product-tag": "product/tag",
+            "product-category": "product/category",
+            "brands": "brands",
+            "seller": "seller",
+            "reporter": "reporter",
+            "user": "",
+        };
         postTypes.forEach((pt) => { map[pt.key] = pt.key; });
         catTypes.forEach((ct) => {
             map[ct.key] = ct.key === "product-tag" ? "product/tag" : (ct.postType ? `${ct.postType}/category` : (ct.key === "location" ? "category/location" : `category/${ct.key}`));
@@ -154,6 +161,9 @@ const getPermalinkMap = cache(async (
                 map[d.contentType] = d.prefix;
             }
         });
+        if (!map["product-tag"]) {
+            map["product-tag"] = "product/tag";
+        }
         return map;
     })();
 });
@@ -270,11 +280,19 @@ const getUserBySlug = cache(async (userSlug: string, userType: string) => {
 const getCat = cache(async (slug: string, type: string) => {
     return withCache(`cat:${type}:${slug}`, async () => {
         await connectDB();
-        const cat = await Cat.findOne({
+        let cat = await Cat.findOne({
             slug,
             type,
             status: { $ne: "trash" },
         }).lean() as any;
+
+        if (!cat && type === "product-tag") {
+            cat = await Cat.findOne({
+                slug: { $regex: new RegExp(`^${slug.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")}$`, "i") },
+                type: "product-tag",
+                status: { $ne: "trash" },
+            }).lean() as any;
+        }
 
         if (!cat) return null;
 
@@ -737,15 +755,16 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
             return <Builder id={dbDefault.builderId} data={catData} />;
         }
 
-        // Resolve template by catType.key (e.g. "product-category" or "brands"),
-        // then fall back to the generic "cat" template if none is registered.
-        const template = await resolveTemplate(catType.key, activeNxSet);
-        if (!template?.component) {
-            const fallback = await resolveTemplate("cat", activeNxSet);
-            if (!fallback?.component) continue;
-            const C = fallback.component as any;
-            return <C data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} searchParams={effectiveSearchParams} />;
+        // Resolve template by catType.key (e.g. "product-tag", "product-category" or "brands"),
+        // then fall back to "product-category" for tags, then generic "cat" template.
+        let template = await resolveTemplate(catType.key, activeNxSet);
+        if (!template?.component && catType.key === "product-tag") {
+            template = await resolveTemplate("product-category", activeNxSet);
         }
+        if (!template?.component) {
+            template = await resolveTemplate("cat", activeNxSet);
+        }
+        if (!template?.component) continue;
 
         const CatComponent = template.component as any;
         return <CatComponent data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} searchParams={effectiveSearchParams} />;

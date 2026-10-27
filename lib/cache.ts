@@ -32,10 +32,13 @@ declare global {
     var __cmsMemoryCache: Map<string, MemoryCacheEntry> | undefined;
     // eslint-disable-next-line no-var
     var __cmsInflightPromises: Map<string, Promise<any>> | undefined;
+    // eslint-disable-next-line no-var
+    var __cmsOversizedCacheKeys: Set<string> | undefined;
 }
 
 const memoryCache = globalThis.__cmsMemoryCache ?? (globalThis.__cmsMemoryCache = new Map<string, MemoryCacheEntry>());
 const inflightPromises = globalThis.__cmsInflightPromises ?? (globalThis.__cmsInflightPromises = new Map<string, Promise<any>>());
+const oversizedKeys = globalThis.__cmsOversizedCacheKeys ?? (globalThis.__cmsOversizedCacheKeys = new Set<string>());
 
 /**
  * Invalidate memory cache for all keys or matching key prefix.
@@ -44,6 +47,7 @@ export function invalidateMemoryCache(keyPrefix?: string): void {
     if (!keyPrefix) {
         memoryCache.clear();
         inflightPromises.clear();
+        oversizedKeys.clear();
         return;
     }
     for (const key of Array.from(memoryCache.keys())) {
@@ -56,6 +60,11 @@ export function invalidateMemoryCache(keyPrefix?: string): void {
             inflightPromises.delete(key);
         }
     }
+    for (const key of Array.from(oversizedKeys)) {
+        if (key === keyPrefix || key.startsWith(keyPrefix)) {
+            oversizedKeys.delete(key);
+        }
+    }
 }
 
 export const invalidateCache = invalidateMemoryCache;
@@ -64,7 +73,8 @@ export const invalidateCache = invalidateMemoryCache;
  * Wrap an async factory with multi-tier caching:
  * - Checks in-memory cache first (0ms instant lookup)
  * - Deduplicates concurrent requests for the same key
- * - Integrates with Next.js unstable_cache in production
+ * - Integrates with Next.js unstable_cache in production (with >1.8MB protection)
+ * - Never caches null/undefined permanently to prevent transient 404 locks
  *
  * @param key   Unique string key for this cached value.
  * @param fn    The async factory to cache.
@@ -97,10 +107,13 @@ export function withCache<T>(
         const promise = (async () => {
             try {
                 const result = await fn();
-                memoryCache.set(key, {
-                    data: result,
-                    expiresAt: Date.now() + ttl,
-                });
+                // Never cache null or undefined for extended TTL to prevent transient 404 locks
+                if (result !== null && result !== undefined) {
+                    memoryCache.set(key, {
+                        data: result,
+                        expiresAt: Date.now() + ttl,
+                    });
+                }
                 return result;
             } finally {
                 inflightPromises.delete(key);
@@ -125,7 +138,21 @@ export function withCache<T>(
 
     const nextCached = unstable_cache(
         async () => {
-            return executeWithMemoryCache();
+            const result = await executeWithMemoryCache();
+            // Next.js data cache has a hard 2MB limit (2097152 bytes).
+            // Prevent Next.js from throwing error by intercepting oversized payloads.
+            if (result !== null && result !== undefined) {
+                try {
+                    const str = JSON.stringify(result);
+                    if (str.length > 1800000) {
+                        oversizedKeys.add(key);
+                        throw new Error("__CMS_OVERSIZED__");
+                    }
+                } catch (e: any) {
+                    if (e?.message === "__CMS_OVERSIZED__") throw e;
+                }
+            }
+            return result;
         },
         [key],
         {
@@ -140,12 +167,27 @@ export function withCache<T>(
         if (cached && cached.expiresAt > now) {
             return cached.data as T;
         }
-        const data = await nextCached();
-        memoryCache.set(key, {
-            data,
-            expiresAt: Date.now() + ttl,
-        });
-        return data as T;
+
+        // Items known to exceed 1.8MB stay purely in RAM memory cache
+        if (oversizedKeys.has(key)) {
+            return executeWithMemoryCache();
+        }
+
+        try {
+            const data = await nextCached();
+            if (data !== null && data !== undefined) {
+                memoryCache.set(key, {
+                    data,
+                    expiresAt: Date.now() + ttl,
+                });
+            }
+            return data as T;
+        } catch (err: any) {
+            if (err?.message === "__CMS_OVERSIZED__" || oversizedKeys.has(key)) {
+                oversizedKeys.add(key);
+            }
+            return executeWithMemoryCache();
+        }
     };
 
     return wrapThenable(executeWithNextCache) as any;
