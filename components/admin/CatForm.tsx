@@ -166,6 +166,7 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
             if (!res.ok) {
                 toast.error(`${res.status}: ${data.error ?? data.message ?? "Failed to save"}`);
             } else {
+                fetch("/api/cache/revalidate", { method: "POST" }).catch(() => {});
                 toast.success(isEdit ? "Category updated!" : "Category created!");
                 if (!isEdit) {
                     setTitle(""); setSlug(""); setStatus("published");

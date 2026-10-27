@@ -779,7 +779,24 @@ export default async function DynamicRootPage({ params, searchParams: searchPara
         if (!template?.component) continue;
 
         const CatComponent = template.component as any;
-        return <CatComponent data={catData} settings={settings} permalinkMap={permalinkMap} pageData={pageData} searchParams={effectiveSearchParams} />;
+
+        const builderTopId = catData.info?.builder_top;
+        const builderBottomId = catData.info?.builder_bottom;
+
+        const builderTop = builderTopId ? <Builder id={builderTopId} data={catData} /> : null;
+        const builderBottom = builderBottomId ? <Builder id={builderBottomId} data={catData} /> : null;
+
+        return (
+            <CatComponent
+                data={catData}
+                settings={settings}
+                permalinkMap={permalinkMap}
+                pageData={pageData}
+                searchParams={effectiveSearchParams}
+                builderTop={builderTop}
+                builderBottom={builderBottom}
+            />
+        );
     }
 
     notFound();

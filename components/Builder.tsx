@@ -49,13 +49,18 @@ export default async function Builder({ id, data }: Props) {
     await connectDB();
     let doc: any = await withCache(`builder:doc:${id}`, () => BuilderModel.findById(id).lean(), 300 * 1000)();
 
-    if (!doc && mongoose.Types.ObjectId.isValid(id)) {
-        doc = await BuilderModel.findById(id).lean();
-    }
     if (!doc) {
-        doc = await BuilderModel.findOne({
-            $or: [{ _id: id }, { title: { $regex: /^home$/i } }],
-        }).lean();
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            doc = await BuilderModel.findById(id).lean();
+        } else if (id) {
+            doc = await BuilderModel.findOne({
+                $or: [{ _id: id }, { key: id }, { title: id }],
+            }).lean();
+        } else {
+            doc = await BuilderModel.findOne({
+                title: { $regex: /^home$/i },
+            }).lean();
+        }
     }
     if (!doc || !doc.content) return null;
 

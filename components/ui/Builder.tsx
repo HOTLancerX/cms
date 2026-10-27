@@ -37,14 +37,14 @@ export function BuilderSelect({ name, label, value, onChange }: FieldProps) {
                 const builderData = builderRes && builderRes.ok ? await builderRes.json().catch(() => []) : [];
 
                 const builderOptions: OptionItem[] = Array.isArray(builderData)
-                    ? builderData
-                        .filter((b: any) => !b.templateType || b.templateType === "builder")
-                        .map((b: any) => ({
-                            value: b._id,
-                            label: b.title || "Untitled Builder Page",
-                            group: "Builder Pages",
-                            status: b.status,
-                        }))
+                    ? builderData.map((b: any) => ({
+                        value: b._id,
+                        label: b.title || "Untitled Builder Page",
+                        group: b.templateType && b.templateType !== "builder"
+                            ? `Builder (${b.templateType.toUpperCase()})`
+                            : "Builder Pages",
+                        status: b.status,
+                    }))
                     : [];
 
                 // 3. Fetch Templates (FILTER ONLY type === "builder")

@@ -380,6 +380,22 @@ export function register(): void {
             fieldType: "content",
         },
         {
+            key: "builder_top",
+            label: "Builder Top",
+            type: "",
+            style: "right",
+            position: 15,
+            component: BuilderSelect,
+        },
+        {
+            key: "builder_bottom",
+            label: "Builder Bottom",
+            type: "",
+            style: "right",
+            position: 16,
+            component: BuilderSelect,
+        },
+        {
             key: "images",
             label: "Images",
             type: "",
