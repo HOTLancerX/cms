@@ -21,6 +21,8 @@ export interface LinkProductItem {
     categoryTitle: string | null;
     brandId?: string | null;
     brandTitle?: string | null;
+    tags?: string[];
+    tagTitles?: string[];
     image: string | null;
     createdAt: string;
 }
@@ -35,6 +37,7 @@ export interface LinkProductsModalProps {
         icon?: string;
     };
     initialTargetId?: string;
+    initialTargetIds?: string[];
     categories: LinkCategoryOption[];
     onSuccess?: () => void;
 }
@@ -44,13 +47,16 @@ export default function LinkProductsModal({
     onClose,
     catType,
     initialTargetId,
+    initialTargetIds,
     categories = [],
     onSuccess,
 }: LinkProductsModalProps) {
+    const isTag = catType.key === "product-tag";
     const isBrand = catType.key === "brands";
 
     // ── Target & Source selection ──
     const [targetId, setTargetId] = useState<string>(initialTargetId || (categories[0]?._id ?? ""));
+    const [targetTagIds, setTargetTagIds] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState<string>(isBrand ? "unbranded" : "uncategorized");
     const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
@@ -77,15 +83,23 @@ export default function LinkProductsModal({
     const [errorMsg, setErrorMsg] = useState("");
     const [successMsg, setSuccessMsg] = useState("");
 
-    // Update targetId when initialTargetId changes or modal opens
+    // Update targetId and targetTagIds when initialTargetId/initialTargetIds changes or modal opens
     useEffect(() => {
         if (isOpen) {
-            if (initialTargetId) {
+            if (isTag) {
+                const initIds = (initialTargetIds && initialTargetIds.length > 0)
+                    ? initialTargetIds
+                    : (initialTargetId ? [initialTargetId] : (categories[0]?._id ? [categories[0]._id] : []));
+                setTargetTagIds(initIds);
+                setTargetId(initIds[0] || "");
+                setSourceFilter("all");
+            } else if (initialTargetId) {
                 setTargetId(initialTargetId);
+                setSourceFilter(isBrand ? "unbranded" : "uncategorized");
             } else if (categories.length > 0 && !targetId) {
                 setTargetId(categories[0]._id);
+                setSourceFilter(isBrand ? "unbranded" : "uncategorized");
             }
-            setSourceFilter(isBrand ? "unbranded" : "uncategorized");
             setCategoryFilter("all");
             setSelectedIds([]);
             setPage(1);
@@ -93,7 +107,7 @@ export default function LinkProductsModal({
             setErrorMsg("");
             setSuccessMsg("");
         }
-    }, [isOpen, initialTargetId, isBrand, categories]);
+    }, [isOpen, initialTargetId, initialTargetIds, isBrand, isTag, categories]);
 
     // Fetch product categories when in brand mode for the category filter dropdown
     useEffect(() => {
@@ -122,11 +136,12 @@ export default function LinkProductsModal({
             const params = new URLSearchParams({
                 search: q,
                 type: catType.postType || "product",
-                excludeCatId: tgtId || "",
+                excludeCatId: isTag ? "" : tgtId || "",
                 sourceCatId: srcFilter || "",
                 sourceCategoryFilter: catFilter !== "all" ? catFilter : "",
                 catType: catType.key,
                 isBrand: String(isBrand),
+                isTag: String(isTag),
                 limit: "100",
                 page: String(pg),
                 matchCase: String(isC),
@@ -187,7 +202,12 @@ export default function LinkProductsModal({
 
     // Submit linking
     const handleSubmit = async () => {
-        if (!targetId) {
+        if (isTag) {
+            if (targetTagIds.length === 0) {
+                setErrorMsg("Please select at least one target tag.");
+                return;
+            }
+        } else if (!targetId) {
             setErrorMsg(isBrand ? "Please select a target brand." : "Please select a target category.");
             return;
         }
@@ -205,9 +225,11 @@ export default function LinkProductsModal({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    categoryId: targetId,
+                    categoryId: isTag ? targetTagIds[0] : targetId,
                     brandId: targetId,
+                    tagIds: targetTagIds,
                     productIds: selectedIds,
+                    isTag,
                     isBrand,
                     catType: catType.key,
                 }),
@@ -219,13 +241,20 @@ export default function LinkProductsModal({
                 return;
             }
 
-            const targetItem = categories.find((c) => c._id === targetId);
-            const targetName = targetItem?.title || (isBrand ? "Brand" : "Category");
-            setSuccessMsg(
-                isBrand
-                    ? `Successfully linked ${selectedIds.length} product(s) to brand "${targetName}"!`
-                    : `Successfully linked ${selectedIds.length} product(s) to category "${targetName}"!`
-            );
+            if (isTag) {
+                const tagNames = targetTagIds
+                    .map((id) => categories.find((c) => c._id === id)?.title || id)
+                    .join(", ");
+                setSuccessMsg(`Successfully linked ${selectedIds.length} product(s) to tag(s): ${tagNames}!`);
+            } else {
+                const targetItem = categories.find((c) => c._id === targetId);
+                const targetName = targetItem?.title || (isBrand ? "Brand" : "Category");
+                setSuccessMsg(
+                    isBrand
+                        ? `Successfully linked ${selectedIds.length} product(s) to brand "${targetName}"!`
+                        : `Successfully linked ${selectedIds.length} product(s) to category "${targetName}"!`
+                );
+            }
 
             setSelectedIds([]);
             onSuccess?.();
@@ -299,43 +328,109 @@ export default function LinkProductsModal({
                     {/* Destination and Source Filters Row */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {/* Target Box (Destination) */}
-                        <div className="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100 flex flex-col justify-between space-y-2">
-                            <div className="flex items-center justify-between">
-                                <label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-                                    <Icon icon={isBrand ? "solar:tag-bold" : "solar:folder-with-files-bold"} width={15} className="text-indigo-600" />
-                                    1. Target {isBrand ? "Brand" : "Category"} (Assign To)
-                                </label>
-                                <span className="text-[10px] text-indigo-600 font-medium">
-                                    Destination
-                                </span>
+                        {isTag ? (
+                            <div className="bg-purple-50/60 p-3.5 rounded-xl border border-purple-200/70 flex flex-col justify-between space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                                        <Icon icon="solar:hashtag-square-bold" width={15} className="text-purple-600" />
+                                        1. Target Tag(s) (Assign To)
+                                    </label>
+                                    <span className="text-[10px] text-purple-700 font-bold bg-purple-100/90 px-2 py-0.5 rounded-full">
+                                        {targetTagIds.length} Tag{targetTagIds.length === 1 ? "" : "s"} Selected
+                                    </span>
+                                </div>
+
+                                {/* Target Tag Chips */}
+                                <div className="flex flex-wrap gap-1.5 min-h-7.5 items-center">
+                                    {targetTagIds.length === 0 ? (
+                                        <span className="text-[11px] text-red-500 italic">No tags selected. Please add below.</span>
+                                    ) : (
+                                        targetTagIds.map((tId) => {
+                                            const cObj = categories.find((c) => c._id === tId);
+                                            return (
+                                                <span
+                                                    key={tId}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-purple-800 border border-purple-200 shadow-2xs"
+                                                >
+                                                    <Icon icon="solar:hashtag-linear" width={12} className="opacity-60" />
+                                                    <span>{cObj?.title || tId}</span>
+                                                    {targetTagIds.length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setTargetTagIds((prev) => prev.filter((id) => id !== tId))}
+                                                            className="text-purple-400 hover:text-purple-900 transition ml-0.5"
+                                                            title="Remove tag from target list"
+                                                        >
+                                                            <Icon icon="solar:close-circle-bold" width={13} />
+                                                        </button>
+                                                    )}
+                                                </span>
+                                            );
+                                        })
+                                    )}
+                                </div>
+
+                                {/* Add more tags dropdown */}
+                                <select
+                                    value=""
+                                    onChange={(e) => {
+                                        if (e.target.value && !targetTagIds.includes(e.target.value)) {
+                                            setTargetTagIds((prev) => [...prev, e.target.value]);
+                                        }
+                                    }}
+                                    className="w-full bg-white border border-purple-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-400/30 cursor-pointer"
+                                >
+                                    <option value="" disabled>+ Add another tag to target list...</option>
+                                    {categories
+                                        .filter((c) => !targetTagIds.includes(c._id))
+                                        .map((c) => (
+                                            <option key={c._id} value={c._id}>
+                                                #{c.title}
+                                            </option>
+                                        ))}
+                                </select>
                             </div>
-                            <select
-                                value={targetId}
-                                onChange={(e) => {
-                                    setTargetId(e.target.value);
-                                    setSelectedIds([]);
-                                    setPage(1);
-                                }}
-                                className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400/30 cursor-pointer"
-                            >
-                                <option value="" disabled>-- Select a Target {isBrand ? "Brand" : "Category"} --</option>
-                                {categories.map((c) => (
-                                    <option key={c._id} value={c._id}>
-                                        {c.depth && c.depth > 0 ? `${"— ".repeat(c.depth)}${c.title}` : c.title}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                        ) : (
+                            <div className="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100 flex flex-col justify-between space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                                        <Icon icon={isBrand ? "solar:tag-bold" : "solar:folder-with-files-bold"} width={15} className="text-indigo-600" />
+                                        1. Target {isBrand ? "Brand" : "Category"} (Assign To)
+                                    </label>
+                                    <span className="text-[10px] text-indigo-600 font-medium">
+                                        Destination
+                                    </span>
+                                </div>
+                                <select
+                                    value={targetId}
+                                    onChange={(e) => {
+                                        setTargetId(e.target.value);
+                                        setSelectedIds([]);
+                                        setPage(1);
+                                    }}
+                                    className="w-full bg-white border border-indigo-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400/30 cursor-pointer"
+                                >
+                                    <option value="" disabled>-- Select a Target {isBrand ? "Brand" : "Category"} --</option>
+                                    {categories.map((c) => (
+                                        <option key={c._id} value={c._id}>
+                                            {c.depth && c.depth > 0 ? `${"— ".repeat(c.depth)}${c.title}` : c.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         {/* Source Box (Filter to search from) */}
                         <div className="bg-amber-50/40 p-3.5 rounded-xl border border-amber-200/60 flex flex-col justify-between space-y-2">
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
                                     <Icon icon="solar:filter-linear" width={15} className="text-amber-700" />
-                                    2. Search From ({isBrand ? "Brand Status" : "Category"})
+                                    2. Search Scope
                                 </label>
                                 <span className="text-[10px] text-amber-800 font-bold bg-amber-100/80 px-2 py-0.5 rounded-full">
-                                    {isBrand
+                                    {isTag
+                                        ? "All Products"
+                                        : isBrand
                                         ? (unbrandedCount !== null ? `${unbrandedCount} Unbranded` : "Unbranded by default")
                                         : (uncategorizedCount !== null ? `${uncategorizedCount} Uncategorized` : "Uncategorized by default")}
                                 </span>
@@ -349,7 +444,9 @@ export default function LinkProductsModal({
                                 }}
                                 className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400/30 cursor-pointer"
                             >
-                                {isBrand ? (
+                                {isTag ? (
+                                    <option value="all">🌐 All Products</option>
+                                ) : isBrand ? (
                                     <>
                                         <option value="unbranded">
                                             🏷️ Unbranded Products ({unbrandedCount !== null ? unbrandedCount : 0})
@@ -550,6 +647,12 @@ export default function LinkProductsModal({
                                                                 Brand: {p.brandTitle || "Unbranded"}
                                                             </span>
                                                         )}
+                                                        {p.tagTitles && p.tagTitles.length > 0 && (
+                                                            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-100 flex items-center gap-1">
+                                                                <Icon icon="solar:hashtag-linear" width={11} className="opacity-70" />
+                                                                {p.tagTitles.join(", ")}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -638,7 +741,7 @@ export default function LinkProductsModal({
                         <button
                             type="button"
                             onClick={handleSubmit}
-                            disabled={selectedIds.length === 0 || submitting || !targetId}
+                            disabled={selectedIds.length === 0 || submitting || (isTag ? targetTagIds.length === 0 : !targetId)}
                             className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 rounded-xl shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                             {submitting ? (
@@ -649,7 +752,11 @@ export default function LinkProductsModal({
                             ) : (
                                 <>
                                     <Icon icon="solar:link-circle-bold" width={15} />
-                                    {isBrand ? "Link Products to Brand" : `Link Products to ${catType.label}`} ({selectedIds.length})
+                                    {isTag
+                                        ? `Link Products to ${targetTagIds.length} Tag(s)`
+                                        : isBrand
+                                        ? "Link Products to Brand"
+                                        : `Link Products to ${catType.label}`} ({selectedIds.length})
                                 </>
                             )}
                         </button>

@@ -196,22 +196,26 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
         items
             .filter(i => (i.parentId ?? null) === pid && i._id !== catId)
             .flatMap(i => [
-                <option key={i._id} value={i._id}>
-                    {depth === 0 ? i.title : `${"— ".repeat(depth)}${i.title}`}
+                <option key={i._id} value={i._id} disabled={depth >= 9}>
+                    {depth === 0
+                        ? `${i.title} (L1)`
+                        : `${"— ".repeat(depth)}${i.title} (L${depth + 1}${depth >= 9 ? " - Max 10 levels reached" : ""})`}
                 </option>,
-                ...buildTreeOptions(items, i._id, depth + 1),
+                ...(depth < 9 ? buildTreeOptions(items, i._id, depth + 1) : []),
             ]);
 
     const buildFlatTree = (
         items: { _id: string; title: string; parentId: string | null }[],
         pid: string | null = null, depth = 0
     ): { id: string; title: string; depth: number }[] =>
-        items
-            .filter(i => (i.parentId ?? null) === pid)
-            .flatMap(i => [
-                { id: i._id, title: i.title, depth },
-                ...buildFlatTree(items, i._id, depth + 1),
-            ]);
+        depth >= 10
+            ? []
+            : items
+                .filter(i => (i.parentId ?? null) === pid)
+                .flatMap(i => [
+                    { id: i._id, title: i.title, depth },
+                    ...buildFlatTree(items, i._id, depth + 1),
+                ]);
 
     // ── Universal field renderer ─────────────────────────────────────────────
     const renderField = (field: FormHooks[number]) => {
@@ -287,11 +291,11 @@ export default function CatForm({ type, activePlugins, catId, onSuccess }: CatFo
                                 <label
                                     key={id}
                                     className={`flex items-center gap-3 py-2 cursor-pointer hover:bg-indigo-50 transition-colors ${checked ? "bg-indigo-50" : ""}`}
-                                    style={{ paddingLeft: `${depth * 20 + 12}px`, paddingRight: "12px" }}
+                                    style={{ paddingLeft: `${Math.min(depth * 14 + 12, 160)}px`, paddingRight: "12px" }}
                                 >
                                     <input type="checkbox" checked={checked} onChange={() => toggle(id)} className="rounded" />
                                     <span className={`text-sm ${depth === 0 ? "font-semibold" : "text-gray-600"}`}>
-                                        {depth > 0 && <span className="text-gray-300 mr-1">{"└ ".repeat(depth)}</span>}
+                                        {depth > 0 && <span className="text-gray-300 font-mono text-xs mr-1 select-none">└─</span>}
                                         {t}
                                     </span>
                                 </label>

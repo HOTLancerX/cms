@@ -131,7 +131,7 @@ const getPermalinkMap = cache(async (
                 })),
                 ...catTypes.map((ct) => ({
                     contentType: ct.key,
-                    prefix: ct.postType ? `${ct.postType}/category` : (ct.key === "location" ? "category/location" : `category/${ct.key}`),
+                    prefix: ct.key === "product-tag" ? "product/tag" : (ct.postType ? `${ct.postType}/category` : (ct.key === "location" ? "category/location" : `category/${ct.key}`)),
                 })),
             ];
             if (toInsert.length > 0) {
@@ -146,8 +146,14 @@ const getPermalinkMap = cache(async (
         const docs = await Permalink.find({}).lean();
         const map: Record<string, string> = {};
         postTypes.forEach((pt) => { map[pt.key] = pt.key; });
-        catTypes.forEach((ct) => { map[ct.key] = ct.postType ? `${ct.postType}/category` : (ct.key === "location" ? "category/location" : `category/${ct.key}`); });
-        (docs as any[]).forEach((d: any) => { map[d.contentType] = d.prefix ?? d.contentType ?? ""; });
+        catTypes.forEach((ct) => {
+            map[ct.key] = ct.key === "product-tag" ? "product/tag" : (ct.postType ? `${ct.postType}/category` : (ct.key === "location" ? "category/location" : `category/${ct.key}`));
+        });
+        (docs as any[]).forEach((d: any) => {
+            if (d.prefix) {
+                map[d.contentType] = d.prefix;
+            }
+        });
         return map;
     })();
 });

@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
         const sourceCatId = searchParams.get("sourceCatId") || "";
         const sourceCategoryFilter = searchParams.get("sourceCategoryFilter") || "";
         const catType = searchParams.get("catType") || "";
+        const isTag = catType === "product-tag";
         const isBrand = searchParams.get("isBrand") === "true" || catType === "brands";
         const limit = Math.max(1, Math.min(200, parseInt(searchParams.get("limit") || "100", 10)));
         const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
@@ -29,13 +30,32 @@ export async function GET(request: NextRequest) {
             { status: { $ne: "trash" } },
         ];
 
-        // Default postType for brand is always "product"
-        const effectivePostType = postType || (isBrand ? "product" : "");
+        // Default postType for brand and tag is always "product"
+        const effectivePostType = postType || (isBrand || isTag ? "product" : "");
         if (effectivePostType && effectivePostType !== "all") {
             conditions.push({ type: effectivePostType });
         }
 
-        if (isBrand) {
+        if (isTag) {
+            // ── TAG MODE ─────────────────────────────────────────────────────
+            // 1. Exclude products already containing this tag (if excludeCatId is set)
+            if (excludeCatId && excludeCatId !== "all" && mongoose.Types.ObjectId.isValid(excludeCatId)) {
+                const tagTaggedDocs = await PostInfo.find({
+                    name: "tags",
+                    value: { $regex: new RegExp(excludeCatId, "i") },
+                }).select("postId").lean() as any[];
+
+                const excludedPostIds = tagTaggedDocs.map((d) => d.postId);
+                if (excludedPostIds.length > 0) {
+                    conditions.push({ _id: { $nin: excludedPostIds } });
+                }
+            }
+
+            // 2. Optional filter by category
+            if (sourceCategoryFilter && sourceCategoryFilter !== "all" && mongoose.Types.ObjectId.isValid(sourceCategoryFilter)) {
+                conditions.push({ category: new mongoose.Types.ObjectId(sourceCategoryFilter) });
+            }
+        } else if (isBrand) {
             // ── BRAND MODE ───────────────────────────────────────────────────
             // 1. Exclude products already assigned to the target brand
             if (excludeCatId && excludeCatId !== "all" && mongoose.Types.ObjectId.isValid(excludeCatId)) {
@@ -217,7 +237,33 @@ export async function GET(request: NextRequest) {
             (id) => mongoose.Types.ObjectId.isValid(id)
         );
 
-        const allLookupIds = Array.from(new Set([...catIds.map(String), ...brandIdsToFetch]));
+        // Fetch tags from PostInfo
+        const tagInfos = await PostInfo.find({
+            postId: { $in: posts.map((p) => p._id) },
+            name: "tags",
+        }).lean() as any[];
+
+        const productTagIdsMap = new Map<string, string[]>();
+        const allTagIdsToLookup: string[] = [];
+        tagInfos.forEach((ti) => {
+            let ids: string[] = [];
+            try {
+                const parsed = JSON.parse(ti.value);
+                if (Array.isArray(parsed)) {
+                    ids = parsed.map(String).filter(Boolean);
+                } else if (ti.value) {
+                    ids = String(ti.value).split(",").map((s) => s.trim()).filter(Boolean);
+                }
+            } catch {
+                if (ti.value) {
+                    ids = String(ti.value).split(",").map((s) => s.trim()).filter(Boolean);
+                }
+            }
+            productTagIdsMap.set(String(ti.postId), ids);
+            allTagIdsToLookup.push(...ids.filter((id) => mongoose.Types.ObjectId.isValid(id)));
+        });
+
+        const allLookupIds = Array.from(new Set([...catIds.map(String), ...brandIdsToFetch, ...allTagIdsToLookup]));
 
         const catDocs = allLookupIds.length > 0
             ? await Cat.find({ _id: { $in: allLookupIds } }, "_id title type").lean() as any
@@ -230,6 +276,8 @@ export async function GET(request: NextRequest) {
             const pid = String(p._id);
             const rawBrandId = productBrandIdMap.get(pid) || null;
             const brandTitle = rawBrandId ? (catMap.get(rawBrandId) || rawBrandId) : null;
+            const pTags = productTagIdsMap.get(pid) || [];
+            const pTagTitles = pTags.map((tId) => catMap.get(tId) || tId);
 
             return {
                 _id: pid,
@@ -241,6 +289,8 @@ export async function GET(request: NextRequest) {
                 categoryTitle: p.category ? catMap.get(String(p.category)) || "Unknown" : null,
                 brandId: rawBrandId,
                 brandTitle: brandTitle,
+                tags: pTags,
+                tagTitles: pTagTitles,
                 image: imageMap.get(pid) || null,
                 createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : "",
             };
@@ -305,7 +355,98 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const categoryId = String(body.categoryId || body.brandId || "").trim();
         const productIds: string[] = Array.isArray(body.productIds) ? body.productIds : [];
+        const isTag = body.catType === "product-tag" || body.isTag === true;
         const isBrand = body.isBrand === true || body.catType === "brands";
+
+        if (isTag) {
+            // ── TAG LINKING: Append tag(s) to PostInfo "tags" without overwriting existing tags or category ──
+            const targetTagIds: string[] = Array.isArray(body.tagIds) && body.tagIds.length > 0
+                ? body.tagIds.filter((id: string) => mongoose.Types.ObjectId.isValid(id))
+                : (mongoose.Types.ObjectId.isValid(categoryId) ? [categoryId] : []);
+
+            if (targetTagIds.length === 0) {
+                return NextResponse.json({ error: "At least one valid Tag ID is required" }, { status: 400 });
+            }
+
+            if (productIds.length === 0) {
+                return NextResponse.json({ error: "No product IDs provided to link" }, { status: 400 });
+            }
+
+            const validObjectIds = productIds
+                .filter((id) => mongoose.Types.ObjectId.isValid(id))
+                .map((id) => new mongoose.Types.ObjectId(id));
+
+            if (validObjectIds.length === 0) {
+                return NextResponse.json({ error: "No valid product ObjectIds provided" }, { status: 400 });
+            }
+
+            // Validate that target tags exist
+            const targetTags = await Cat.find({
+                _id: { $in: targetTagIds.map((id) => new mongoose.Types.ObjectId(id)) },
+                type: "product-tag",
+            }).select("_id title").lean() as any[];
+
+            if (targetTags.length === 0) {
+                return NextResponse.json({ error: "Selected tag(s) not found" }, { status: 404 });
+            }
+
+            // Fetch existing tags for these products
+            const existingTagInfos = await PostInfo.find({
+                postId: { $in: validObjectIds },
+                name: "tags",
+            }).lean() as any[];
+
+            const existingTagsByPost = new Map<string, string[]>();
+            existingTagInfos.forEach((ti) => {
+                let ids: string[] = [];
+                try {
+                    const parsed = JSON.parse(ti.value);
+                    if (Array.isArray(parsed)) {
+                        ids = parsed.map(String).filter(Boolean);
+                    } else if (ti.value) {
+                        ids = String(ti.value).split(",").map((s) => s.trim()).filter(Boolean);
+                    }
+                } catch {
+                    if (ti.value) {
+                        ids = String(ti.value).split(",").map((s) => s.trim()).filter(Boolean);
+                    }
+                }
+                existingTagsByPost.set(String(ti.postId), ids);
+            });
+
+            // For each product, merge existing tags with new target tags
+            const bulkOps = validObjectIds.map((pid) => {
+                const prev = existingTagsByPost.get(String(pid)) || [];
+                const merged = Array.from(new Set([...prev, ...targetTagIds]));
+                return {
+                    updateOne: {
+                        filter: { postId: pid, name: "tags" },
+                        update: { $set: { value: JSON.stringify(merged) } },
+                        upsert: true,
+                    },
+                };
+            });
+
+            await PostInfo.bulkWrite(bulkOps);
+
+            // Also update Post.tags if applicable
+            try {
+                await Post.updateMany(
+                    { _id: { $in: validObjectIds } },
+                    { $addToSet: { tags: { $each: targetTagIds.map((id) => new mongoose.Types.ObjectId(id)) } } }
+                );
+            } catch { /* if Post doesn't have tags schema field, safe to ignore */ }
+
+            const tagTitlesStr = targetTags.map((t) => t.title).join(", ");
+            return NextResponse.json({
+                success: true,
+                isTag: true,
+                updatedCount: validObjectIds.length,
+                tagIds: targetTagIds,
+                tagTitles: targetTags.map((t) => t.title),
+                message: `Successfully linked ${validObjectIds.length} product(s) to tag(s): "${tagTitlesStr}"`,
+            });
+        }
 
         if (!categoryId) {
             return NextResponse.json({ error: isBrand ? "Brand ID is required" : "Category ID is required" }, { status: 400 });
