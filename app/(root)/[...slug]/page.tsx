@@ -101,9 +101,13 @@ const getActivePluginNamesCached = cache(() =>
 
 /** Default template for a given content type — cached 24 h */
 const getDefaultTemplate = cache(async (type: string) => {
-    return withCache(`template:default:${type}`, async () => {
+    return withCache(`template:v2:default:${type}`, async () => {
         await connectDB();
-        return Template.findOne({ type, isDefault: true }).lean() as Promise<any>;
+        let tmpl = await Template.findOne({ type, isDefault: true }).lean() as any;
+        if (!tmpl && type === "product-tag") {
+            tmpl = await Template.findOne({ type: "product-category", isDefault: true }).lean() as any;
+        }
+        return tmpl;
     })();
 });
 
@@ -330,12 +334,20 @@ async function resolveTemplate(type: string, activeNxSet: Set<string>) {
     const dbDefault = await getDefaultTemplate(type);
     if (dbDefault) {
         const match = candidates.find(
-            (p) => p.label === dbDefault.label && p.pluginNx === dbDefault.pluginNx
+            (p) => (p.key && dbDefault.key && p.key === dbDefault.key) ||
+                   (p.label === dbDefault.label && (dbDefault.pluginNx ? p.pluginNx === dbDefault.pluginNx : true))
         );
         if (match) return match;
     }
 
-    return candidates.find((p) => p.active === true) ?? candidates[0];
+    const sorted = [...candidates].sort((a, b) => {
+        const aIsTheme = a.pluginNx === "com.nx.gadgets" ? 1 : 0;
+        const bIsTheme = b.pluginNx === "com.nx.gadgets" ? 1 : 0;
+        if (aIsTheme !== bIsTheme) return bIsTheme - aIsTheme;
+        return (b.position ?? 0) - (a.position ?? 0);
+    });
+
+    return sorted.find((p) => p.active === true) ?? sorted[0];
 }
 
 // ─── Permalink helpers ────────────────────────────────────────────────────────
