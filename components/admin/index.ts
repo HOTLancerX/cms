@@ -9,8 +9,16 @@
  * Never import DB models or server-only code here.
  */
 
-import { addHook, addPostType, addCatType } from "@/hook";
-import { Text, Textarea, Tags, CategorySelect, CategoryHierarchicalSelect, Switch, Select, Number, ColorPicker, BuilderSelect } from "@/components/ui";
+import { addHook, addPostType, addCatType, CORE_NX } from "@/hook";
+import { Text } from "@/components/ui/Text";
+import { Textarea } from "@/components/ui/Textarea";
+import { CategorySelect } from "@/components/ui/CategorySelect";
+import { CategoryHierarchicalSelect } from "@/components/ui/CategoryHierarchicalSelect";
+import { Switch } from "@/components/ui/Switch";
+import { Select } from "@/components/ui/Select";
+import { Number } from "@/components/ui/Number";
+import { ColorPicker } from "@/components/ui/ColorPicker";
+import { BuilderSelect } from "@/components/ui/Builder";
 import BlogLayout1 from "@/components/page/blog/Layout1";
 import BlogLayout2 from "@/components/page/blog/Layout2";
 import BlogCategoryLayout1 from "@/components/page/blog-category/Layout1";
@@ -26,16 +34,18 @@ import Footer1 from "@/components/page/footer/Footer1";
 import Footer2 from "@/components/page/footer/Footer2";
 import Footer3 from "@/components/page/footer/Footer3";
 
-/** The nx identifier stamped onto every core-registered field. */
-export const CORE_NX = "com.system.core";
+export { CORE_NX };
+
+let _corePermanentRegistered = false;
 
 /**
  * Register all built-in hooks.
  * Called automatically by reregisterHooks() — do not call this directly.
  */
 export function register(): void {
-    // ─── Admin nav ──────────────────────────────────────────────────────────
-    addHook("admin.nav", [
+    if (!_corePermanentRegistered) {
+        // ─── Admin nav (permanent in _navItems store) ───────────────────────────
+        addHook("admin.nav", [
         {
             key: "dashboard",
             label: "Dashboard",
@@ -314,6 +324,8 @@ export function register(): void {
             position: 51,
         },
     ], CORE_NX);
+        _corePermanentRegistered = true;
+    }
 
     // ─── Post form fields ───────────────────────────────────────────────────
     addHook("post.form", [
@@ -1297,8 +1309,3 @@ export function register(): void {
         },
     ], CORE_NX);
 }
-
-// ── Re-export Admin Form and Modal Components ──
-export { default as PostForm } from "./PostForm";
-export { default as CatForm } from "./CatForm";
-export { default as LinkProductsModal } from "./LinkProductsModal";

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { xFetch } from "@/lib/express";
 import { getHooks } from "@/hook";
-import { reregisterHooks } from "@/hook/PluginList";
 import type { FieldProps } from "@/hook";
 
 interface OptionItem {
@@ -30,6 +29,7 @@ export function BuilderSelect({ name, label, value, onChange }: FieldProps) {
                     .filter((p: any) => p.status === "active")
                     .map((p: any) => p.nx);
 
+                const { reregisterHooks } = await import("@/hook/PluginList");
                 reregisterHooks(activeNxIds);
 
                 // 2. Fetch active builder pages (only templateType === 'builder' or standard builders)

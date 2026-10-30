@@ -29,25 +29,32 @@ export const dynamicParams = true;
 export const revalidate = 60;
 
 export async function generateStaticParams() {
+    // In development mode (next dev / localhost), Next.js invokes generateStaticParams on every request.
+    // Since dynamicParams = true is enabled, all routes are dynamically rendered on demand.
+    // Returning [] immediately bypasses heavy DB queries (1200+ posts, 300+ categories) and cuts ~4.7s from every dev request.
+    if (process.env.NODE_ENV === "development") {
+        return [];
+    }
+
     try {
         await connectDB();
         const postTypes = getPostTypes();
         const catTypes = getCatTypes();
-        const permalinkMap = await getPermalinkMap(postTypes, catTypes);
 
-        // Fetch published posts — newest and most active products first
-        const posts = await Post.find({ status: "published" })
-            .sort({ createdAt: -1 })
-            .select("slug type")
-            .limit(1200)
-            .lean() as any[];
-
-        // Fetch categories
-        const cats = await Cat.find({ status: { $ne: "trash" } })
-            .sort({ createdAt: -1 })
-            .select("slug type")
-            .limit(300)
-            .lean() as any[];
+        // Fetch permalink map, posts, and categories in parallel for production build
+        const [permalinkMap, posts, cats] = await Promise.all([
+            getPermalinkMap(postTypes, catTypes),
+            Post.find({ status: "published" })
+                .sort({ createdAt: -1 })
+                .select("slug type")
+                .limit(1200)
+                .lean() as Promise<any[]>,
+            Cat.find({ status: { $ne: "trash" } })
+                .sort({ createdAt: -1 })
+                .select("slug type")
+                .limit(300)
+                .lean() as Promise<any[]>,
+        ]);
 
         const rootPages = getRootPages();
         const singlePages = rootPages.filter(
@@ -116,7 +123,7 @@ const getPermalinkMap = cache(async (
     postTypes: ReturnType<typeof getPostTypes>,
     catTypes: ReturnType<typeof getCatTypes>
 ): Promise<Record<string, string>> => {
-    return withCache("permalink:v2:map", async () => {
+    return withCache("permalink:v3:map", async () => {
         await connectDB();
 
         // Seed missing defaults only if collection is empty
@@ -161,7 +168,7 @@ const getPermalinkMap = cache(async (
             map[ct.key] = ct.key === "product-tag" ? "product/tag" : (ct.postType ? `${ct.postType}/category` : (ct.key === "location" ? "category/location" : `category/${ct.key}`));
         });
         (docs as any[]).forEach((d: any) => {
-            if (d.prefix) {
+            if (d.prefix !== undefined && d.prefix !== null) {
                 map[d.contentType] = d.prefix;
             }
         });

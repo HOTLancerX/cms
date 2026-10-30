@@ -9,8 +9,7 @@
  */
 
 import type { NavHookField } from "@/hook";
-import { getAllNavItems } from "@/hook";
-import { CORE_NX } from "@/components/admin";
+import { getAllNavItems, CORE_NX } from "@/hook";
 
 // ─── Nav tree node ────────────────────────────────────────────────────────────
 export interface NavNode extends NavHookField {

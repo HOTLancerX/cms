@@ -155,7 +155,7 @@ export interface CatTypeField {
 let _activePlugins: Set<string> | null = null;
 
 // ─── The core nx is always active — never expires, never requires DB entry ────
-const CORE_NX = "com.system.core";
+export const CORE_NX = "com.system.core";
 
 /**
  * Arm the active-plugin gate.
