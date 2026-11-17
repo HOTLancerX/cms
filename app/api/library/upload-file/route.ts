@@ -37,60 +37,44 @@ export async function POST(request: NextRequest) {
                 // Determine provider precedence based on requestedType and config.provider
                 const preferred = requestedType !== 'auto' ? requestedType : config.provider;
 
-                if (preferred === 'cloudflare' && config.isR2Configured) {
-                    try {
-                        uploadResult = await uploadToCloudflareR2(buffer, file.name, 'library', config);
-                        finalUploadType = 'cloudflare';
-                    } catch (err) {
-                        console.warn(`Cloudflare R2 preferred upload failed for ${file.name}:`, err);
+                if (preferred === 'cloudinary') {
+                    if (!config.isCloudinaryConfigured) {
+                        throw new Error('Cloudinary credentials missing in database. Please configure Cloud Name, API Key, and API Secret in Media Settings.');
                     }
-                } else if (preferred === 'cloudinary' && config.isCloudinaryConfigured) {
-                    try {
-                        uploadResult = await uploadToCloudinary(buffer, file.name, 'library', config);
-                        finalUploadType = 'cloudinary';
-                    } catch (err) {
-                        console.warn(`Cloudinary preferred upload failed for ${file.name}:`, err);
+                    uploadResult = await uploadToCloudinary(buffer, file.name, 'library', config);
+                    finalUploadType = 'cloudinary';
+                } else if (preferred === 'cloudflare') {
+                    if (!config.isR2Configured) {
+                        throw new Error('Cloudflare R2 credentials missing in database. Please configure R2 in Media Settings.');
                     }
+                    uploadResult = await uploadToCloudflareR2(buffer, file.name, 'library', config);
+                    finalUploadType = 'cloudflare';
                 } else if (preferred === 'local') {
-                    try {
+                    uploadResult = await uploadToLocal(buffer, file.name);
+                    finalUploadType = 'url';
+                } else {
+                    // Fallback cascade for auto: Cloudinary -> R2 -> Local
+                    if (config.isCloudinaryConfigured) {
+                        try {
+                            uploadResult = await uploadToCloudinary(buffer, file.name, 'library', config);
+                            finalUploadType = 'cloudinary';
+                        } catch (err) {
+                            console.warn(`Cascade Cloudinary upload failed for ${file.name}:`, err);
+                        }
+                    }
+
+                    if (!uploadResult && config.isR2Configured) {
+                        try {
+                            uploadResult = await uploadToCloudflareR2(buffer, file.name, 'library', config);
+                            finalUploadType = 'cloudflare';
+                        } catch (err) {
+                            console.warn(`Cascade R2 upload failed for ${file.name}:`, err);
+                        }
+                    }
+
+                    if (!uploadResult) {
                         uploadResult = await uploadToLocal(buffer, file.name);
                         finalUploadType = 'url';
-                    } catch (err) {
-                        console.warn(`Local preferred upload failed for ${file.name}:`, err);
-                    }
-                }
-
-                // Fallback cascade: R2 -> Cloudinary -> Local (if not uploaded yet)
-                if (!uploadResult && config.isR2Configured) {
-                    try {
-                        uploadResult = await uploadToCloudflareR2(buffer, file.name, 'library', config);
-                        finalUploadType = 'cloudflare';
-                    } catch (err) {
-                        console.warn(`Cascade R2 upload failed for ${file.name}:`, err);
-                    }
-                }
-
-                if (!uploadResult && config.isCloudinaryConfigured) {
-                    try {
-                        uploadResult = await uploadToCloudinary(buffer, file.name, 'library', config);
-                        finalUploadType = 'cloudinary';
-                    } catch (err) {
-                        console.warn(`Cascade Cloudinary upload failed for ${file.name}:`, err);
-                    }
-                }
-
-                // Final fallback to Local upload
-                if (!uploadResult) {
-                    try {
-                        uploadResult = await uploadToLocal(buffer, file.name);
-                        finalUploadType = 'url';
-                    } catch (err) {
-                        console.error(`Local upload fallback failed for ${file.name}:`, err);
-                        errors.push({
-                            filename: file.name,
-                            error: `Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`
-                        });
-                        continue;
                     }
                 }
 
@@ -173,8 +157,8 @@ function validateFile(file: File, config: MediaConfig): { valid: boolean; error?
         };
     }
 
-    const isVideo = file.type.startsWith('video/') || ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'].some(ext => file.name.toLowerCase().endsWith(`.${ext}`));
-    const isImage = file.type.startsWith('image/');
+    const isVideo = (file.type || '').startsWith('video/') || ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'].some(ext => file.name.toLowerCase().endsWith(`.${ext}`));
+    const isImage = (file.type || '').startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif', 'bmp', 'ico', 'heic', 'heif'].some(ext => file.name.toLowerCase().endsWith(`.${ext}`));
 
     if (!isImage && !isVideo) {
         return {
@@ -185,9 +169,16 @@ function validateFile(file: File, config: MediaConfig): { valid: boolean; error?
 
     if (isImage && config.allowedImageTypes && config.allowedImageTypes.length > 0) {
         const fileTypeLower = (file.type || '').toLowerCase();
+        const ext = file.name.split('.').pop()?.toLowerCase();
         const isAllowed = config.allowedImageTypes.some(type => {
             const clean = type.trim().toLowerCase();
-            return clean === fileTypeLower || clean === '*' || clean === 'image/*';
+            return (
+                clean === fileTypeLower ||
+                clean === '*' ||
+                clean === 'image/*' ||
+                (ext && clean.endsWith(`/${ext}`)) ||
+                (ext && clean === ext)
+            );
         });
 
         if (!isAllowed) {

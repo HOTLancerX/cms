@@ -59,6 +59,7 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
     const [visibleCount, setVisibleCount] = useState(48)
     const [bgRemovalImage, setBgRemovalImage] = useState<string | null>(null)
     const [editingImage, setEditingImage] = useState<string | null>(null)
+    const [uploadError, setUploadError] = useState<string | null>(null)
 
     useEffect(() => {
         setMounted(true)
@@ -160,53 +161,76 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
     const compressToWebP = (file: File): Promise<File> => {
         return new Promise((resolve) => {
             const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif')
-            if (!file.type.startsWith('image/') || isGif) {
+            const isVideo = file.type.startsWith('video/') || ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'].some(ext => file.name.toLowerCase().endsWith(`.${ext}`))
+            if (!file.type.startsWith('image/') || isGif || isVideo) {
                 resolve(file)
                 return
             }
-            const url = URL.createObjectURL(file)
 
-            const draw = (source: HTMLImageElement | ImageBitmap) => {
-                const canvas = document.createElement('canvas')
-                const maxW = 1920
-                const w = 'naturalWidth' in source ? source.naturalWidth : source.width
-                const h = 'naturalHeight' in source ? source.naturalHeight : source.height
-                const scale = w > maxW ? maxW / w : 1
-                canvas.width = w * scale
-                canvas.height = h * scale
-                const ctx = canvas.getContext('2d')!
-                ctx.drawImage(source as CanvasImageSource, 0, 0, canvas.width, canvas.height)
-                URL.revokeObjectURL(url)
-                canvas.toBlob(
-                    (blob) => {
-                        if (blob && blob.size < file.size) {
-                            const name = file.name.replace(/\.[^.]+$/, '.webp')
-                            resolve(new File([blob], name, { type: 'image/webp' }))
-                        } else {
+            // Safety timeout: if canvas processing hangs, fallback to original file
+            const timer = setTimeout(() => resolve(file), 4000)
+
+            try {
+                const url = URL.createObjectURL(file)
+
+                const draw = (source: HTMLImageElement | ImageBitmap) => {
+                    try {
+                        const canvas = document.createElement('canvas')
+                        const maxW = 1920
+                        const w = 'naturalWidth' in source ? source.naturalWidth : source.width
+                        const h = 'naturalHeight' in source ? source.naturalHeight : source.height
+                        const scale = w > maxW ? maxW / w : 1
+                        canvas.width = Math.round(w * scale)
+                        canvas.height = Math.round(h * scale)
+                        const ctx = canvas.getContext('2d')
+                        if (!ctx) {
+                            clearTimeout(timer)
+                            URL.revokeObjectURL(url)
                             resolve(file)
+                            return
                         }
-                    },
-                    'image/webp',
-                    0.82
-                )
-            }
+                        ctx.drawImage(source as CanvasImageSource, 0, 0, canvas.width, canvas.height)
+                        URL.revokeObjectURL(url)
+                        canvas.toBlob(
+                            (blob) => {
+                                clearTimeout(timer)
+                                if (blob && blob.size < file.size) {
+                                    const name = file.name.replace(/\.[^.]+$/, '.webp')
+                                    resolve(new File([blob], name, { type: 'image/webp' }))
+                                } else {
+                                    resolve(file)
+                                }
+                            },
+                            'image/webp',
+                            0.82
+                        )
+                    } catch {
+                        clearTimeout(timer)
+                        URL.revokeObjectURL(url)
+                        resolve(file)
+                    }
+                }
 
-            // Try createImageBitmap first — handles avif, heic, tiff, etc. in supported browsers
-            if (typeof createImageBitmap !== 'undefined') {
-                createImageBitmap(file)
-                    .then((bitmap) => { draw(bitmap); bitmap.close() })
-                    .catch(() => {
-                        // Fallback to <img> for formats createImageBitmap can't handle
-                        const img = new Image()
-                        img.onload = () => draw(img)
-                        img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
-                        img.src = url
-                    })
-            } else {
-                const img = new Image()
-                img.onload = () => draw(img)
-                img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
-                img.src = url
+                // Try createImageBitmap first — handles avif, heic, tiff, etc. in supported browsers
+                if (typeof createImageBitmap !== 'undefined') {
+                    createImageBitmap(file)
+                        .then((bitmap) => { draw(bitmap); bitmap.close() })
+                        .catch(() => {
+                            // Fallback to <img> for formats createImageBitmap can't handle
+                            const img = new Image()
+                            img.onload = () => draw(img)
+                            img.onerror = () => { clearTimeout(timer); URL.revokeObjectURL(url); resolve(file) }
+                            img.src = url
+                        })
+                } else {
+                    const img = new Image()
+                    img.onload = () => draw(img)
+                    img.onerror = () => { clearTimeout(timer); URL.revokeObjectURL(url); resolve(file) }
+                    img.src = url
+                }
+            } catch {
+                clearTimeout(timer)
+                resolve(file)
             }
         })
     }
@@ -216,6 +240,7 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
 
         setLoading(true)
         setUploadProgress(0)
+        setUploadError(null)
 
         try {
             const compressed = await Promise.all(previewFiles.map(({ file }) => compressToWebP(file)))
@@ -240,6 +265,7 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                         // Clean up previews
                         previewFiles.forEach(({ preview }) => URL.revokeObjectURL(preview))
                         setPreviewFiles([])
+                        setUploadError(null)
                         
                         // Switch to library tab so the user sees the uploaded images
                         setActiveTab('library')
@@ -249,22 +275,30 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                         let errorMsg = `Upload failed (${xhr.status})`
                         try {
                             const error = JSON.parse(xhr.responseText)
-                            errorMsg = error?.message || error?.error || errorMsg
+                            if (error?.errors && Array.isArray(error.errors) && error.errors.length > 0) {
+                                errorMsg = error.errors.map((e: any) => `${e.filename || 'File'}: ${e.error || 'Failed'}`).join('\n')
+                            } else {
+                                errorMsg = error?.error || error?.message || errorMsg
+                            }
                         } catch {
                             errorMsg = xhr.responseText || errorMsg
                         }
                         console.error('Upload failed:', errorMsg)
+                        setUploadError(errorMsg)
                         reject(new Error(errorMsg))
                     }
                 }
 
                 xhr.onerror = () => {
-                    reject(new Error('Network upload error'))
+                    const netErr = 'Network upload error. Please check your connection and server.'
+                    setUploadError(netErr)
+                    reject(new Error(netErr))
                 }
                 xhr.send(formData)
             })
-        } catch (error) {
+        } catch (error: any) {
             console.error('Upload error:', error)
+            setUploadError(error?.message || 'Upload failed')
         } finally {
             setLoading(false)
         }
@@ -285,8 +319,11 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
         e.preventDefault()
         e.stopPropagation()
         setDragActive(false)
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             handleFileSelect(e.dataTransfer.files)
+            if (activeTab === 'library') {
+                setActiveTab('cloudinary')
+            }
         }
     }
 
@@ -320,6 +357,7 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                                 key={tab}
                                 onClick={() => {
                                     setActiveTab(tab as any)
+                                    setUploadError(null)
                                     if (tab !== 'bg-removal') {
                                         setBgRemovalImage(null)
                                     }
@@ -390,6 +428,20 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                                     >
                                         <Icon icon="solar:restart-bold" width={16} />
                                     </button>
+
+                                    {/* Quick Upload Button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setUploadError(null)
+                                            setActiveTab('cloudinary')
+                                        }}
+                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-2xs transition flex items-center gap-1.5"
+                                        title="Upload images to Cloudinary"
+                                    >
+                                        <Icon icon="solar:cloud-upload-bold" width={15} />
+                                        <span>Upload</span>
+                                    </button>
                                 </div>
                                 
                                 <div className="flex items-center gap-2 ml-auto">
@@ -419,13 +471,25 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                                     <p className="text-xs text-gray-400 mt-1">
                                         {searchQuery ? `No files matching "${searchQuery}"` : 'Your media library is empty'}
                                     </p>
-                                    {searchQuery && (
+                                    {searchQuery ? (
                                         <button
                                             type="button"
                                             onClick={() => setSearchQuery('')}
                                             className="mt-3 px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition"
                                         >
                                             Clear search
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setUploadError(null)
+                                                setActiveTab('cloudinary')
+                                            }}
+                                            className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs"
+                                        >
+                                            <Icon icon="solar:cloud-upload-bold" width={16} />
+                                            <span>Upload New Images</span>
                                         </button>
                                     )}
                                 </div>
@@ -550,6 +614,21 @@ export function GalleryModal({ isOpen, onClose, multiple, selectedImages, onSele
                     )}
                     {(activeTab === 'cloudinary' || activeTab === 'cloudflare') && (
                         <div className="space-y-6">
+                            {/* Upload Error Banner */}
+                            {uploadError && (
+                                <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2.5 shadow-2xs">
+                                    <Icon icon="solar:danger-triangle-bold" width={18} className="shrink-0 text-red-500 mt-0.5" />
+                                    <div className="flex-1 whitespace-pre-line font-medium leading-relaxed">{uploadError}</div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setUploadError(null)}
+                                        className="text-red-400 hover:text-red-600 transition"
+                                    >
+                                        <Icon icon="solar:close-circle-bold" width={16} />
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Upload Area / Drag & Drop */}
                             {previewFiles.length === 0 ? (
                                 <div

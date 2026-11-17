@@ -109,26 +109,32 @@ export async function uploadToCloudinary(
     try {
         const config = providedConfig || await getMediaConfig();
 
-        if (!config.cloudinaryCloudName || !config.cloudinaryApiKey) {
-            throw new Error('Cloudinary credentials missing (not configured in settings or .env)');
+        if (!config.cloudinaryCloudName || !config.cloudinaryApiKey || !config.cloudinaryApiSecret) {
+            throw new Error('Cloudinary credentials missing (not configured in database settings or .env)');
         }
 
         getCloudinaryClient(config);
 
         const isVideo = isVideoFilename(filename);
         let finalBuffer = buffer;
+        const cleanFilename = filename.split('.')[0].replace(/[^a-zA-Z0-9_-]/g, '_') || 'image';
         let options: any = {
             folder,
-            public_id: `${folder}/${Date.now()}_${filename.split('.')[0]}`,
-            timeout: 30000 // 30 seconds timeout
+            public_id: `${Date.now()}_${cleanFilename}`,
+            timeout: 60000 // 60 seconds timeout
         };
 
         if (isVideo) {
             options.resource_type = 'video';
         } else {
             if (config.autoWebp) {
-                finalBuffer = await convertToWebP(buffer, config.webpQuality);
-                options.format = 'webp';
+                try {
+                    finalBuffer = await convertToWebP(buffer, config.webpQuality);
+                    options.format = 'webp';
+                } catch (sharpErr) {
+                    console.warn('WebP conversion warning, using original buffer:', sharpErr);
+                    finalBuffer = buffer;
+                }
             }
             options.resource_type = 'image';
             options.transformation = [
@@ -148,7 +154,7 @@ export async function uploadToCloudinary(
                 ).end(finalBuffer);
             }),
             new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Upload timeout after 30 seconds')), 30000)
+                setTimeout(() => reject(new Error('Upload timeout after 60 seconds')), 60000)
             )
         ]);
 

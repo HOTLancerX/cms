@@ -1,4 +1,5 @@
 import { Settings } from "@/lib/settings";
+import { getCollection } from "@/lib/mongodb";
 
 export interface MediaConfig {
     /** Default or preferred upload provider */
@@ -37,16 +38,56 @@ export interface MediaConfig {
  */
 export async function getMediaConfig(): Promise<MediaConfig> {
     let settings: Record<string, any> = {};
+
+    // 1. Fetch live directly from MongoDB collection (bypass any stale RAM caches)
     try {
-        settings = await Settings();
-    } catch (err) {
-        console.warn("Could not read settings for media config, falling back to process.env:", err);
+        const col = await getCollection("settings");
+        const docs = await col.find({
+            title: {
+                $in: [
+                    "cloudinary_cloud_name",
+                    "cloudinary_api_key",
+                    "cloudinary_api_secret",
+                    "r2_endpoint",
+                    "r2_bucket",
+                    "r2_access_key_id",
+                    "r2_secret_access_key",
+                    "image_cdn",
+                    "next_public_image_cdn",
+                    "media_storage_provider",
+                    "media_max_file_size",
+                    "next_public_max_file_size",
+                    "media_allowed_image_types",
+                    "next_public_allowed_image_types",
+                    "media_auto_webp",
+                    "media_webp_quality",
+                ],
+            },
+        }).toArray();
+
+        docs.forEach((doc: any) => {
+            if (doc?.title && doc.content !== undefined && doc.content !== null) {
+                settings[doc.title] = doc.content;
+            }
+        });
+    } catch (dbErr) {
+        console.warn("[MediaConfig] Direct MongoDB query failed, falling back to Settings():", dbErr);
+    }
+
+    // 2. If any media settings missing, fallback to Settings() cache/store
+    if (!settings.cloudinary_cloud_name || !settings.cloudinary_api_key) {
+        try {
+            const fallbackSettings = await Settings();
+            settings = { ...fallbackSettings, ...settings };
+        } catch (err) {
+            console.warn("Could not read settings for media config, falling back to process.env:", err);
+        }
     }
 
     // Cloudinary values
-    const dbCloudName = settings.cloudinary_cloud_name?.trim();
-    const dbApiKey = settings.cloudinary_api_key?.trim();
-    const dbApiSecret = settings.cloudinary_api_secret?.trim();
+    const dbCloudName = settings.cloudinary_cloud_name ? String(settings.cloudinary_cloud_name).trim() : "";
+    const dbApiKey = settings.cloudinary_api_key ? String(settings.cloudinary_api_key).trim() : "";
+    const dbApiSecret = settings.cloudinary_api_secret ? String(settings.cloudinary_api_secret).trim() : "";
 
     const envCloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim() || "";
     const envApiKey = process.env.CLOUDINARY_API_KEY?.trim() || "";
@@ -56,7 +97,7 @@ export async function getMediaConfig(): Promise<MediaConfig> {
     const cloudinaryApiKey = dbApiKey || envApiKey;
     const cloudinaryApiSecret = dbApiSecret || envApiSecret;
 
-    const isCloudinaryConfigured = Boolean(cloudinaryCloudName && cloudinaryApiKey);
+    const isCloudinaryConfigured = Boolean(cloudinaryCloudName && cloudinaryApiKey && cloudinaryApiSecret);
     const cloudinarySource = (dbCloudName && dbApiKey)
         ? "database"
         : (envCloudName && envApiKey ? "env" : "none");
